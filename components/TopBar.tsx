@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Menu, Mic, X, MapPin, Loader2 } from 'lucide-react';
 import { SportType } from '../types';
-import { SPORTS_LIST } from '../constants';
+import { SPORTS_LIST, APP_CONFIG } from '../constants';
 
 interface TopBarProps {
   selectedSport: SportType;
@@ -25,6 +25,8 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
   const [isLoading, setIsLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
+  const displayLogo = APP_CONFIG.headerLogoUrl || APP_CONFIG.logoUrl;
+
   // Debounced search effect
   useEffect(() => {
     const fetchSuggestions = async () => {
@@ -36,7 +38,6 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
       setIsLoading(true);
       try {
         // Using OpenStreetMap Nominatim API to simulate Google Places Autocomplete
-        // This ensures functionality without requiring a specific Google Maps API Key for the demo
         const response = await fetch(
           `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`
         );
@@ -85,14 +86,23 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
       {/* Search Bar Container */}
       <div className="w-full px-4 pt-4 pointer-events-auto relative">
         <div className={`bg-white shadow-lg flex items-center p-3 gap-3 border border-gray-100 transition-all duration-200 ${isOpen && suggestions.length > 0 ? 'rounded-t-2xl rounded-b-none' : 'rounded-full'}`}>
+          
           <Menu className="text-gray-500 cursor-pointer min-w-[24px]" size={24} />
+          
+          {/* Configurable Logo - Shows next to Menu if configured */}
+          {displayLogo && (
+            <div className="h-8 w-auto flex items-center border-r border-gray-200 pr-3 mr-1">
+                <img src={displayLogo} alt="App Logo" className="h-full object-contain" />
+            </div>
+          )}
+
           <div className="flex-1 flex items-center relative">
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => { if (suggestions.length > 0) setIsOpen(true); }}
-              placeholder="Search here"
+              placeholder={displayLogo ? "Search locations..." : `Search ${APP_CONFIG.appName}`}
               className="w-full outline-none text-gray-700 text-base placeholder-gray-500 bg-transparent"
             />
           </div>

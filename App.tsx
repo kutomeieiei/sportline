@@ -58,6 +58,28 @@ function App() {
     setMapCenter({ lat: newParty.latitude, lng: newParty.longitude });
   };
 
+  const handleJoinParty = (partyId: string) => {
+    setParties(parties.map(party => {
+        if (party.id === partyId) {
+            // Check if user is already a member
+            if (party.members.includes(user.username)) {
+                return party;
+            }
+            // Check if party is full
+            if (party.playersCurrent >= party.playersMax) {
+                return party;
+            }
+
+            return {
+                ...party,
+                playersCurrent: party.playersCurrent + 1,
+                members: [...party.members, user.username]
+            };
+        }
+        return party;
+    }));
+  };
+
   const handleRecenter = () => {
     setMapCenter({ ...DEFAULT_CENTER, lat: DEFAULT_CENTER.lat + (Math.random() * 0.001) });
   };
@@ -71,7 +93,12 @@ function App() {
       
       {/* Map Layer (Always rendered in background) */}
       <div className="absolute inset-0 top-0 bottom-[72px] z-0">
-        <MapView parties={filteredParties} center={mapCenter} />
+        <MapView 
+            parties={filteredParties} 
+            center={mapCenter} 
+            currentUser={user.username}
+            onJoinParty={handleJoinParty}
+        />
       </div>
 
       {/* Floating UI Elements (Visible only in Explore mode) */}

@@ -15,12 +15,14 @@ export interface Party {
   sport: SportType;
   description: string;
   date: string;
-  time: string;
+  startTime: string;
+  endTime: string;
   playersCurrent: number;
   playersMax: number;
   latitude: number;
   longitude: number;
   host: string;
+  members: string[];
 }
 
 export interface LocationState {

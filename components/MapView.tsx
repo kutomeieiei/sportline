@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { Party, SportType } from '../types';
-import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, ExternalLink } from 'lucide-react';
+import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, ExternalLink, CheckCircle } from 'lucide-react';
 
 // Declare google global to avoid TS namespace errors
 declare var google: any;
@@ -9,6 +9,8 @@ declare var google: any;
 interface MapViewProps {
   parties: Party[];
   center: { lat: number; lng: number };
+  currentUser: string;
+  onJoinParty: (partyId: string) => void;
 }
 
 const containerStyle = {
@@ -65,7 +67,7 @@ const getMarkerIcon = (sport: SportType) => {
   };
 };
 
-const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center, apiKey }) => {
+const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center, apiKey, currentUser, onJoinParty }) => {
   const [map, setMap] = useState<any | null>(null);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
 
@@ -125,6 +127,20 @@ const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center
     );
   }
 
+  // Determine button state helper
+  const getButtonState = (party: Party) => {
+    const isJoined = party.members.includes(currentUser);
+    const isFull = party.playersCurrent >= party.playersMax;
+
+    if (isJoined) {
+        return { text: "Joined", disabled: true, className: "bg-green-600 text-white cursor-default" };
+    }
+    if (isFull) {
+        return { text: "Full", disabled: true, className: "bg-gray-300 text-gray-500 cursor-not-allowed" };
+    }
+    return { text: "Join Party", disabled: false, className: "bg-blue-600 text-white hover:bg-blue-700" };
+  };
+
   return (
     <GoogleMap
       mapContainerStyle={containerStyle}
@@ -167,7 +183,7 @@ const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center
                 </div>
                 <div className="flex items-center gap-2">
                 <Clock size={14} className="text-gray-400" />
-                <span>{selectedParty.time}</span>
+                <span>{selectedParty.startTime} - {selectedParty.endTime}</span>
                 </div>
                 <div className="flex items-center gap-2">
                 <Users size={14} className="text-gray-400" />
@@ -177,9 +193,19 @@ const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center
                 </div>
             </div>
 
-            <button className="mt-3 w-full bg-blue-600 text-white py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
-                Join Party
-            </button>
+            {(() => {
+                const btn = getButtonState(selectedParty);
+                return (
+                    <button 
+                        onClick={() => onJoinParty(selectedParty.id)}
+                        disabled={btn.disabled}
+                        className={`mt-3 w-full py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${btn.className}`}
+                    >
+                        {btn.text === "Joined" && <CheckCircle size={14} />}
+                        {btn.text}
+                    </button>
+                );
+            })()}
           </div>
         </InfoWindowF>
       )}

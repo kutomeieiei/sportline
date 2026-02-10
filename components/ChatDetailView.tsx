@@ -56,14 +56,16 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, onBack }) => 
           </button>
           <div className="relative">
              <img src={chatUser.avatarUrl} alt={chatUser.name} className="w-10 h-10 rounded-full object-cover" />
-             {chatUser.isOnline && (
+             {chatUser.isOnline && !chatUser.isGroup && (
                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
              )}
           </div>
           <div>
             <h3 className="font-bold text-gray-900 leading-none">{chatUser.name}</h3>
             <p className="text-xs text-gray-500 mt-0.5">
-              {chatUser.isOnline ? 'Active now' : chatUser.statusText}
+              {chatUser.isGroup 
+                ? `${chatUser.members || 2} members` 
+                : (chatUser.isOnline ? 'Active now' : chatUser.statusText)}
             </p>
           </div>
         </div>
