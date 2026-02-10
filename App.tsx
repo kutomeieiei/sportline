@@ -5,6 +5,8 @@ import BottomNav from './components/BottomNav';
 import CreatePartyView from './components/CreatePartyView';
 import SettingsView from './components/SettingsView';
 import LoginView from './components/LoginView';
+import ChatListView, { ChatUser } from './components/ChatListView';
+import ChatDetailView from './components/ChatDetailView';
 import { Party, SportType, User } from './types';
 import { INITIAL_PARTIES, INITIAL_USER, DEFAULT_CENTER } from './constants';
 import { Crosshair } from 'lucide-react';
@@ -14,8 +16,11 @@ function App() {
   const [selectedSport, setSelectedSport] = useState<SportType>('All');
   const [user, setUser] = useState<User>(INITIAL_USER);
   const [parties, setParties] = useState<Party[]>(INITIAL_PARTIES);
-  const [currentTab, setCurrentTab] = useState<'explore' | 'create' | 'settings'>('explore');
+  const [currentTab, setCurrentTab] = useState<'explore' | 'create' | 'settings' | 'chat'>('explore');
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
+  
+  // Chat Navigation State
+  const [selectedChatUser, setSelectedChatUser] = useState<ChatUser | null>(null);
 
   const handleLogin = (loggedInUser: User) => {
     setUser(loggedInUser);
@@ -24,8 +29,8 @@ function App() {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    setCurrentTab('explore'); // Reset tab on logout
-    // Optionally reset other states if needed
+    setCurrentTab('explore');
+    setSelectedChatUser(null);
   };
 
   // If not authenticated, show Login View
@@ -38,8 +43,12 @@ function App() {
     ? parties 
     : parties.filter(p => p.sport === selectedSport);
 
-  const handleTabChange = (tab: 'explore' | 'create' | 'settings') => {
+  const handleTabChange = (tab: 'explore' | 'create' | 'settings' | 'chat') => {
     setCurrentTab(tab);
+    // Reset internal navigations when switching main tabs
+    if (tab !== 'chat') {
+        setSelectedChatUser(null);
+    }
   };
 
   const handleCreateParty = (newParty: Party) => {
@@ -50,8 +59,6 @@ function App() {
   };
 
   const handleRecenter = () => {
-    // In a real app, this would use navigator.geolocation
-    // For demo, we just reset to default or jitter slightly to show effect
     setMapCenter({ ...DEFAULT_CENTER, lat: DEFAULT_CENTER.lat + (Math.random() * 0.001) });
   };
   
@@ -105,6 +112,22 @@ function App() {
           onClose={() => setCurrentTab('explore')}
           onLogout={handleLogout}
         />
+      )}
+
+      {/* Chat Views */}
+      {currentTab === 'chat' && (
+        <div className="absolute inset-0 bottom-[72px] z-[1000] bg-white">
+            {selectedChatUser ? (
+                <ChatDetailView 
+                    chatUser={selectedChatUser} 
+                    onBack={() => setSelectedChatUser(null)} 
+                />
+            ) : (
+                <ChatListView 
+                    onSelectChat={setSelectedChatUser} 
+                />
+            )}
+        </div>
       )}
 
       {/* Bottom Navigation */}
