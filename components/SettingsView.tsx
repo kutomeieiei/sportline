@@ -6,9 +6,10 @@ interface SettingsViewProps {
   user: User;
   onUpdateUser: (user: User) => void;
   onClose: () => void;
+  onLogout: () => void;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose, onLogout }) => {
   const [username, setUsername] = useState(user.username);
   const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
   const [isEditing, setIsEditing] = useState(false);
@@ -99,7 +100,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
         </div>
 
         <div className="mt-6 bg-white shadow-sm border-t border-b border-gray-100">
-            <button className="w-full flex items-center gap-4 px-6 py-4 text-red-600 hover:bg-red-50 transition-colors">
+            <button 
+              onClick={onLogout}
+              className="w-full flex items-center gap-4 px-6 py-4 text-red-600 hover:bg-red-50 transition-colors"
+            >
                 <LogOut size={20} />
                 <span className="font-medium">Log Out</span>
             </button>

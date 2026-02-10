@@ -4,16 +4,34 @@ import TopBar from './components/TopBar';
 import BottomNav from './components/BottomNav';
 import CreatePartyView from './components/CreatePartyView';
 import SettingsView from './components/SettingsView';
+import LoginView from './components/LoginView';
 import { Party, SportType, User } from './types';
 import { INITIAL_PARTIES, INITIAL_USER, DEFAULT_CENTER } from './constants';
 import { Crosshair } from 'lucide-react';
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [selectedSport, setSelectedSport] = useState<SportType>('All');
   const [user, setUser] = useState<User>(INITIAL_USER);
   const [parties, setParties] = useState<Party[]>(INITIAL_PARTIES);
   const [currentTab, setCurrentTab] = useState<'explore' | 'create' | 'settings'>('explore');
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
+
+  const handleLogin = (loggedInUser: User) => {
+    setUser(loggedInUser);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setCurrentTab('explore'); // Reset tab on logout
+    // Optionally reset other states if needed
+  };
+
+  // If not authenticated, show Login View
+  if (!isAuthenticated) {
+    return <LoginView onLogin={handleLogin} />;
+  }
 
   // Filter parties based on selection
   const filteredParties = selectedSport === 'All' 
@@ -85,6 +103,7 @@ function App() {
           user={user}
           onUpdateUser={setUser}
           onClose={() => setCurrentTab('explore')}
+          onLogout={handleLogout}
         />
       )}
 
