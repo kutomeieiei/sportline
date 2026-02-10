@@ -48,18 +48,20 @@ const getMarkerIcon = (sport: SportType) => {
 
   const color = colorMap[sport] || '#2563eb';
 
-  // SVG string for a pin with a circle inside
+  // SVG string for a pin (teardrop) shape with a hole in the center
+  // ViewBox 0 0 40 40
+  // Pin tip at bottom center (20, 40)
   const svg = `
     <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="20" cy="20" r="18" fill="white" stroke="${color}" stroke-width="3" shadow="true"/>
-      <circle cx="20" cy="20" r="10" fill="${color}"/>
+      <path d="M20 0C11.16 0 4 7.16 4 16c0 9.5 13.5 22.5 15.2 24.1.4.4 1.1.4 1.6 0C22.5 38.5 36 25.5 36 16c0-8.84-7.16-16-16-16z" fill="${color}" stroke="white" stroke-width="1.5"/>
+      <circle cx="20" cy="16" r="6" fill="white"/>
     </svg>
   `;
 
   return {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
     scaledSize: { width: 40, height: 40 } as any,
-    anchor: { x: 20, y: 20 } as any // Center anchor
+    anchor: { x: 20, y: 40 } as any // Anchor at the bottom tip
   };
 };
 
@@ -147,7 +149,7 @@ const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center
           position={{ lat: selectedParty.latitude, lng: selectedParty.longitude }}
           onCloseClick={() => setSelectedParty(null)}
           options={{
-             pixelOffset: new google.maps.Size(0, -20),
+             pixelOffset: new google.maps.Size(0, -42), // Adjusted offset for taller pin (40px height + margin)
              disableAutoPan: false
           }}
         >
