@@ -1,112 +1,243 @@
-import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import React, { useState, useCallback, useEffect } from 'react';
+import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { Party, SportType } from '../types';
-import { Users, Calendar, Clock } from 'lucide-react';
+import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, ExternalLink } from 'lucide-react';
 
-// Fix for default Leaflet marker icons in standard build environments
-// In a real app we might import pngs, here we use divIcons for a custom look
-// and to avoid 404s on marker images.
+// Declare google global to avoid TS namespace errors
+declare var google: any;
 
 interface MapViewProps {
   parties: Party[];
   center: { lat: number; lng: number };
 }
 
-// Component to handle map center updates
-const MapUpdater: React.FC<{ center: { lat: number; lng: number } }> = ({ center }) => {
-  const map = useMap();
-  useEffect(() => {
-    map.setView(center, 15); // Zoom level 15
-  }, [center, map]);
-  return null;
+const containerStyle = {
+  width: '100%',
+  height: '100%'
 };
 
-// Custom Marker Icon Generator
-const createCustomIcon = (sport: SportType) => {
+// Map styles to remove default POIs for a cleaner look
+const mapOptions: any = {
+  disableDefaultUI: true, // Hides standard Google Maps controls
+  zoomControl: false,
+  mapTypeControl: false,
+  streetViewControl: false,
+  fullscreenControl: false,
+  clickableIcons: false, // Prevents clicking on generic Google Maps places
+  styles: [
+    {
+      featureType: "poi",
+      elementType: "labels",
+      stylers: [{ visibility: "off" }]
+    }
+  ]
+};
+
+// Helper to generate SVG Data URI for markers based on sport color
+const getMarkerIcon = (sport: SportType) => {
   const colorMap: Record<string, string> = {
-    Football: 'bg-green-500',
-    Basketball: 'bg-orange-500',
-    Badminton: 'bg-blue-500',
-    Tennis: 'bg-yellow-500',
-    Running: 'bg-red-500',
-    Cycling: 'bg-purple-500',
-    Yoga: 'bg-teal-500',
-    All: 'bg-gray-500' // Default
+    Football: '#22c55e', // green-500
+    Basketball: '#f97316', // orange-500
+    Badminton: '#3b82f6', // blue-500
+    Tennis: '#eab308', // yellow-500
+    Running: '#ef4444', // red-500
+    Cycling: '#a855f7', // purple-500
+    Yoga: '#14b8a6', // teal-500
+    All: '#6b7280' // gray-500
   };
 
-  const colorClass = colorMap[sport] || 'bg-blue-600';
+  const color = colorMap[sport] || '#2563eb';
 
-  return L.divIcon({
-    className: 'custom-marker',
-    html: `<div class="${colorClass} w-8 h-8 rounded-full border-2 border-white shadow-md flex items-center justify-center text-white">
-             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-               <circle cx="12" cy="12" r="10"></circle>
-             </svg>
-           </div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 32], // Point of the icon which will correspond to marker's location
-    popupAnchor: [0, -32] // Point from which the popup should open relative to the iconAnchor
-  });
+  // SVG string for a pin with a circle inside
+  const svg = `
+    <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="20" r="18" fill="white" stroke="${color}" stroke-width="3" shadow="true"/>
+      <circle cx="20" cy="20" r="10" fill="${color}"/>
+    </svg>
+  `;
+
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: { width: 40, height: 40 } as any,
+    anchor: { x: 20, y: 20 } as any // Center anchor
+  };
 };
 
-const MapView: React.FC<MapViewProps> = ({ parties, center }) => {
-  return (
-    <div className="h-full w-full z-0 relative">
-      <MapContainer
-        center={center}
-        zoom={13}
-        scrollWheelZoom={true}
-        zoomControl={false}
-        className="h-full w-full outline-none"
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-        />
-        <MapUpdater center={center} />
+const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center, apiKey }) => {
+  const [map, setMap] = useState<any | null>(null);
+  const [selectedParty, setSelectedParty] = useState<Party | null>(null);
 
-        {parties.map((party) => (
-          <Marker
-            key={party.id}
-            position={[party.latitude, party.longitude]}
-            icon={createCustomIcon(party.sport)}
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: apiKey
+  });
+
+  const onLoad = useCallback((mapInstance: any) => {
+    setMap(mapInstance);
+  }, []);
+
+  const onUnmount = useCallback(() => {
+    setMap(null);
+  }, []);
+
+  // Handle center updates from parent (e.g., search result)
+  useEffect(() => {
+    if (map) {
+      map.panTo(center);
+    }
+  }, [center, map]);
+
+  if (loadError) {
+    return (
+      <div className="h-full w-full flex items-center justify-center bg-gray-100 p-4">
+        <div className="flex flex-col items-center gap-2 text-center max-w-md bg-white p-6 rounded-xl shadow-lg">
+          <AlertTriangle className="text-red-500" size={32} />
+          <p className="text-gray-800 font-bold text-lg">Map Failed to Load</p>
+          <div className="bg-red-50 p-3 rounded-lg w-full text-left border border-red-100">
+            <p className="text-xs text-red-800 font-mono break-all">
+               {loadError.message}
+            </p>
+          </div>
+          <p className="text-sm text-gray-500 mt-2">
+            Double check your API key in the <code>.env</code> file.
+          </p>
+          <button 
+             onClick={() => window.location.reload()}
+             className="mt-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium"
           >
-            <Popup className="custom-popup">
-              <div className="p-1 min-w-[200px]">
-                <h3 className="font-bold text-lg mb-1 text-gray-800">{party.title}</h3>
-                <div className="flex items-center gap-1 text-xs font-semibold text-blue-600 mb-2 uppercase tracking-wider">
-                  {party.sport}
-                </div>
-                <p className="text-sm text-gray-600 mb-3">{party.description}</p>
-                
-                <div className="flex flex-col gap-1.5 text-sm text-gray-700">
-                   <div className="flex items-center gap-2">
-                    <Calendar size={14} className="text-gray-400" />
-                    <span>{party.date}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock size={14} className="text-gray-400" />
-                    <span>{party.time}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Users size={14} className="text-gray-400" />
-                    <span className="font-medium">
-                      {party.playersCurrent} / {party.playersMax} Players
-                    </span>
-                  </div>
-                </div>
+             Reload App
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-                <button className="mt-3 w-full bg-blue-600 text-white py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
-                  Join Party
-                </button>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
-    </div>
+  if (!isLoaded) {
+    return (
+      <div className="h-full w-full flex items-center justify-center bg-gray-100">
+        <div className="flex flex-col items-center gap-2">
+            <Loader2 className="animate-spin text-blue-600" size={32} />
+            <p className="text-gray-500 font-medium">Loading Map...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <GoogleMap
+      mapContainerStyle={containerStyle}
+      center={center}
+      zoom={14}
+      options={mapOptions}
+      onLoad={onLoad}
+      onUnmount={onUnmount}
+      onClick={() => setSelectedParty(null)}
+    >
+      {parties.map((party) => (
+        <MarkerF
+          key={party.id}
+          position={{ lat: party.latitude, lng: party.longitude }}
+          icon={getMarkerIcon(party.sport)}
+          onClick={() => setSelectedParty(party)}
+        />
+      ))}
+
+      {selectedParty && (
+        <InfoWindowF
+          position={{ lat: selectedParty.latitude, lng: selectedParty.longitude }}
+          onCloseClick={() => setSelectedParty(null)}
+          options={{
+             pixelOffset: new google.maps.Size(0, -20),
+             disableAutoPan: false
+          }}
+        >
+          <div className="p-1 min-w-[200px] max-w-[240px]">
+            <h3 className="font-bold text-lg mb-1 text-gray-800">{selectedParty.title}</h3>
+            <div className="flex items-center gap-1 text-xs font-semibold text-blue-600 mb-2 uppercase tracking-wider">
+              {selectedParty.sport}
+            </div>
+            <p className="text-sm text-gray-600 mb-3 line-clamp-2">{selectedParty.description}</p>
+            
+            <div className="flex flex-col gap-1.5 text-sm text-gray-700">
+                <div className="flex items-center gap-2">
+                <Calendar size={14} className="text-gray-400" />
+                <span>{selectedParty.date}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                <Clock size={14} className="text-gray-400" />
+                <span>{selectedParty.time}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                <Users size={14} className="text-gray-400" />
+                <span className="font-medium">
+                    {selectedParty.playersCurrent} / {selectedParty.playersMax} Players
+                </span>
+                </div>
+            </div>
+
+            <button className="mt-3 w-full bg-blue-600 text-white py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                Join Party
+            </button>
+          </div>
+        </InfoWindowF>
+      )}
+    </GoogleMap>
   );
 };
 
-export default MapView;
+const MapView: React.FC<MapViewProps> = (props) => {
+  // Safely access env
+  const rawApiKey = ((import.meta as any).env && (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY);
+  
+  // Clean up key: remove whitespace and quotes if user accidentally added them
+  const apiKey = rawApiKey ? rawApiKey.replace(/['"]/g, '').trim() : '';
+  const isDefault = apiKey === 'YOUR_GOOGLE_MAPS_API_KEY_HERE';
+
+  if (!apiKey || isDefault) {
+    return (
+      <div className="h-full w-full flex items-center justify-center bg-gray-100 p-6">
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
+            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 mb-2">
+               <MapPin size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900">Setup Google Maps</h3>
+            <p className="text-sm text-gray-600 leading-relaxed">
+                To use this app, you need to generate a free API Key from Google.
+            </p>
+            
+            <a 
+                href="https://developers.google.com/maps/documentation/javascript/get-api-key" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 text-sm font-semibold hover:underline flex items-center gap-1 my-1"
+            >
+                Get your API Key here <ExternalLink size={14} />
+            </a>
+
+            <div className="w-full bg-gray-50 p-4 rounded-xl text-left border border-gray-100 mt-2">
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-2">Instructions</p>
+                <ol className="text-xs text-gray-600 space-y-2 list-decimal list-inside">
+                    <li>Get a key from the link above</li>
+                    <li>Open the <code className="bg-gray-200 px-1 rounded text-gray-800">.env</code> file in this project</li>
+                    <li>Paste your key like this:</li>
+                </ol>
+                <div className="mt-3 bg-gray-800 p-3 rounded-lg overflow-x-auto">
+                    <code className="text-xs text-green-400 font-mono whitespace-nowrap">VITE_GOOGLE_MAPS_API_KEY=AIzaSy...</code>
+                </div>
+            </div>
+
+            <button 
+                onClick={() => window.location.reload()}
+                className="mt-2 w-full bg-gray-900 text-white py-3 rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors shadow-lg active:scale-95"
+            >
+                I've added the key, Reload App
+            </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <MapInner {...props} apiKey={apiKey} />;
+};
+
+export default React.memo(MapView);

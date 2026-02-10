@@ -28,7 +28,7 @@ function App() {
     setParties([...parties, newParty]);
     setCurrentTab('explore');
     // Center map on new party
-    setMapCenter({ lat: newParty.latitude, longitude: newParty.longitude } as any);
+    setMapCenter({ lat: newParty.latitude, lng: newParty.longitude });
   };
 
   const handleRecenter = () => {
