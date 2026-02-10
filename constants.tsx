@@ -7,8 +7,12 @@ import React from 'react';
 export const DEFAULT_CENTER = { lat: 13.7563, lng: 100.5018 }; // Bangkok
 
 export const INITIAL_USER: User = {
-  username: "SportsFan99",
-  avatarUrl: "https://picsum.photos/200/200"
+  username: "calyxohm",
+  displayName: "CalyxOhm",
+  avatarUrl: "https://picsum.photos/200/200",
+  bio: "Just a sports fan! Love meeting new people for a game.",
+  gender: "Prefer not to say",
+  preferredSports: ['Football', 'Badminton']
 };
 
 export const SPORTS_LIST: { type: SportType; label: string; icon?: React.ReactNode }[] = [

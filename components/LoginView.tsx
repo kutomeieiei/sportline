@@ -33,8 +33,12 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       const username = identifier || "User";
       
       const mockUser: User = {
-        username: username,
-        avatarUrl: `https://ui-avatars.com/api/?name=${username}&background=fe0000&color=fff&bold=true` // Using a generic color
+        username: username.toLowerCase().replace(/\s/g, ''),
+        displayName: username,
+        avatarUrl: `https://ui-avatars.com/api/?name=${username}&background=fe0000&color=fff&bold=true`,
+        bio: "I'm new to Sport Line!",
+        gender: "Prefer not to say",
+        preferredSports: []
       };
       
       onLogin(mockUser);

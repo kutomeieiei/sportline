@@ -2,7 +2,11 @@ export type SportType = 'All' | 'Football' | 'Basketball' | 'Badminton' | 'Tenni
 
 export interface User {
   username: string;
+  displayName: string;
   avatarUrl: string;
+  bio: string;
+  gender: string;
+  preferredSports: SportType[];
 }
 
 export interface Party {
