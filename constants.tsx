@@ -8,7 +8,7 @@ export const APP_CONFIG = {
   logoUrl: "https://cdn.discordapp.com/attachments/1198199524955529287/1470809699958919291/1770738733559.png?ex=698df746&is=698ca5c6&hm=2c2249e709caf864a287b0c1145dd09525d32289f48584b4f59a964041e7efeb&", 
   
   // ✨ CONFIGURATION: Header Logo (Small) - Used in Top Left Bar
-  headerLogoUrl: "https://cdn.discordapp.com/attachments/1198199524955529287/1470810545341989091/1770738946579.png?ex=698ca690&is=698b5510&hm=d10980d42133177608b82d7c7059f63857fb163b0920be6e5cf288ed86e14c68&", 
+  headerLogoUrl: "https://cdn.discordapp.com/attachments/1198199524955529287/1470810545341989091/1770738946579.png?ex=698d4f50&is=698bfdd0&hm=534c334a6a7a63aa0bd083392cf964f756f80f50228e2605e22118bafa359de1&", 
 
   appName: "Sport Line",
   primaryGradient: "bg-gradient-to-r from-red-500 to-pink-600",
