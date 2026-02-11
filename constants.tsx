@@ -1,5 +1,5 @@
 import { Party, User, SportType } from './types';
-import { Trophy, Activity, PersonStanding, Dumbbell, Bike, Footprints } from 'lucide-react';
+import { Trophy, Dribbble, Activity, PersonStanding, Dumbbell, Bike, Footprints, LayoutGrid, Circle} from 'lucide-react';
 import React from 'react';
 
 // --- APP CONFIGURATION ---
@@ -30,9 +30,9 @@ export const INITIAL_USER: User = {
 };
 
 export const SPORTS_LIST: { type: SportType; label: string; icon?: React.ReactNode }[] = [
-  { type: 'All', label: 'All Sports', icon: <Activity size={16} /> },
-  { type: 'Football', label: 'Football', icon: <Trophy size={16} /> },
-  { type: 'Basketball', label: 'Basketball', icon: <Activity size={16} /> },
+  { type: 'All', label: 'All Sports', icon: <LayoutGrid size={16} /> },
+  { type: 'Football', label: 'Football', icon: <Circle size={16} /> },
+  { type: 'Basketball', label: 'Basketball', icon: <Dribbble size={16} /> },
   { type: 'Badminton', label: 'Badminton', icon: <Dumbbell size={16} /> },
   { type: 'Tennis', label: 'Tennis', icon: <Activity size={16} /> },
   { type: 'Running', label: 'Running', icon: <Footprints size={16} /> },
