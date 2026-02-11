@@ -108,5 +108,35 @@ export const INITIAL_PARTIES: Party[] = [
     longitude: 102.8236 - 0.001,
     host: 'JaneSmith',
     members: ['JaneSmith', 'Partner1']
+  },
+  {
+    id: '3',
+    title: 'Morning Badminton',
+    sport: 'Badminton',
+    description: 'Doubles practice, intermediate level.',
+    date: '2023-10-26',
+    startTime: '08:00',
+    endTime: '10:00',
+    playersCurrent: 2,
+    playersMax: 4,
+    latitude: 16.4809,
+    longitude: 102.8291,
+    host: 'JaneSmith',
+    members: ['JaneSmith', 'Partner1']
+  },
+  {
+    id: '4',
+    title: 'Morning Badminton',
+    sport: 'Badminton',
+    description: 'Doubles practice, intermediate level.',
+    date: '2023-10-26',
+    startTime: '08:00',
+    endTime: '10:00',
+    playersCurrent: 2,
+    playersMax: 4,
+    latitude: 16.4813,
+    longitude: 102.8312,
+    host: 'JaneSmith',
+    members: ['JaneSmith', 'Partner1']
   }
 ];
