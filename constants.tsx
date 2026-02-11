@@ -126,17 +126,17 @@ export const INITIAL_PARTIES: Party[] = [
   },
   {
     id: '4',
-    title: 'Morning Badminton',
-    sport: 'Badminton',
-    description: 'Doubles practice, intermediate level.',
-    date: '2023-10-26',
+    title: 'Basketball ห้าๆ',
+    sport: 'Basketball',
+    description: 'เล่นบาสโหดๆ',
+    date: '2025-2-11',
     startTime: '08:00',
     endTime: '10:00',
     playersCurrent: 2,
-    playersMax: 4,
+    playersMax: 10,
     latitude: 16.4813,
     longitude: 102.8312,
-    host: 'JaneSmith',
-    members: ['JaneSmith', 'Partner1']
+    host: 'หมาก',
+    members: ['หมาก', 'กิว']
   }
 ];
