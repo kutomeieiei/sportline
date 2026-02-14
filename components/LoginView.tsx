@@ -64,6 +64,23 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     return userSnap.data() as User;
   };
 
+  const formatError = (err: any) => {
+    console.error(err);
+    if (err.code === 'auth/unauthorized-domain') {
+      return "Domain not allowed. Add 'localhost' to Firebase Console > Auth > Settings > Authorized Domains.";
+    }
+    if (err.code === 'auth/popup-closed-by-user') {
+      return "Sign-in cancelled.";
+    }
+    if (err.code === 'auth/email-already-in-use') {
+      return "This email is already registered. Please log in.";
+    }
+    if (err.code === 'auth/invalid-credential') {
+      return "Invalid email or password.";
+    }
+    return err.message ? err.message.replace('Firebase: ', '') : "An unknown error occurred.";
+  };
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -80,8 +97,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       const userProfile = await ensureUserDocument(userCredential.user);
       onLogin(userProfile);
     } catch (err: any) {
-      console.error(err);
-      setError(err.message.replace('Firebase: ', ''));
+      setError(formatError(err));
     } finally {
       setIsLoading(false);
     }
@@ -108,8 +124,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       const userProfile = await ensureUserDocument(userCredential.user, { username });
       onLogin(userProfile);
     } catch (err: any) {
-      console.error(err);
-      setError(err.message.replace('Firebase: ', ''));
+      setError(formatError(err));
     } finally {
       setIsLoading(false);
     }
@@ -130,8 +145,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         const userProfile = await ensureUserDocument(result.user);
         onLogin(userProfile);
     } catch (err: any) {
-        console.error(err);
-        setError(err.message.replace('Firebase: ', ''));
+        setError(formatError(err));
         setIsLoading(false);
     }
   };

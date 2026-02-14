@@ -5,25 +5,25 @@ import { getFirestore, Firestore } from 'firebase/firestore';
 // Helper to safely access process.env if available (injected by vite config or existing)
 const getProcessEnv = (key: string) => {
   try {
-    if (typeof process !== 'undefined' && process.env) {
-      return (process.env as any)[key];
-    }
+    // We access process.env directly. If it's replaced by Vite's define, this works.
+    // If it's not replaced and process is undefined, this throws and we catch it.
+    // @ts-ignore
+    return process.env[key];
   } catch(e) {
-    // ignore
+    return undefined;
   }
-  return undefined;
 };
 
-// Explicit configuration with safety checks
-// We prioritize import.meta.env.VITE_... because Vite replaces these statically strings during build.
-// We use ?. (optional chaining) to prevent crashes if import.meta.env itself is undefined.
+// Explicit configuration with safety checks.
+// We use direct property access 'import.meta.env.VITE_...' to ensure Vite performs static replacement.
+// We use logical OR to fallback to process.env if the static replacement yields undefined.
 const firebaseConfig = {
-  apiKey: import.meta.env?.VITE_FIREBASE_API_KEY || getProcessEnv('VITE_FIREBASE_API_KEY'),
-  authDomain: import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN || getProcessEnv('VITE_FIREBASE_AUTH_DOMAIN'),
-  projectId: import.meta.env?.VITE_FIREBASE_PROJECT_ID || getProcessEnv('VITE_FIREBASE_PROJECT_ID'),
-  storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET || getProcessEnv('VITE_FIREBASE_STORAGE_BUCKET'),
-  messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || getProcessEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
-  appId: import.meta.env?.VITE_FIREBASE_APP_ID || getProcessEnv('VITE_FIREBASE_APP_ID')
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || getProcessEnv('VITE_FIREBASE_API_KEY'),
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || getProcessEnv('VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || getProcessEnv('VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || getProcessEnv('VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || getProcessEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || getProcessEnv('VITE_FIREBASE_APP_ID')
 };
 
 // Initialize Firebase services with null fallbacks
@@ -42,7 +42,7 @@ try {
     console.log("Firebase initialized successfully");
   } else {
     console.warn("Firebase configuration is missing. Authentication service will not be available.");
-    console.warn("Please check your .env file and ensure VITE_FIREBASE_API_KEY and VITE_FIREBASE_PROJECT_ID are set.");
+    console.log("Debug Config:", JSON.stringify(firebaseConfig, null, 2));
   }
 } catch (error) {
   console.error("Firebase initialization error:", error);
