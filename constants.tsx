@@ -1,12 +1,15 @@
-
 import { Party, User, SportType } from './types';
 import React from 'react';
-import { Footprints, Bike, PersonStanding, Activity } from 'lucide-react';
+import {Footprints, Bike, PersonStanding, Activity} from 'lucide-react';
 
 // --- APP CONFIGURATION ---
 export const APP_CONFIG = {
+  // ✨ CONFIGURATION: Main Logo (Large) - Used in Landing Center and Login Form
   logoUrl: "https://cdn.discordapp.com/attachments/1198199524955529287/1470809699958919291/1770738733559.png?ex=698df746&is=698ca5c6&hm=2c2249e709caf864a287b0c1145dd09525d32289f48584b4f59a964041e7efeb&", 
+  
+  // ✨ CONFIGURATION: Header Logo (Small) - Used in Top Left Bar
   headerLogoUrl: "https://cdn.discordapp.com/attachments/1198199524955529287/1470810545341989091/1770738946579.png?ex=698d4f50&is=698bfdd0&hm=534c334a6a7a63aa0bd083392cf964f756f80f50228e2605e22118bafa359de1&", 
+
   appName: "Sport Line",
   primaryGradient: "bg-gradient-to-r from-red-500 to-pink-600",
   textGradient: "bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-pink-600"
@@ -21,22 +24,22 @@ export const INITIAL_USER: User = {
   username: "calyxohm",
   displayName: "CalyxOhm",
   avatarUrl: "https://picsum.photos/200/200",
-  bio: "Just a sports fan! Love meeting new people for a game of Football in Khon Kaen.",
+  bio: "Just a sports fan! Love meeting new people for a game.",
   gender: "Prefer not to say",
-  preferredSports: ['Football', 'Badminton'],
-  skillLevel: 'Intermediate',
-  playStyle: 'Casual'
+  preferredSports: ['Football', 'Badminton']
 };
 
+// ✨ CUSTOMIZATION: Helper for consistent icon sizing
+// Replace the 'src' string with your own image URL
 const SportIcon = ({ src }: { src: string }) => (
-  <img src={src} className="w-10 h-10 object-cover rounded-xl" alt="sport-icon" />
+  <img src={src} className="w-5 h-5 object-contain" alt="sport-icon" />
 );
 
 export const SPORTS_LIST: { type: SportType; label: string; icon: React.ReactNode }[] = [
   { 
     type: 'All', 
     label: 'All Sports', 
-    icon: <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-gray-500"><Activity size={24} /></div> 
+    icon: <Activity size={16} /> 
   },
   { 
     type: 'Football', 
@@ -61,17 +64,17 @@ export const SPORTS_LIST: { type: SportType; label: string; icon: React.ReactNod
   { 
     type: 'Running', 
     label: 'Running', 
-    icon: <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center text-red-500"><Footprints size={24} /></div> 
+    icon: <Footprints size={16}/> 
   },
   { 
     type: 'Cycling', 
     label: 'Cycling', 
-    icon: <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-500"><Bike size={24} /></div> 
+    icon: <Bike size={16} /> 
   },
   { 
     type: 'Yoga', 
     label: 'Yoga', 
-    icon: <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center text-teal-500"><PersonStanding size={24} /></div> 
+    icon: <PersonStanding size={16} /> 
   },
 ];
 
@@ -80,7 +83,7 @@ export const INITIAL_PARTIES: Party[] = [
     id: '1',
     title: 'Evening 5v5 Match',
     sport: 'Football',
-    description: 'Casual game, need 2 more players. Near Khon Kaen University.',
+    description: 'Casual game, need 2 more players.',
     date: '2023-10-25',
     startTime: '18:00',
     endTime: '20:00',
@@ -105,5 +108,35 @@ export const INITIAL_PARTIES: Party[] = [
     longitude: 102.8236 - 0.001,
     host: 'JaneSmith',
     members: ['JaneSmith', 'Partner1']
+  },
+  {
+    id: '3',
+    title: 'Morning Badminton',
+    sport: 'Badminton',
+    description: 'Doubles practice, intermediate level.',
+    date: '2023-10-26',
+    startTime: '08:00',
+    endTime: '10:00',
+    playersCurrent: 2,
+    playersMax: 4,
+    latitude: 16.4809,
+    longitude: 102.8291,
+    host: 'JaneSmith',
+    members: ['JaneSmith', 'Partner1']
+  },
+  {
+    id: '4',
+    title: 'Basketball ห้าๆ',
+    sport: 'Basketball',
+    description: 'เล่นบาสโหดๆ',
+    date: '2025-2-11',
+    startTime: '08:00',
+    endTime: '10:00',
+    playersCurrent: 2,
+    playersMax: 10,
+    latitude: 16.4813,
+    longitude: 102.8312,
+    host: 'หมาก',
+    members: ['หมาก', 'กิว']
   }
 ];
