@@ -3,13 +3,15 @@ import { GoogleMap, useJsApiLoader, MarkerF } from '@react-google-maps/api';
 import { Party, SportType } from '../types';
 import { SPORTS_LIST, KHON_KAEN_CENTER, DEFAULT_CITY } from '../constants';
 import { X, MapPin, Calendar, Clock, Users, Search, Loader2 } from 'lucide-react';
+import { db } from '../firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 // Declare google global to avoid TS namespace errors
 declare var google: any;
 
 interface CreatePartyViewProps {
   onClose: () => void;
-  onCreate: (party: Party) => void;
+  onCreate: (party: Party) => void; // Kept for optimistic UI update if needed, though App.tsx should listen to DB
   userLocation: { lat: number; lng: number };
   currentUser: string;
 }
@@ -62,8 +64,6 @@ const LocationSection: React.FC<{
       }
       setIsSearching(true);
       try {
-        // Keeping OSM search for autocomplete as it doesn't require separate billing for this demo
-        // while the map itself uses Google.
         const response = await fetch(
           `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationQuery)}&limit=5&addressdetails=1&viewbox=${KHON_KAEN_CENTER.lng-0.1},${KHON_KAEN_CENTER.lat+0.1},${KHON_KAEN_CENTER.lng+0.1},${KHON_KAEN_CENTER.lat-0.1}`
         );
@@ -199,6 +199,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
   const rawApiKey = ((import.meta as any).env && (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY) || '';
   const apiKey = rawApiKey.replace(/['"]/g, '').trim();
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     sport: 'Football' as SportType,
@@ -209,22 +210,40 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
     playersMax: 10
   });
 
-  // Location State defaulting to Khon Kaen
+  // Location State
   const [selectedLocation, setSelectedLocation] = useState(KHON_KAEN_CENTER);
   const [displayLocationName, setDisplayLocationName] = useState(DEFAULT_CITY);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newParty: Party = {
-      id: Date.now().toString(),
-      ...formData,
-      playersCurrent: 1,
-      latitude: selectedLocation.lat,
-      longitude: selectedLocation.lng,
-      host: currentUser,
-      members: [currentUser]
-    };
-    onCreate(newParty);
+    setIsSubmitting(true);
+    
+    try {
+        const partyData = {
+          ...formData,
+          playersCurrent: 1,
+          latitude: selectedLocation.lat,
+          longitude: selectedLocation.lng,
+          host: currentUser,
+          members: [currentUser],
+          createdAt: serverTimestamp()
+        };
+
+        const docRef = await addDoc(collection(db, 'parties'), partyData);
+        
+        // Construct local object to update UI immediately if needed
+        const newParty: Party = {
+            id: docRef.id,
+            ...partyData
+        };
+        
+        onCreate(newParty);
+    } catch (error) {
+        console.error("Error creating party: ", error);
+        alert("Failed to create party. Check your internet connection.");
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   return (
@@ -241,7 +260,6 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
       <div className="flex-1 overflow-y-auto p-4 pb-28 no-scrollbar">
         <form id="create-party-form" onSubmit={handleSubmit} className="space-y-8 max-w-md mx-auto">
           
-          {/* Section 1: Location */}
           <LocationSection 
             selectedLocation={selectedLocation}
             setSelectedLocation={setSelectedLocation}
@@ -250,13 +268,11 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
             apiKey={apiKey}
           />
 
-          {/* Section 2: Sport Selection */}
           <SportSelectionSection 
             selectedSport={formData.sport}
             setSelectedSport={(sport) => setFormData({...formData, sport})}
           />
 
-          {/* Section 3: Details */}
           <div className="space-y-5 pt-2 border-t border-gray-100">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Party Title</label>
@@ -345,14 +361,14 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
         </form>
       </div>
 
-      {/* Footer CTA */}
       <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 pb-10">
         <button 
           type="submit" 
           form="create-party-form"
-          className="w-full bg-blue-600 text-white font-bold text-lg py-4 rounded-2xl shadow-xl hover:bg-blue-700 active:scale-[0.98] transition-all"
+          disabled={isSubmitting}
+          className="w-full bg-blue-600 text-white font-bold text-lg py-4 rounded-2xl shadow-xl hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
         >
-          Create Party
+          {isSubmitting ? <Loader2 className="animate-spin" /> : 'Create Party'}
         </button>
       </div>
     </div>

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
-import { Camera, Save, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, X } from 'lucide-react';
+import { Camera, Save, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2 } from 'lucide-react';
+import { db, auth } from '../firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 interface SettingsViewProps {
   user: User;
@@ -12,6 +14,7 @@ interface SettingsViewProps {
 
 const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose, onLogout }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Edit Mode State
   const [formData, setFormData] = useState({
@@ -23,12 +26,33 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
     preferredSports: user.preferredSports || []
   });
 
-  const handleSave = () => {
-    onUpdateUser({
-        ...user,
-        ...formData
-    });
-    setIsEditing(false);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+        const currentUser = auth?.currentUser;
+        if (currentUser && db) {
+            const userRef = doc(db, 'users', currentUser.uid);
+            await updateDoc(userRef, {
+                displayName: formData.displayName,
+                username: formData.username,
+                bio: formData.bio,
+                gender: formData.gender,
+                preferredSports: formData.preferredSports,
+                avatarUrl: formData.avatarUrl
+            });
+        }
+        
+        onUpdateUser({
+            ...user,
+            ...formData
+        });
+        setIsEditing(false);
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        alert("Failed to save profile changes.");
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -68,6 +92,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
             <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
                 <button 
                     onClick={handleCancel}
+                    disabled={isSaving}
                     className="text-base text-gray-500 font-medium hover:text-gray-800 transition-colors"
                 >
                     Cancel
@@ -75,8 +100,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
                 <h2 className="text-lg font-bold text-gray-900">Edit Profile</h2>
                 <button 
                     onClick={handleSave}
-                    className="text-base text-blue-600 font-bold hover:text-blue-700 transition-colors"
+                    disabled={isSaving}
+                    className="text-base text-blue-600 font-bold hover:text-blue-700 transition-colors flex items-center gap-1"
                 >
+                    {isSaving && <Loader2 size={14} className="animate-spin" />}
                     Done
                 </button>
             </div>
@@ -255,7 +282,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
         </div>
 
         <div className="p-6 text-center text-xs text-gray-400">
-            Version 1.0.0 • Sport Line Inc.
+            Version 1.1.0 (Cloud Enabled)
         </div>
 
       </div>

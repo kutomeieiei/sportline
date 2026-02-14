@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MapView from './components/MapView';
 import TopBar from './components/TopBar';
 import BottomNav from './components/BottomNav';
@@ -8,30 +8,101 @@ import LoginView from './components/LoginView';
 import ChatListView, { ChatUser } from './components/ChatListView';
 import ChatDetailView from './components/ChatDetailView';
 import { Party, SportType, User } from './types';
-import { INITIAL_PARTIES, INITIAL_USER, DEFAULT_CENTER } from './constants';
-import { Crosshair } from 'lucide-react';
+import { INITIAL_USER, DEFAULT_CENTER } from './constants';
+import { Crosshair, Loader2 } from 'lucide-react';
+import { auth, db } from './firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { collection, query, onSnapshot, orderBy, doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [selectedSport, setSelectedSport] = useState<SportType>('All');
   const [user, setUser] = useState<User>(INITIAL_USER);
-  const [parties, setParties] = useState<Party[]>(INITIAL_PARTIES);
+  const [parties, setParties] = useState<Party[]>([]);
   const [currentTab, setCurrentTab] = useState<'explore' | 'create' | 'settings' | 'chat'>('explore');
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
   
   // Chat Navigation State
   const [selectedChatUser, setSelectedChatUser] = useState<ChatUser | null>(null);
 
+  // --- Auth & User Data Listener ---
+  useEffect(() => {
+    // Safety check: if auth failed to initialize (e.g. bad config), stop loading and stay unauthenticated
+    if (!auth) {
+        console.error("Authentication service is not available. Check Firebase config.");
+        setIsLoadingAuth(false);
+        return;
+    }
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        // Fetch extended user profile from Firestore
+        const userRef = doc(db!, 'users', currentUser.uid); // db! is safe here if auth works usually
+        
+        try {
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+                setUser(userSnap.data() as User);
+            } else {
+                // Fallback if firestore doc missing but auth exists
+                setUser({
+                    ...INITIAL_USER,
+                    displayName: currentUser.displayName || 'User',
+                    username: currentUser.email?.split('@')[0] || 'user',
+                    avatarUrl: currentUser.photoURL || INITIAL_USER.avatarUrl
+                });
+            }
+        } catch (e) {
+            console.error("Error fetching user profile:", e);
+        }
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
+      setIsLoadingAuth(false);
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  // --- Real-time Parties Listener ---
+  useEffect(() => {
+    if (!isAuthenticated || !db) return;
+
+    const q = query(collection(db, 'parties'), orderBy('createdAt', 'desc'));
+    const unsubscribeParties = onSnapshot(q, (snapshot) => {
+      const partiesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Party[];
+      setParties(partiesData);
+    });
+
+    return () => unsubscribeParties();
+  }, [isAuthenticated]);
+
   const handleLogin = (loggedInUser: User) => {
     setUser(loggedInUser);
     setIsAuthenticated(true);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (auth) {
+        await signOut(auth);
+    }
     setIsAuthenticated(false);
     setCurrentTab('explore');
     setSelectedChatUser(null);
   };
+
+  if (isLoadingAuth) {
+     return (
+        <div className="w-full h-screen flex items-center justify-center bg-white">
+            <Loader2 className="animate-spin text-blue-600" size={48} />
+        </div>
+     );
+  }
 
   // If not authenticated, show Login View
   if (!isAuthenticated) {
@@ -52,32 +123,23 @@ function App() {
   };
 
   const handleCreateParty = (newParty: Party) => {
-    setParties([...parties, newParty]);
+    // Optimistic update handled by Firestore listener, but we switch tabs here
     setCurrentTab('explore');
-    // Center map on new party
     setMapCenter({ lat: newParty.latitude, lng: newParty.longitude });
   };
 
-  const handleJoinParty = (partyId: string) => {
-    setParties(parties.map(party => {
-        if (party.id === partyId) {
-            // Check if user is already a member
-            if (party.members.includes(user.username)) {
-                return party;
-            }
-            // Check if party is full
-            if (party.playersCurrent >= party.playersMax) {
-                return party;
-            }
-
-            return {
-                ...party,
-                playersCurrent: party.playersCurrent + 1,
-                members: [...party.members, user.username]
-            };
-        }
-        return party;
-    }));
+  const handleJoinParty = async (partyId: string) => {
+    if (!db) return;
+    try {
+        const partyRef = doc(db, 'parties', partyId);
+        // Using arrayUnion ensures no duplicates and handles concurrency better
+        await updateDoc(partyRef, {
+            members: arrayUnion(user.username),
+            playersCurrent: (parties.find(p => p.id === partyId)?.playersCurrent || 0) + 1
+        });
+    } catch (error) {
+        console.error("Error joining party:", error);
+    }
   };
 
   const handleRecenter = () => {

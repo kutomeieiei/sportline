@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { Loader2, ArrowLeft, Menu, Flame } from 'lucide-react';
+import { Loader2, ArrowLeft, Menu, Flame, AlertCircle } from 'lucide-react';
 import { APP_CONFIG } from '../constants';
+import { auth, googleProvider, db } from '../firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, updateProfile } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 interface LoginViewProps {
   onLogin: (user: User) => void;
@@ -31,67 +34,127 @@ const GoogleIcon = () => (
 const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const [viewMode, setViewMode] = useState<'landing' | 'login' | 'signup'>('landing');
   const [isLoading, setIsLoading] = useState(false);
-  const [identifier, setIdentifier] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  // Additional fields for signup
+  const [username, setUsername] = useState('');
 
   const displayHeaderLogo = APP_CONFIG.headerLogoUrl || APP_CONFIG.logoUrl;
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    // Simulate API network delay
-    setTimeout(() => {
-      const username = identifier || "User";
-      
-      const mockUser: User = {
-        username: username.toLowerCase().replace(/\s/g, ''),
-        displayName: username,
-        avatarUrl: `https://ui-avatars.com/api/?name=${username}&background=fe0000&color=fff&bold=true`,
+  // Helper to ensure user document exists in Firestore
+  const ensureUserDocument = async (authUser: any, additionalData: any = {}) => {
+    if (!db) throw new Error("Database not initialized");
+    const userRef = doc(db, 'users', authUser.uid);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+      const newUser: User = {
+        username: additionalData.username || authUser.email?.split('@')[0] || 'user',
+        displayName: authUser.displayName || additionalData.username || 'Sports Fan',
+        avatarUrl: authUser.photoURL || `https://ui-avatars.com/api/?name=${authUser.displayName || 'User'}&background=random`,
         bio: "Ready to play!",
         gender: "Prefer not to say",
         preferredSports: []
       };
-      
-      onLogin(mockUser);
-      setIsLoading(false);
-    }, 1500);
+      await setDoc(userRef, newUser);
+      return newUser;
+    }
+    return userSnap.data() as User;
   };
 
-  const handleGoogleLogin = () => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
-        const mockGoogleUser: User = {
-            username: "google_user",
-            displayName: "Google User",
-            avatarUrl: "https://ui-avatars.com/api/?name=Google+User&background=4285F4&color=fff&bold=true",
-            bio: "Joined via Google",
-            gender: "Prefer not to say",
-            preferredSports: []
-        };
-        onLogin(mockGoogleUser);
+    setError(null);
+    
+    if (!auth) {
+        setError("Firebase configuration missing. Cannot log in.");
         setIsLoading(false);
-    }, 1500);
+        return;
+    }
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userProfile = await ensureUserDocument(userCredential.user);
+      onLogin(userProfile);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message.replace('Firebase: ', ''));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    if (!auth) {
+        setError("Firebase configuration missing. Cannot sign up.");
+        setIsLoading(false);
+        return;
+    }
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      // Update Auth Profile
+      await updateProfile(userCredential.user, {
+        displayName: username
+      });
+      
+      const userProfile = await ensureUserDocument(userCredential.user, { username });
+      onLogin(userProfile);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message.replace('Firebase: ', ''));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    if (!auth || !googleProvider) {
+        setError("Firebase configuration missing.");
+        setIsLoading(false);
+        return;
+    }
+
+    try {
+        const result = await signInWithPopup(auth, googleProvider);
+        const userProfile = await ensureUserDocument(result.user);
+        onLogin(userProfile);
+    } catch (err: any) {
+        console.error(err);
+        setError(err.message.replace('Firebase: ', ''));
+        setIsLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setError(null);
+    setEmail('');
+    setPassword('');
+    setUsername('');
   };
 
   // --- LANDING SCREEN (First View) ---
   if (viewMode === 'landing') {
     return (
-      <div className="relative w-full h-screen overflow-hidden flex flex-col font-sans bg-white">
+      <div className="relative w-full h-full min-h-screen overflow-hidden flex flex-col font-sans bg-white">
         
         {/* Top Bar */}
         <div className="relative z-10 px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-                {displayHeaderLogo ? (
+                {displayHeaderLogo && (
                     <img src={displayHeaderLogo} alt="Logo" className="h-8 object-contain" />
-                ) : (
-                    // Default Top Left Logo (Hidden or minimal if main logo is center)
-                    <div className="flex items-center gap-1 opacity-0"> 
-                        <span className={`text-xl font-bold tracking-wide ${APP_CONFIG.textGradient}`}>{APP_CONFIG.appName}</span>
-                    </div>
                 )}
             </div>
-            {/* Menu Icon */}
             <button className="text-gray-900 hover:bg-gray-100 p-2 rounded-full transition-colors">
                 <Menu size={28} />
             </button>
@@ -101,26 +164,19 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
             <div className="flex flex-col items-center animate-in zoom-in duration-500">
                 {APP_CONFIG.logoUrl ? (
-                   // CUSTOM IMAGE LOGO - UPDATED SIZE (Bigger)
                    <img 
                       src={APP_CONFIG.logoUrl} 
                       alt={APP_CONFIG.appName} 
                       className="w-80 md:w-96 h-auto object-contain drop-shadow-xl mb-6"
                    />
                 ) : (
-                   // DEFAULT CONSTRUCTED LOGO
                    <>
-                     {/* Icon Circle */}
                      <div className={`w-32 h-32 rounded-[2rem] flex items-center justify-center shadow-2xl mb-6 transform -rotate-6 ${APP_CONFIG.primaryGradient}`}>
                           <Flame className="text-white fill-white" size={64} />
                      </div>
-                     {/* Text Logo */}
                      <h1 className="text-5xl font-black text-gray-900 tracking-tighter uppercase drop-shadow-sm">
                          Sport<span className="text-red-500">Line</span>
                      </h1>
-                     <p className="text-gray-400 text-sm font-semibold tracking-widest mt-2 uppercase">
-                         Matchmaking App
-                     </p>
                    </>
                 )}
             </div>
@@ -128,25 +184,19 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
         {/* Bottom Actions */}
         <div className="relative z-10 px-6 pb-12 w-full max-w-md mx-auto space-y-4">
-            {/* Create Account Button (Gradient Background) */}
             <button 
-                onClick={() => setViewMode('signup')}
+                onClick={() => { setViewMode('signup'); resetForm(); }}
                 className={`w-full py-3.5 rounded-full text-white font-bold text-lg tracking-wide shadow-lg transform active:scale-95 transition-transform ${APP_CONFIG.primaryGradient}`}
             >
-                สร้างบัญชี
+                Create Account
             </button>
 
-            {/* Log In Button (Outlined with dark text) */}
             <button 
-                onClick={() => setViewMode('login')}
+                onClick={() => { setViewMode('login'); resetForm(); }}
                 className="w-full py-3.5 rounded-full bg-transparent border-2 border-gray-200 text-gray-700 font-bold text-lg tracking-wide hover:bg-gray-50 transform active:scale-95 transition-all"
             >
-                เข้าสู่ระบบ
+                Log In
             </button>
-            
-            <p className="text-xs text-gray-400 text-center mt-4 font-medium">
-                Trouble logging in? <span className="underline cursor-pointer hover:text-gray-600">Get Help</span>
-            </p>
         </div>
       </div>
     );
@@ -154,9 +204,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
   // --- LOGIN / SIGNUP FORM (Overlay) ---
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-white flex flex-col font-sans">
+    <div className="relative w-full h-full min-h-screen overflow-hidden bg-white flex flex-col font-sans">
        
-       {/* Header */}
        <div className="px-4 py-4 flex items-center">
             <button 
                 onClick={() => setViewMode('landing')}
@@ -166,12 +215,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
             </button>
        </div>
 
-       <div className="flex-1 px-8 flex flex-col items-center pt-8">
-            {/* Logo in Form */}
-            <div className="mb-6">
+       <div className="flex-1 px-8 flex flex-col items-center pt-4 overflow-y-auto">
+            <div className="mb-4">
                 {APP_CONFIG.logoUrl ? (
-                    // UPDATED SIZE (Bigger)
-                    <img src={APP_CONFIG.logoUrl} alt="Logo" className="h-32 w-auto object-contain drop-shadow-md" />
+                    <img src={APP_CONFIG.logoUrl} alt="Logo" className="h-24 w-auto object-contain drop-shadow-md" />
                 ) : (
                     <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg ${APP_CONFIG.primaryGradient}`}>
                         <Flame className="text-white fill-white" size={32} />
@@ -183,8 +230,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 {viewMode === 'login' ? 'Welcome Back!' : 'Create Account'}
             </h2>
 
-            <div className="w-full max-w-sm space-y-6">
-                {/* Google Login Button */}
+            <div className="w-full max-w-sm space-y-6 pb-8">
                 <button
                     type="button"
                     onClick={handleGoogleLogin}
@@ -202,17 +248,39 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     <span className="relative bg-white px-4 text-sm text-gray-500 font-medium">or</span>
                 </div>
 
-                <form onSubmit={handleLoginSubmit} className="space-y-6">
+                {error && (
+                    <div className="bg-red-50 p-3 rounded-lg flex items-start gap-2 text-red-600 text-sm">
+                        <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                        <span>{error}</span>
+                    </div>
+                )}
+
+                <form onSubmit={viewMode === 'login' ? handleLoginSubmit : handleSignupSubmit} className="space-y-4">
+                    
+                    {viewMode === 'signup' && (
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-600 mb-2">Display Name</label>
+                            <input
+                                type="text"
+                                required
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-gray-900 font-medium"
+                                placeholder="e.g. John Doe"
+                            />
+                        </div>
+                    )}
+
                     <div>
-                        <label className="block text-sm font-semibold text-gray-600 mb-2">Username / Phone</label>
+                        <label className="block text-sm font-semibold text-gray-600 mb-2">Email</label>
                         <input
-                            type="text"
+                            type="email"
                             required
                             autoFocus
-                            value={identifier}
-                            onChange={(e) => setIdentifier(e.target.value)}
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
                             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-gray-900 font-medium"
-                            placeholder="Enter your username"
+                            placeholder="name@example.com"
                         />
                     </div>
 
@@ -221,35 +289,36 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                         <input
                             type="password"
                             required
+                            minLength={6}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-gray-900 font-medium"
-                            placeholder="Enter your password"
+                            placeholder="Min 6 characters"
                         />
                     </div>
 
-                    <div className="flex justify-end">
-                        <button type="button" className="text-sm font-semibold text-gray-500 hover:text-red-500">
-                            Forgot Password?
-                        </button>
-                    </div>
+                    {viewMode === 'login' && (
+                        <div className="flex justify-end">
+                            <button type="button" className="text-sm font-semibold text-gray-500 hover:text-red-500">
+                                Forgot Password?
+                            </button>
+                        </div>
+                    )}
 
                     <button
                         type="submit"
                         disabled={isLoading}
                         className={`w-full py-4 rounded-full text-white font-bold text-lg shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center justify-center ${APP_CONFIG.primaryGradient}`}
                     >
-                        {isLoading ? <Loader2 className="animate-spin" /> : (viewMode === 'login' ? 'LOG IN' : 'CONTINUE')}
+                        {isLoading ? <Loader2 className="animate-spin" /> : (viewMode === 'login' ? 'LOG IN' : 'SIGN UP')}
                     </button>
                 </form>
             </div>
        </div>
 
-       {/* Terms */}
-       <div className="p-6 text-center">
+       <div className="p-4 text-center">
             <p className="text-xs text-gray-400">
-                By clicking Log In, you agree with our <span className="underline">Terms</span>. 
-                Learn how we process your data in our <span className="underline">Privacy Policy</span>.
+                Cloud features powered by Firebase.
             </p>
        </div>
     </div>
