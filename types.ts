@@ -1,3 +1,4 @@
+
 export type SportType = 'All' | 'Football' | 'Basketball' | 'Badminton' | 'Tennis' | 'Running' | 'Cycling' | 'Yoga';
 
 export interface User {
@@ -7,6 +8,8 @@ export interface User {
   bio: string;
   gender: string;
   preferredSports: SportType[];
+  skillLevel?: 'Beginner' | 'Intermediate' | 'Pro';
+  playStyle?: 'Casual' | 'Competitive';
 }
 
 export interface Party {
