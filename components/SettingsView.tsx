@@ -1,10 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
-import { Camera, Save, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, UploadCloud } from 'lucide-react';
-import { db, auth, storage } from '../firebase';
+import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, UploadCloud } from 'lucide-react';
+import { db, auth } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface SettingsViewProps {
   user: User;
@@ -12,6 +11,54 @@ interface SettingsViewProps {
   onClose: () => void;
   onLogout: () => void;
 }
+
+// Helper: Compress image and convert to Base64
+// This avoids using Firebase Storage (which has CORS issues on new deployments)
+// and instead stores a small optimized image directly in the database string.
+const compressImage = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        // Limit max dimensions to keep string size small (Firestore doc limit is 1MB)
+        const MAX_WIDTH = 300; 
+        const MAX_HEIGHT = 300;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+             ctx.drawImage(img, 0, 0, width, height);
+             // Compress to JPEG with 0.6 quality
+             const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+             resolve(dataUrl);
+        } else {
+            reject(new Error("Canvas context failed"));
+        }
+      };
+      img.onerror = (error) => reject(error);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+};
 
 const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose, onLogout }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -68,9 +115,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
         }
     } catch (error) {
         console.error("Error syncing profile to server:", error);
-        // Silent fail is often acceptable for minor profile updates if we assume eventual consistency,
-        // or we could show a global toast. For now, we log it. 
-        // If critical, we would revert local state, but that can be jarring.
     }
   };
 
@@ -88,12 +132,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0] && auth?.currentUser) {
+    if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
         
         // Basic validation
-        if (file.size > 5 * 1024 * 1024) {
-            alert("File is too large. Max size is 5MB.");
+        if (file.size > 10 * 1024 * 1024) {
+            alert("File is too large.");
             return;
         }
 
@@ -104,23 +148,24 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
 
         setIsUploading(true);
         try {
-            if (!storage) throw new Error("Storage not initialized");
+            // Compress and convert to Base64
+            const base64Image = await compressImage(file);
             
-            // Create a reference to 'avatars/uid_timestamp'
-            const fileRef = ref(storage, `avatars/${auth.currentUser.uid}_${Date.now()}`);
-            
-            // Upload
-            const snapshot = await uploadBytes(fileRef, file);
-            
-            // Get URL
-            const downloadURL = await getDownloadURL(snapshot.ref);
-            
+            // Safety Check: Firestore documents are limited to 1MB.
+            // A 300x300 JPEG @ 0.6 quality is usually around 15-30KB, which is safe.
+            if (base64Image.length > 900000) { 
+                 alert("Image is too complex. Please choose a simpler or smaller image.");
+                 setIsUploading(false);
+                 return;
+            }
+
             // Update local state immediately so user sees new image
-            setFormData(prev => ({ ...prev, avatarUrl: downloadURL }));
+            // Note: We don't save to DB yet, we wait for the user to click "Done"
+            setFormData(prev => ({ ...prev, avatarUrl: base64Image }));
             
         } catch (error) {
-            console.error("Upload failed", error);
-            alert("Failed to upload image. Check your connection.");
+            console.error("Image processing failed", error);
+            alert("Failed to process image.");
         } finally {
             setIsUploading(false);
         }
@@ -206,7 +251,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
                         className="text-xs text-blue-600 font-semibold mt-3 hover:underline"
                         disabled={isUploading}
                     >
-                        {isUploading ? 'Uploading...' : 'Change Profile Photo'}
+                        {isUploading ? 'Processing...' : 'Change Profile Photo'}
                     </button>
                 </div>
 
@@ -367,7 +412,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
         </div>
 
         <div className="p-6 text-center text-xs text-gray-400">
-            Version 1.2.1 (Performance Boosted)
+            Version 1.2.2 (CORS Fixed)
         </div>
 
       </div>
