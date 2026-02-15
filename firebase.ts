@@ -1,17 +1,20 @@
-import { initializeApp, FirebaseApp } from 'firebase/app';
+import { initializeApp, FirebaseApp, FirebaseOptions } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, Auth } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { getFirestore, Firestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 // Helper to safely access environment variables
 // This handles cases where import.meta.env might be undefined or process.env is needed as fallback
-const getEnv = (key: string) => {
+const getEnv = (key: string): string | undefined => {
   try {
     // Check import.meta.env (Standard Vite)
     // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
       // @ts-ignore
-      return import.meta.env[key];
+      const val = import.meta.env[key];
+      if (typeof val === 'string') {
+        return val;
+      }
     }
   } catch (e) {
     // Ignore errors accessing import.meta
@@ -20,9 +23,12 @@ const getEnv = (key: string) => {
   try {
     // Check process.env (Polyfilled via vite.config.ts)
     // @ts-ignore
-    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+    if (typeof process !== 'undefined' && process.env) {
       // @ts-ignore
-      return process.env[key];
+      const val = process.env[key];
+      if (typeof val === 'string') {
+        return val;
+      }
     }
   } catch (e) {
     // Ignore errors accessing process
@@ -31,7 +37,7 @@ const getEnv = (key: string) => {
   return undefined;
 };
 
-const firebaseConfig = {
+const firebaseConfig: FirebaseOptions = {
   apiKey: getEnv('VITE_FIREBASE_API_KEY'),
   authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN'),
   projectId: getEnv('VITE_FIREBASE_PROJECT_ID'),
@@ -53,9 +59,15 @@ try {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     googleProvider = new GoogleAuthProvider();
-    db = getFirestore(app);
+    
+    // Initialize Firestore with offline persistence enabled
+    // This dramatically improves performance (zero-latency writes) and allows offline usage
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    });
+    
     storage = getStorage(app);
-    console.log("Firebase initialized successfully");
+    console.log("Firebase initialized successfully with persistence");
   } else {
     console.warn("Firebase configuration is missing or incomplete. Authentication service will not be available.");
     console.log("Debug Config Status:", {
