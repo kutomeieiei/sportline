@@ -1,6 +1,6 @@
-import { initializeApp, FirebaseApp, FirebaseOptions } from 'firebase/app';
+import { initializeApp, FirebaseApp, FirebaseOptions, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, Auth } from 'firebase/auth';
-import { initializeFirestore, Firestore, memoryLocalCache } from 'firebase/firestore';
+import { initializeFirestore, Firestore, memoryLocalCache, getFirestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 // Helper to safely access environment variables
@@ -36,7 +36,7 @@ const firebaseConfig: FirebaseOptions = {
 };
 
 // Initialize Firebase services
-let app: FirebaseApp | undefined;
+let app: FirebaseApp;
 let auth: Auth | undefined;
 let googleProvider: GoogleAuthProvider | undefined;
 let db: Firestore | undefined;
@@ -44,20 +44,28 @@ let storage: FirebaseStorage | undefined;
 
 try {
   if (firebaseConfig.apiKey && firebaseConfig.projectId) {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    googleProvider = new GoogleAuthProvider();
-    
-    // NUCLEAR FIX REVISED:
-    // 1. localCache: memoryLocalCache() -> Prevents IndexedDB locks.
-    // 2. REMOVED experimentalForceLongPolling -> Reverting to standard WebSockets.
-    //    Long Polling can sometimes cause timeouts if the network is actually fine but the polling fails.
-    db = initializeFirestore(app, {
-      localCache: memoryLocalCache(),
-    });
-    
-    storage = getStorage(app);
-    console.log(`Firebase initialized successfully (Memory Cache). Project ID: ${firebaseConfig.projectId}`);
+    // SINGLETON PATTERN: Check if app is already initialized
+    if (!getApps().length) {
+      app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      googleProvider = new GoogleAuthProvider();
+      
+      // Initialize with memory cache to avoid lock
+      db = initializeFirestore(app, {
+        localCache: memoryLocalCache(),
+      });
+      
+      storage = getStorage(app);
+      console.log(`Firebase initialized (New Instance). Project: ${firebaseConfig.projectId}`);
+    } else {
+      app = getApp();
+      auth = getAuth(app);
+      googleProvider = new GoogleAuthProvider();
+      // Get existing Firestore instance
+      db = getFirestore(app);
+      storage = getStorage(app);
+      console.log(`Firebase initialized (Existing Instance).`);
+    }
   } else {
     console.warn("Firebase configuration is missing or incomplete.");
   }

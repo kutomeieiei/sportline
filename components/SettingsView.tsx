@@ -3,7 +3,7 @@ import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
 import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, UploadCloud, AlertTriangle } from 'lucide-react';
 import { db, auth } from '../firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface SettingsViewProps {
   user: User;
@@ -108,13 +108,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         if (db) {
             const userRef = doc(db, 'users', currentUser.uid);
             
-            // CHECK CONNECTION FIRST: Try to read the doc
-            try {
-                 await withTimeout(getDoc(userRef), 5000, "Connection check timed out");
-            } catch (e) {
-                 throw new Error("Cannot connect to server. Please check your internet connection.");
-            }
-
             // 2. Prepare Data (Strict Sanitization)
             const updates: Record<string, any> = {
                 displayName: formData.displayName || '',
@@ -456,7 +449,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         </div>
 
         <div className="p-6 text-center text-xs text-gray-400">
-            Version 1.3.4 (Standard Connection)
+            Version 1.3.5 (Stable)
         </div>
 
       </div>
