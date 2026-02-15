@@ -3,7 +3,7 @@ import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
 import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, UploadCloud } from 'lucide-react';
 import { db, auth } from '../firebase';
-import { doc, setDoc } from 'firebase/firestore'; // Changed updateDoc to setDoc
+import { doc, setDoc } from 'firebase/firestore';
 
 interface SettingsViewProps {
   user: User;
@@ -63,7 +63,7 @@ const compressImage = (file: File): Promise<string> => {
   });
 };
 
-const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose, onLogout }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -94,23 +94,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
         const currentUser = auth?.currentUser;
         if (!currentUser) throw new Error("No authenticated user");
 
-        const updatedUser = {
-            ...user,
-            ...formData
-        };
-
-        // 2. FORCE UPDATE LOCAL STORAGE NOW (Instant Persistence)
-        // This ensures that even if the network is slow or fails, the next reload has the new data.
-        localStorage.setItem(`sportline_profile_${currentUser.uid}`, JSON.stringify(updatedUser));
-
-        // 3. Optimistic Update (Update UI Immediately)
-        onUpdateUser(updatedUser);
-        
-        // 4. Close the modal IMMEDIATELY (Do not wait for database)
-        // This gives the "Instant" feeling the user requested.
-        setIsEditing(false);
-
-        // 5. Background Sync to Firestore (Fire and Forget)
         if (db) {
             const userRef = doc(db, 'users', currentUser.uid);
             
@@ -126,21 +109,19 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
                 }).filter(([_, v]) => v !== undefined)
             );
 
-            // USE setDoc WITH MERGE instead of updateDoc
-            // This fixes the issue where updateDoc fails if the document doesn't exist yet
-            // (common if the user was loaded via the "Instant Load" fallback).
-            setDoc(userRef, safeData, { merge: true }).then(() => {
-                console.log("Profile synced to server");
-            }).catch((err) => {
-                console.error("Background sync failed:", err);
-                // Alert the user even if the modal is closed, so they know the server sync failed.
-                alert(`Note: Changes saved locally, but server sync failed: ${err.message}`);
-            });
+            // Await server confirmation
+            await setDoc(userRef, safeData, { merge: true });
+            console.log("Profile synced to server successfully");
+        } else {
+            throw new Error("Database connection unavailable");
         }
+
+        // Only close after successful server save
+        setIsEditing(false);
 
     } catch (error: any) {
         console.error("Error saving profile:", error);
-        alert(`Failed to save changes: ${error.message}`);
+        alert(`Failed to save to server: ${error.message}`);
     } finally {
         setIsSaving(false);
     }
@@ -185,7 +166,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
                  return;
             }
 
-            // Update local state immediately
+            // Update local form state immediately
             setFormData(prev => ({ ...prev, avatarUrl: base64Image }));
             
         } catch (error) {
@@ -232,7 +213,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
                     className="text-base text-blue-600 font-bold hover:text-blue-700 transition-colors flex items-center gap-1 disabled:opacity-50"
                 >
                     {isSaving && <Loader2 size={14} className="animate-spin" />}
-                    Done
+                    {isSaving ? 'Saving...' : 'Done'}
                 </button>
             </div>
 
@@ -437,7 +418,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
         </div>
 
         <div className="p-6 text-center text-xs text-gray-400">
-            Version 1.2.5 (SetDoc)
+            Version 1.2.6 (Server Only)
         </div>
 
       </div>

@@ -18,8 +18,8 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   
-  // New State: Ensures we don't show the app until the profile is ready (either from cache or DB)
-  const [isProfileReady, setIsProfileReady] = useState(false);
+  // State to track if we have fetched the initial data from the server
+  const [isServerDataLoaded, setIsServerDataLoaded] = useState(false);
   
   const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
   
@@ -32,10 +32,10 @@ function App() {
   // Chat Navigation State
   const [selectedChatUser, setSelectedChatUser] = useState<ChatUser | null>(null);
 
-  // --- 1. Auth Listener & Instant Load Strategy ---
+  // --- 1. Auth Listener ---
   useEffect(() => {
     if (!auth) {
-        console.error("Authentication service is not available. Check Firebase config.");
+        console.error("Authentication service is not available.");
         setIsLoadingAuth(false);
         return;
     }
@@ -45,39 +45,12 @@ function App() {
       
       if (currentUser) {
         setIsAuthenticated(true);
-        
-        // 🚀 INSTANT LOAD STRATEGY
-        // 1. Try Local Cache
-        const cachedProfile = localStorage.getItem(`sportline_profile_${currentUser.uid}`);
-        
-        if (cachedProfile) {
-            try {
-                const parsedUser = JSON.parse(cachedProfile);
-                setUser(parsedUser);
-                console.log("Loaded profile from cache");
-            } catch (e) {
-                console.warn("Corrupt cache, falling back");
-            }
-        } else {
-            // 2. No Cache? Use Google Data as Fallback IMMEDIATELY
-            // Do not wait for Firestore. This prevents the spinner.
-            console.log("No cache found, using Auth data temporary");
-            setUser({
-                ...INITIAL_USER,
-                displayName: currentUser.displayName || 'User',
-                username: currentUser.email?.split('@')[0] || 'user',
-                avatarUrl: currentUser.photoURL || INITIAL_USER.avatarUrl
-            });
-        }
-        
-        // Mark profile as ready immediately. 
-        // Firestore listener (Effect #2) will update this with fresh data in the background.
-        setIsProfileReady(true);
-        
+        // We do not set isServerDataLoaded to true yet. 
+        // We wait for the Firestore listener (Effect #2) to fire at least once.
       } else {
         setIsAuthenticated(false);
-        setIsProfileReady(true);
-        setUser(INITIAL_USER); 
+        setUser(INITIAL_USER);
+        setIsServerDataLoaded(true); // No server data needed if not logged in
       }
       setIsLoadingAuth(false);
     });
@@ -85,41 +58,37 @@ function App() {
     return () => unsubscribeAuth();
   }, []);
 
-  // --- 2. Real-time User Profile Listener (Source of Truth) ---
-  // This runs in the background. When data arrives from DB, it silently updates the UI.
+  // --- 2. Real-time User Profile Listener (Server Data) ---
   useEffect(() => {
     if (authUser && db) {
         const userRef = doc(db, 'users', authUser.uid);
         
+        // This listener fetches data directly from the server (or Firebase SDK internal cache)
         const unsubscribeUser = onSnapshot(userRef, (docSnap) => {
             if (docSnap.exists()) {
                 const userData = docSnap.data() as User;
-                
-                // Update State
                 setUser(userData);
-                
-                // Update Cache for next time
-                localStorage.setItem(`sportline_profile_${authUser.uid}`, JSON.stringify(userData));
+            } else {
+                // Fallback if doc doesn't exist on server yet (rare, but handled)
+                console.log("No user profile found on server, using defaults.");
+                setUser({
+                    ...INITIAL_USER,
+                    displayName: authUser.displayName || 'User',
+                    username: authUser.email?.split('@')[0] || 'user',
+                    avatarUrl: authUser.photoURL || INITIAL_USER.avatarUrl
+                });
             }
-            // If doc doesn't exist (yet), we just stick with the Auth data we set in Effect #1.
-            setIsProfileReady(true);
+            setIsServerDataLoaded(true);
         }, (error) => {
-            console.error("Error listening to user profile:", error);
-            setIsProfileReady(true); 
+            console.error("Error fetching server data:", error);
+            setIsServerDataLoaded(true); // Stop loading even on error
         });
 
         return () => unsubscribeUser();
     }
   }, [authUser]);
 
-  // --- 3. Watch for Local User Updates (Optimistic Updates) ---
-  useEffect(() => {
-    if (authUser && user && user.username !== INITIAL_USER.username) {
-        localStorage.setItem(`sportline_profile_${authUser.uid}`, JSON.stringify(user));
-    }
-  }, [user, authUser]);
-
-  // --- 4. Real-time Parties Listener ---
+  // --- 3. Real-time Parties Listener ---
   useEffect(() => {
     if (!isAuthenticated || !db) return;
 
@@ -136,14 +105,11 @@ function App() {
   }, [isAuthenticated]);
 
   const handleLogin = (loggedInUser: User) => {
+    // When logging in via LoginView, we optimistically set the user 
+    // while the Firestore listener connects in the background.
     setUser(loggedInUser);
     setIsAuthenticated(true);
-    setIsProfileReady(true);
-    
-    // Save to cache immediately
-    if (auth?.currentUser) {
-        localStorage.setItem(`sportline_profile_${auth.currentUser.uid}`, JSON.stringify(loggedInUser));
-    }
+    setIsServerDataLoaded(true);
   };
 
   const handleLogout = async () => {
@@ -152,12 +118,12 @@ function App() {
     }
     setCurrentTab('explore');
     setSelectedChatUser(null);
-    setIsProfileReady(false);
+    setIsServerDataLoaded(false);
   };
 
   // --- RENDERING ---
 
-  // 1. Initial Auth Check (Spinner) - Only shows on very first page load
+  // 1. Initial Auth Check
   if (isLoadingAuth) {
      return (
         <div className="w-full h-screen flex items-center justify-center bg-white">
@@ -171,12 +137,13 @@ function App() {
     return <LoginView onLogin={handleLogin} />;
   }
 
-  // 3. Profile Loading Gate
-  // Should virtually never show due to Instant Load Strategy
-  if (!isProfileReady) {
+  // 3. Server Data Loading Gate
+  // This ensures we don't show the app until we have the data from the DB
+  if (!isServerDataLoaded) {
     return (
         <div className="w-full h-screen flex flex-col items-center justify-center bg-gray-50">
             <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
+            <p className="text-gray-400 text-sm font-medium">Syncing with server...</p>
         </div>
      );
   }
@@ -265,9 +232,10 @@ function App() {
       {currentTab === 'settings' && (
         <SettingsView 
           user={user}
-          onUpdateUser={(updatedUser) => {
-             setUser(updatedUser); 
-          }}
+          // We don't need to manually set user state here anymore because 
+          // App.tsx is listening to the database. When SettingsView updates the DB, 
+          // the onSnapshot in App.tsx will automatically update the UI.
+          onUpdateUser={() => {}} 
           onClose={() => setCurrentTab('explore')}
           onLogout={handleLogout}
         />
