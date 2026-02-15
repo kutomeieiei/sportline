@@ -55,7 +55,7 @@ try {
     db = getFirestore(app);
     
     storage = getStorage(app);
-    console.log("Firebase initialized successfully (Standard Mode)");
+    console.log(`Firebase initialized successfully. Project ID: ${firebaseConfig.projectId}`);
   } else {
     console.warn("Firebase configuration is missing or incomplete.");
   }

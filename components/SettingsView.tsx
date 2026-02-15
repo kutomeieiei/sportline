@@ -108,9 +108,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         if (db) {
             const userRef = doc(db, 'users', currentUser.uid);
             
-            const updates: any = {
-                displayName: formData.displayName,
-                username: formData.username,
+            // 2. Prepare Data (Strict Sanitization)
+            // Firestore throws errors if you pass 'undefined'. We convert everything to safe values.
+            const updates: Record<string, any> = {
+                displayName: formData.displayName || '',
+                username: formData.username || '',
                 bio: formData.bio || '',
                 gender: formData.gender || 'Prefer not to say',
                 preferredSports: formData.preferredSports || [],
@@ -119,13 +121,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
             const currentAvatar = user.avatarUrl || '';
             const newAvatar = formData.avatarUrl || '';
             
-            if (currentAvatar !== newAvatar) {
+            if (currentAvatar !== newAvatar && newAvatar) {
                 updates.avatarUrl = newAvatar;
             }
 
-            // 2. Perform Save with Timeout (15 seconds)
-            // If the server doesn't respond in 15s, this throws an error so the UI unblocks.
-            await withTimeout(setDoc(userRef, updates, { merge: true }), 15000);
+            // Remove any keys that are strictly undefined (double check)
+            Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
+
+            console.log("Attempting to save:", updates); // For debugging
+
+            // 3. Perform Save with Timeout
+            await withTimeout(setDoc(userRef, updates, { merge: true }), 10000);
             
             setIsEditing(false);
         } else {
@@ -134,7 +140,20 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
 
     } catch (error: any) {
         console.error("Error saving profile:", error);
-        alert(`Error: ${error.message}`);
+        
+        // SPECIFIC ERROR HANDLING FOR PERMISSIONS
+        if (error.code === 'permission-denied' || error.message.includes('permission')) {
+            alert(
+                "ACCESS DENIED: Your database is locked.\n\n" +
+                "1. Go to Firebase Console > Firestore Database > Rules\n" +
+                "2. Change 'allow read, write: if false;' to 'allow read, write: if true;'\n" +
+                "3. Publish the rules."
+            );
+        } else if (error.code === 'unavailable') {
+             alert("Network Error: Cannot reach Firebase. You might be offline or a firewall is blocking the connection.");
+        } else {
+            alert(`Save Failed: ${error.message}`);
+        }
     } finally {
         setIsSaving(false);
     }
@@ -432,7 +451,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         </div>
 
         <div className="p-6 text-center text-xs text-gray-400">
-            Version 1.3.0 (Stable Sync)
+            Version 1.3.1 (Debug Mode)
         </div>
 
       </div>
