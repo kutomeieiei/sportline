@@ -74,24 +74,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
     preferredSports: user.preferredSports || []
   });
 
-  // Timeout helper to prevent infinite loading
-  const withTimeout = (promise: Promise<any>, ms: number, errorMsg: string) => {
-      return new Promise((resolve, reject) => {
-          const timer = setTimeout(() => {
-              reject(new Error(errorMsg));
-          }, ms);
-          promise
-              .then(value => {
-                  clearTimeout(timer);
-                  resolve(value);
-              })
-              .catch(reason => {
-                  clearTimeout(timer);
-                  reject(reason);
-              });
-      });
-  };
-
   const handleSave = async () => {
     // 1. Validate
     if (!formData.displayName.trim() || !formData.username.trim()) {
@@ -129,10 +111,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
 
             console.log("Attempting to save:", updates);
 
-            // 3. Perform Save with Timeout
-            // 20 seconds timeout for write
-            await withTimeout(setDoc(userRef, updates, { merge: true }), 20000, "Save operation timed out.");
+            // 3. Perform Save (No artificial timeout)
+            // This will wait as long as needed for the network
+            await setDoc(userRef, updates, { merge: true });
             
+            console.log("Save successful");
             setIsEditing(false);
         } else {
             throw new Error("Database not connected");
@@ -449,7 +432,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         </div>
 
         <div className="p-6 text-center text-xs text-gray-400">
-            Version 1.3.5 (Stable)
+            Version 1.3.6 (No Timeouts)
         </div>
 
       </div>
