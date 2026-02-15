@@ -13,8 +13,7 @@ interface SettingsViewProps {
 }
 
 // Helper: Compress image and convert to Base64
-// This avoids using Firebase Storage (which has CORS issues on new deployments)
-// and instead stores a small optimized image directly in the database string.
+// We use aggressive compression (200px, 0.5 quality) to ensure the string is small enough for Firestore.
 const compressImage = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -24,9 +23,9 @@ const compressImage = (file: File): Promise<string> => {
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // Limit max dimensions to keep string size small (Firestore doc limit is 1MB)
-        const MAX_WIDTH = 300; 
-        const MAX_HEIGHT = 300;
+        // Aggressive resizing for Firestore storage
+        const MAX_WIDTH = 200; 
+        const MAX_HEIGHT = 200;
         let width = img.width;
         let height = img.height;
 
@@ -46,9 +45,13 @@ const compressImage = (file: File): Promise<string> => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (ctx) {
+             // White background (for transparent PNGs converted to JPEG)
+             ctx.fillStyle = '#FFFFFF';
+             ctx.fillRect(0, 0, width, height);
              ctx.drawImage(img, 0, 0, width, height);
-             // Compress to JPEG with 0.6 quality
-             const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+             
+             // Compress to JPEG with 0.5 quality (very small string size)
+             const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
              resolve(dataUrl);
         } else {
             reject(new Error("Canvas context failed"));
@@ -87,23 +90,25 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
 
     setIsSaving(true);
     
-    // 2. Optimistic Update (Update UI Immediately)
-    const updatedUser = {
-        ...user,
-        ...formData
-    };
-
-    // Update local app state immediately so user sees changes instantly
-    onUpdateUser(updatedUser);
-    setIsEditing(false); // Close modal immediately
-    setIsSaving(false);
-
-    // 3. Background Sync
     try {
         const currentUser = auth?.currentUser;
-        if (currentUser && db) {
+        if (!currentUser) throw new Error("No authenticated user");
+
+        const updatedUser = {
+            ...user,
+            ...formData
+        };
+
+        // 2. FORCE UPDATE LOCAL STORAGE NOW
+        // This ensures that even if the network is slow or fails, the next reload has the new data.
+        localStorage.setItem(`sportline_profile_${currentUser.uid}`, JSON.stringify(updatedUser));
+
+        // 3. Optimistic Update (Update UI Immediately)
+        onUpdateUser(updatedUser);
+        
+        // 4. Background Sync to Firestore
+        if (db) {
             const userRef = doc(db, 'users', currentUser.uid);
-            // This runs in background. If offline, Firestore queues it locally.
             await updateDoc(userRef, {
                 displayName: formData.displayName,
                 username: formData.username,
@@ -112,9 +117,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
                 preferredSports: formData.preferredSports,
                 avatarUrl: formData.avatarUrl
             });
+            console.log("Profile synced to Firestore successfully");
         }
-    } catch (error) {
-        console.error("Error syncing profile to server:", error);
+
+        setIsEditing(false);
+    } catch (error: any) {
+        console.error("Error saving profile:", error);
+        alert(`Failed to save profile changes to server: ${error.message}`);
+        // We still keep the local change valid so the user doesn't lose work
+        setIsEditing(false);
+    } finally {
+        setIsSaving(false);
     }
   };
 
@@ -135,7 +148,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
     if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
         
-        // Basic validation
         if (file.size > 10 * 1024 * 1024) {
             alert("File is too large.");
             return;
@@ -148,19 +160,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
 
         setIsUploading(true);
         try {
-            // Compress and convert to Base64
+            // Compress
             const base64Image = await compressImage(file);
             
-            // Safety Check: Firestore documents are limited to 1MB.
-            // A 300x300 JPEG @ 0.6 quality is usually around 15-30KB, which is safe.
+            // Check size (must be under 1MB for Firestore, aiming for <100KB for speed)
             if (base64Image.length > 900000) { 
-                 alert("Image is too complex. Please choose a simpler or smaller image.");
+                 alert("Image is still too large after compression. Please try a different photo.");
                  setIsUploading(false);
                  return;
             }
 
-            // Update local state immediately so user sees new image
-            // Note: We don't save to DB yet, we wait for the user to click "Done"
+            // Update local state immediately
             setFormData(prev => ({ ...prev, avatarUrl: base64Image }));
             
         } catch (error) {
@@ -412,7 +422,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
         </div>
 
         <div className="p-6 text-center text-xs text-gray-400">
-            Version 1.2.2 (CORS Fixed)
+            Version 1.2.3 (Fast Load)
         </div>
 
       </div>
