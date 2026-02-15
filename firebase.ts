@@ -1,77 +1,40 @@
-import { initializeApp, FirebaseApp, FirebaseOptions, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, Auth } from 'firebase/auth';
-import { initializeFirestore, Firestore, memoryLocalCache, getFirestore } from 'firebase/firestore';
-import { getStorage, FirebaseStorage } from 'firebase/storage';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getFirestore, initializeFirestore, memoryLocalCache } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
-// Helper to safely access environment variables
-const getEnv = (key: string): string | undefined => {
-  try {
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      // @ts-ignore
-      const val = import.meta.env[key];
-      if (typeof val === 'string') return val;
-    }
-  } catch (e) {}
-
-  try {
-    // @ts-ignore
-    if (typeof process !== 'undefined' && process.env) {
-      // @ts-ignore
-      const val = process.env[key];
-      if (typeof val === 'string') return val;
-    }
-  } catch (e) {}
-
-  return undefined;
+// 1. Config
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-const firebaseConfig: FirebaseOptions = {
-  apiKey: getEnv('VITE_FIREBASE_API_KEY'),
-  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN'),
-  projectId: getEnv('VITE_FIREBASE_PROJECT_ID'),
-  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET'),
-  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
-  appId: getEnv('VITE_FIREBASE_APP_ID')
-};
+// 2. Initialize App (Singleton)
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firebase services
-let app: FirebaseApp;
-let auth: Auth | undefined;
-let googleProvider: GoogleAuthProvider | undefined;
-let db: Firestore | undefined;
-let storage: FirebaseStorage | undefined;
+// 3. Initialize Auth
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
 
-try {
-  if (firebaseConfig.apiKey && firebaseConfig.projectId) {
-    // SINGLETON PATTERN: Check if app is already initialized
-    if (!getApps().length) {
-      app = initializeApp(firebaseConfig);
-      auth = getAuth(app);
-      googleProvider = new GoogleAuthProvider();
-      
-      // Initialize with memory cache to avoid lock
-      db = initializeFirestore(app, {
-        localCache: memoryLocalCache(),
-      });
-      
-      storage = getStorage(app);
-      console.log(`Firebase initialized (New Instance). Project: ${firebaseConfig.projectId}`);
-    } else {
-      app = getApp();
-      auth = getAuth(app);
-      googleProvider = new GoogleAuthProvider();
-      // Get existing Firestore instance
-      db = getFirestore(app);
-      storage = getStorage(app);
-      console.log(`Firebase initialized (Existing Instance).`);
-    }
-  } else {
-    console.warn("Firebase configuration is missing or incomplete.");
-  }
-} catch (error) {
-  console.error("Firebase initialization error:", error);
-}
+// 4. Initialize Firestore
+// We use memoryLocalCache to avoid indexDB locks during development hot-reloads.
+// In production, you might switch this to persistentLocalCache if needed, but memory is safer for now.
+const db = initializeFirestore(app, {
+  localCache: memoryLocalCache()
+});
+
+// 5. Initialize Storage
+const storage = getStorage(app);
+
+console.log("Firebase Services Initialized:", { 
+  projectId: firebaseConfig.projectId, 
+  auth: !!auth, 
+  db: !!db 
+});
 
 export { auth, googleProvider, db, storage };
 export default app;
