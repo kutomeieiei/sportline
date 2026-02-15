@@ -99,33 +99,36 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
             ...formData
         };
 
-        // 2. FORCE UPDATE LOCAL STORAGE NOW
+        // 2. FORCE UPDATE LOCAL STORAGE NOW (Instant Persistence)
         // This ensures that even if the network is slow or fails, the next reload has the new data.
         localStorage.setItem(`sportline_profile_${currentUser.uid}`, JSON.stringify(updatedUser));
 
         // 3. Optimistic Update (Update UI Immediately)
         onUpdateUser(updatedUser);
         
-        // 4. Background Sync to Firestore
+        // 4. Close the modal IMMEDIATELY (Do not wait for database)
+        setIsEditing(false);
+
+        // 5. Background Sync to Firestore (Fire and Forget)
         if (db) {
             const userRef = doc(db, 'users', currentUser.uid);
-            await updateDoc(userRef, {
+            // We purposely do NOT await this promise. We let it run in the background.
+            // Firebase SDK handles the queueing and retrying if offline.
+            updateDoc(userRef, {
                 displayName: formData.displayName,
                 username: formData.username,
                 bio: formData.bio,
                 gender: formData.gender,
                 preferredSports: formData.preferredSports,
                 avatarUrl: formData.avatarUrl
+            }).catch((err) => {
+                console.warn("Background cloud sync failed (local save is okay):", err);
             });
-            console.log("Profile synced to Firestore successfully");
         }
 
-        setIsEditing(false);
     } catch (error: any) {
         console.error("Error saving profile:", error);
-        alert(`Failed to save profile changes to server: ${error.message}`);
-        // We still keep the local change valid so the user doesn't lose work
-        setIsEditing(false);
+        alert(`Failed to save changes: ${error.message}`);
     } finally {
         setIsSaving(false);
     }
@@ -422,7 +425,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
         </div>
 
         <div className="p-6 text-center text-xs text-gray-400">
-            Version 1.2.3 (Fast Load)
+            Version 1.2.4 (Instant Save)
         </div>
 
       </div>
