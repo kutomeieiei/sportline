@@ -48,17 +48,16 @@ try {
     auth = getAuth(app);
     googleProvider = new GoogleAuthProvider();
     
-    // NUCLEAR FIX FOR CONNECTION/HANGING ISSUES:
-    // 1. localCache: memoryLocalCache() -> Prevents IndexedDB locks (the #1 cause of hangs in dev).
-    //    It means data isn't saved offline between refreshes, but writes won't hang waiting for locks.
-    // 2. experimentalForceLongPolling: true -> Bypasses WebSocket blocks (Firewalls/Proxies).
+    // NUCLEAR FIX REVISED:
+    // 1. localCache: memoryLocalCache() -> Prevents IndexedDB locks.
+    // 2. REMOVED experimentalForceLongPolling -> Reverting to standard WebSockets.
+    //    Long Polling can sometimes cause timeouts if the network is actually fine but the polling fails.
     db = initializeFirestore(app, {
       localCache: memoryLocalCache(),
-      experimentalForceLongPolling: true,
     });
     
     storage = getStorage(app);
-    console.log(`Firebase initialized successfully (Memory Cache + Long Polling). Project ID: ${firebaseConfig.projectId}`);
+    console.log(`Firebase initialized successfully (Memory Cache). Project ID: ${firebaseConfig.projectId}`);
   } else {
     console.warn("Firebase configuration is missing or incomplete.");
   }

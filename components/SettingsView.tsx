@@ -3,7 +3,7 @@ import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
 import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, UploadCloud, AlertTriangle } from 'lucide-react';
 import { db, auth } from '../firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 interface SettingsViewProps {
   user: User;
@@ -75,10 +75,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
   });
 
   // Timeout helper to prevent infinite loading
-  const withTimeout = (promise: Promise<any>, ms: number) => {
+  const withTimeout = (promise: Promise<any>, ms: number, errorMsg: string) => {
       return new Promise((resolve, reject) => {
           const timer = setTimeout(() => {
-              reject(new Error("Request timed out. The server did not respond in time."));
+              reject(new Error(errorMsg));
           }, ms);
           promise
               .then(value => {
@@ -108,6 +108,13 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         if (db) {
             const userRef = doc(db, 'users', currentUser.uid);
             
+            // CHECK CONNECTION FIRST: Try to read the doc
+            try {
+                 await withTimeout(getDoc(userRef), 5000, "Connection check timed out");
+            } catch (e) {
+                 throw new Error("Cannot connect to server. Please check your internet connection.");
+            }
+
             // 2. Prepare Data (Strict Sanitization)
             const updates: Record<string, any> = {
                 displayName: formData.displayName || '',
@@ -130,8 +137,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
             console.log("Attempting to save:", updates);
 
             // 3. Perform Save with Timeout
-            // 30 seconds timeout
-            await withTimeout(setDoc(userRef, updates, { merge: true }), 30000);
+            // 20 seconds timeout for write
+            await withTimeout(setDoc(userRef, updates, { merge: true }), 20000, "Save operation timed out.");
             
             setIsEditing(false);
         } else {
@@ -149,8 +156,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
             );
         } else if (error.code === 'unavailable') {
              alert("Connection Failed: Firebase is unreachable. Check firewall or ad-blockers.");
-        } else if (error.message.includes('timed out')) {
-             alert("Save Timed Out: The database is not responding. \n\nWe have switched to 'Memory Cache' mode to fix this. Please try clicking 'Done' again.");
         } else {
             alert(`Save Failed: ${error.message}`);
         }
@@ -451,7 +456,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         </div>
 
         <div className="p-6 text-center text-xs text-gray-400">
-            Version 1.3.3 (Memory Cache)
+            Version 1.3.4 (Standard Connection)
         </div>
 
       </div>
