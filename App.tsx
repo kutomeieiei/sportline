@@ -19,7 +19,6 @@ function App() {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   
   // New State: Ensures we don't show the app until the *Database* profile is loaded
-  // (Not just the Authentication login)
   const [isProfileLoaded, setIsProfileLoaded] = useState(false);
   
   const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
@@ -33,7 +32,7 @@ function App() {
   // Chat Navigation State
   const [selectedChatUser, setSelectedChatUser] = useState<ChatUser | null>(null);
 
-  // --- 1. Auth Listener ---
+  // --- 1. Auth Listener & L1 Cache Strategy ---
   useEffect(() => {
     if (!auth) {
         console.error("Authentication service is not available. Check Firebase config.");
@@ -43,10 +42,26 @@ function App() {
 
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setAuthUser(currentUser);
+      
       if (currentUser) {
         setIsAuthenticated(true);
-        // We do NOT set isProfileLoaded(true) here. 
-        // We wait for the Firestore listener below to fetch the actual custom profile.
+        
+        // 🚀 PERFORMANCE OPTIMIZATION: L1 Cache (Local Storage)
+        // Try to load profile from local storage immediately to avoid network delay.
+        try {
+            const cachedProfile = localStorage.getItem(`sportline_profile_${currentUser.uid}`);
+            if (cachedProfile) {
+                const parsedUser = JSON.parse(cachedProfile);
+                setUser(parsedUser);
+                setIsProfileLoaded(true); // Instant load!
+                console.log("Loaded profile from local cache");
+            }
+        } catch (e) {
+            console.warn("Failed to load cached profile", e);
+        }
+        
+        // If no cache was found, we still wait for the Firestore listener below.
+        
       } else {
         setIsAuthenticated(false);
         setIsProfileLoaded(true); // No profile to load if logged out
@@ -58,7 +73,7 @@ function App() {
     return () => unsubscribeAuth();
   }, []);
 
-  // --- 2. Real-time User Profile Listener ---
+  // --- 2. Real-time User Profile Listener (L2 Cache / Source of Truth) ---
   useEffect(() => {
     if (authUser && db) {
         const userRef = doc(db, 'users', authUser.uid);
@@ -67,18 +82,22 @@ function App() {
             if (docSnap.exists()) {
                 // SUCCESS: Database profile found. Use this data.
                 const userData = docSnap.data() as User;
+                
+                // Update State
                 setUser(userData);
+                
+                // Update L1 Cache (Local Storage) for next reload
+                localStorage.setItem(`sportline_profile_${authUser.uid}`, JSON.stringify(userData));
             } else {
                 // FALLBACK: Only happens if the document was deleted or creation failed.
-                // We construct a temporary user from Auth data, but this should be rare
-                // because LoginView creates the document.
                 console.log("User document not found, syncing from Auth...");
-                setUser({
+                const fallbackUser = {
                     ...INITIAL_USER,
                     displayName: authUser.displayName || 'User',
                     username: authUser.email?.split('@')[0] || 'user',
                     avatarUrl: authUser.photoURL || INITIAL_USER.avatarUrl
-                });
+                };
+                setUser(fallbackUser);
             }
             // IMPORTANT: Allow the app to render now that we have data
             setIsProfileLoaded(true);
@@ -92,7 +111,15 @@ function App() {
     }
   }, [authUser]);
 
-  // --- 3. Real-time Parties Listener ---
+  // --- 3. Watch for Local User Updates (Optimistic Updates) ---
+  // If the user updates their profile in SettingsView, we save to local storage immediately
+  useEffect(() => {
+    if (authUser && user && user.username !== INITIAL_USER.username) {
+        localStorage.setItem(`sportline_profile_${authUser.uid}`, JSON.stringify(user));
+    }
+  }, [user, authUser]);
+
+  // --- 4. Real-time Parties Listener ---
   useEffect(() => {
     if (!isAuthenticated || !db) return;
 
@@ -112,7 +139,12 @@ function App() {
     // When coming from LoginView, we have the fresh data immediately.
     setUser(loggedInUser);
     setIsAuthenticated(true);
-    setIsProfileLoaded(true); 
+    setIsProfileLoaded(true);
+    
+    // Save to cache immediately
+    if (auth?.currentUser) {
+        localStorage.setItem(`sportline_profile_${auth.currentUser.uid}`, JSON.stringify(loggedInUser));
+    }
   };
 
   const handleLogout = async () => {
@@ -122,6 +154,8 @@ function App() {
     setCurrentTab('explore');
     setSelectedChatUser(null);
     setIsProfileLoaded(false); // Reset for next login
+    // We intentionally do NOT clear the localStorage cache here so that if they 
+    // log back in quickly, it's still fast. The cache is keyed by UID, so it's safe.
   };
 
   // --- RENDERING ---
@@ -141,7 +175,8 @@ function App() {
   }
 
   // 3. Profile Loading Gate (Spinner)
-  // This prevents the "Flash of Default Content" where you see the wrong name for 0.5s
+  // This prevents the "Flash of Default Content". 
+  // Thanks to L1 Cache, this should be skipped almost instantly on reload.
   if (!isProfileLoaded) {
     return (
         <div className="w-full h-screen flex flex-col items-center justify-center bg-gray-50">
