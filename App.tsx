@@ -17,6 +17,11 @@ import { collection, query, onSnapshot, orderBy, doc, updateDoc, arrayUnion } fr
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  
+  // New State: Ensures we don't show the app until the *Database* profile is loaded
+  // (Not just the Authentication login)
+  const [isProfileLoaded, setIsProfileLoaded] = useState(false);
+  
   const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
   
   const [selectedSport, setSelectedSport] = useState<SportType>('All');
@@ -30,7 +35,6 @@ function App() {
 
   // --- 1. Auth Listener ---
   useEffect(() => {
-    // Safety check: if auth failed to initialize (e.g. bad config), stop loading and stay unauthenticated
     if (!auth) {
         console.error("Authentication service is not available. Check Firebase config.");
         setIsLoadingAuth(false);
@@ -41,9 +45,12 @@ function App() {
       setAuthUser(currentUser);
       if (currentUser) {
         setIsAuthenticated(true);
+        // We do NOT set isProfileLoaded(true) here. 
+        // We wait for the Firestore listener below to fetch the actual custom profile.
       } else {
         setIsAuthenticated(false);
-        setUser(INITIAL_USER); // Reset user data on logout
+        setIsProfileLoaded(true); // No profile to load if logged out
+        setUser(INITIAL_USER); 
       }
       setIsLoadingAuth(false);
     });
@@ -52,19 +59,20 @@ function App() {
   }, []);
 
   // --- 2. Real-time User Profile Listener ---
-  // This ensures that when settings are changed (even in another tab), the app updates immediately.
   useEffect(() => {
     if (authUser && db) {
         const userRef = doc(db, 'users', authUser.uid);
         
         const unsubscribeUser = onSnapshot(userRef, (docSnap) => {
             if (docSnap.exists()) {
+                // SUCCESS: Database profile found. Use this data.
                 const userData = docSnap.data() as User;
                 setUser(userData);
             } else {
-                // Fallback: This typically happens only for a split second before LoginView creates the doc,
-                // or if the doc creation failed. We use auth data as fallback.
-                console.log("User document not found, using auth fallback");
+                // FALLBACK: Only happens if the document was deleted or creation failed.
+                // We construct a temporary user from Auth data, but this should be rare
+                // because LoginView creates the document.
+                console.log("User document not found, syncing from Auth...");
                 setUser({
                     ...INITIAL_USER,
                     displayName: authUser.displayName || 'User',
@@ -72,8 +80,12 @@ function App() {
                     avatarUrl: authUser.photoURL || INITIAL_USER.avatarUrl
                 });
             }
+            // IMPORTANT: Allow the app to render now that we have data
+            setIsProfileLoaded(true);
         }, (error) => {
             console.error("Error listening to user profile:", error);
+            // Even on error, we should let the user in (maybe with restricted features)
+            setIsProfileLoaded(true); 
         });
 
         return () => unsubscribeUser();
@@ -97,20 +109,24 @@ function App() {
   }, [isAuthenticated]);
 
   const handleLogin = (loggedInUser: User) => {
-    // Note: The onSnapshot listener above will handle setting the user state.
-    // We just ensure authenticated state here if LoginView passes control manually.
+    // When coming from LoginView, we have the fresh data immediately.
+    setUser(loggedInUser);
     setIsAuthenticated(true);
+    setIsProfileLoaded(true); 
   };
 
   const handleLogout = async () => {
     if (auth) {
         await signOut(auth);
     }
-    // State cleanup is handled by onAuthStateChanged
     setCurrentTab('explore');
     setSelectedChatUser(null);
+    setIsProfileLoaded(false); // Reset for next login
   };
 
+  // --- RENDERING ---
+
+  // 1. Initial Auth Check (Spinner)
   if (isLoadingAuth) {
      return (
         <div className="w-full h-screen flex items-center justify-center bg-white">
@@ -119,26 +135,35 @@ function App() {
      );
   }
 
-  // If not authenticated, show Login View
+  // 2. Login Screen
   if (!isAuthenticated) {
     return <LoginView onLogin={handleLogin} />;
   }
 
-  // Filter parties based on selection
+  // 3. Profile Loading Gate (Spinner)
+  // This prevents the "Flash of Default Content" where you see the wrong name for 0.5s
+  if (!isProfileLoaded) {
+    return (
+        <div className="w-full h-screen flex flex-col items-center justify-center bg-gray-50">
+            <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
+            <p className="text-gray-500 font-medium animate-pulse">Loading Profile...</p>
+        </div>
+     );
+  }
+
+  // 4. Main App
   const filteredParties = selectedSport === 'All' 
     ? parties 
     : parties.filter(p => p.sport === selectedSport);
 
   const handleTabChange = (tab: 'explore' | 'create' | 'settings' | 'chat') => {
     setCurrentTab(tab);
-    // Reset internal navigations when switching main tabs
     if (tab !== 'chat') {
         setSelectedChatUser(null);
     }
   };
 
   const handleCreateParty = (newParty: Party) => {
-    // Optimistic update handled by Firestore listener, but we switch tabs here
     setCurrentTab('explore');
     setMapCenter({ lat: newParty.latitude, lng: newParty.longitude });
   };
@@ -147,7 +172,6 @@ function App() {
     if (!db) return;
     try {
         const partyRef = doc(db, 'parties', partyId);
-        // Using arrayUnion ensures no duplicates and handles concurrency better
         await updateDoc(partyRef, {
             members: arrayUnion(user.username),
             playersCurrent: (parties.find(p => p.id === partyId)?.playersCurrent || 0) + 1
@@ -168,7 +192,7 @@ function App() {
   return (
     <div className="relative w-full h-screen overflow-hidden bg-gray-50 flex flex-col font-sans">
       
-      {/* Map Layer (Always rendered in background) */}
+      {/* Map Layer */}
       <div className="absolute inset-0 top-0 bottom-[72px] z-0">
         <MapView 
             parties={filteredParties} 
@@ -178,7 +202,7 @@ function App() {
         />
       </div>
 
-      {/* Floating UI Elements (Visible only in Explore mode) */}
+      {/* Floating UI Elements */}
       {currentTab === 'explore' && (
         <>
           <TopBar 
@@ -189,7 +213,6 @@ function App() {
             onLocationSelect={handleLocationSelect}
           />
 
-          {/* Recenter Button (FAB) */}
           <button 
             onClick={handleRecenter}
             className="absolute bottom-24 right-4 bg-white p-3 rounded-full shadow-lg text-gray-600 hover:text-blue-600 z-[1000] border border-gray-100"
@@ -213,8 +236,6 @@ function App() {
         <SettingsView 
           user={user}
           onUpdateUser={(updatedUser) => {
-             // We can optionally update local state immediately for perceived speed, 
-             // but the onSnapshot will verify it shortly.
              setUser(updatedUser); 
           }}
           onClose={() => setCurrentTab('explore')}
