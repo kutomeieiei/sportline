@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
-import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, UploadCloud } from 'lucide-react';
+import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, UploadCloud, AlertTriangle } from 'lucide-react';
 import { db, auth } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
@@ -22,7 +22,6 @@ const compressImage = (file: File): Promise<string> => {
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // Reasonable dimensions for profile pictures
         const MAX_WIDTH = 300; 
         const MAX_HEIGHT = 300;
         let width = img.width;
@@ -47,8 +46,6 @@ const compressImage = (file: File): Promise<string> => {
              ctx.fillStyle = '#FFFFFF';
              ctx.fillRect(0, 0, width, height);
              ctx.drawImage(img, 0, 0, width, height);
-             
-             // 0.6 quality is a good balance for standard web use
              const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
              resolve(dataUrl);
         } else {
@@ -66,10 +63,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
-  // File Input Ref
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Edit Mode State
   const [formData, setFormData] = useState({
     displayName: user.displayName || '',
     username: user.username || '',
@@ -78,6 +73,24 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
     gender: user.gender || 'Prefer not to say',
     preferredSports: user.preferredSports || []
   });
+
+  // Timeout helper to prevent infinite loading
+  const withTimeout = (promise: Promise<any>, ms: number) => {
+      return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+              reject(new Error("Request timed out. Please check your internet connection."));
+          }, ms);
+          promise
+              .then(value => {
+                  clearTimeout(timer);
+                  resolve(value);
+              })
+              .catch(reason => {
+                  clearTimeout(timer);
+                  reject(reason);
+              });
+      });
+  };
 
   const handleSave = async () => {
     // 1. Validate
@@ -95,9 +108,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         if (db) {
             const userRef = doc(db, 'users', currentUser.uid);
             
-            // Build payload
-            // Optimization: Only include avatar if it has changed from the original user prop.
-            // This drastically reduces payload size if the user is just editing text, making the save much faster.
             const updates: any = {
                 displayName: formData.displayName,
                 username: formData.username,
@@ -109,16 +119,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
             const currentAvatar = user.avatarUrl || '';
             const newAvatar = formData.avatarUrl || '';
             
-            // Only add avatar to payload if it changed
             if (currentAvatar !== newAvatar) {
                 updates.avatarUrl = newAvatar;
             }
 
-            // Standard Wait-for-Server logic (await)
-            // The UI will block until this completes
-            await setDoc(userRef, updates, { merge: true });
+            // 2. Perform Save with Timeout (15 seconds)
+            // If the server doesn't respond in 15s, this throws an error so the UI unblocks.
+            await withTimeout(setDoc(userRef, updates, { merge: true }), 15000);
             
-            // Only close on success
             setIsEditing(false);
         } else {
             throw new Error("Database not connected");
@@ -126,15 +134,13 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
 
     } catch (error: any) {
         console.error("Error saving profile:", error);
-        alert(`Failed to save changes: ${error.message}`);
-        // We do NOT close the modal here, so the user can try again
+        alert(`Error: ${error.message}`);
     } finally {
         setIsSaving(false);
     }
   };
 
   const handleCancel = () => {
-    // Reset form to current user data
     setFormData({
         displayName: user.displayName || '',
         username: user.username || '',
@@ -154,7 +160,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
             alert("File is too large.");
             return;
         }
-
         if (!file.type.startsWith('image/')) {
             alert("Please upload an image file.");
             return;
@@ -162,18 +167,13 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
 
         setIsUploading(true);
         try {
-            // Compress
             const base64Image = await compressImage(file);
-            
             if (base64Image.length > 900000) { 
                  alert("Image is still too large after compression. Please try a different photo.");
                  setIsUploading(false);
                  return;
             }
-
-            // Update local form state immediately
             setFormData(prev => ({ ...prev, avatarUrl: base64Image }));
-            
         } catch (error) {
             console.error("Image processing failed", error);
             alert("Failed to process image.");
@@ -198,7 +198,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
     });
   };
 
-  // --- EDIT PROFILE VIEW ---
   if (isEditing) {
     return (
         <div className="fixed inset-0 bg-white z-[2000] flex flex-col font-sans animate-in slide-in-from-bottom duration-300">
@@ -236,14 +235,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
                             <img src={formData.avatarUrl || 'https://via.placeholder.com/150'} alt="User Avatar" className="w-full h-full object-cover" />
                         </div>
                         
-                        {/* Loading Overlay */}
                         {isUploading && (
                              <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
                                  <Loader2 className="animate-spin text-white" size={32} />
                              </div>
                         )}
 
-                        {/* Hover Overlay */}
                         {!isUploading && (
                             <div className="absolute inset-0 bg-black/20 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                 <UploadCloud className="text-white" size={32} />
@@ -254,7 +251,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
                             <Camera size={16} />
                         </button>
                         
-                        {/* Hidden File Input */}
                         <input 
                             type="file" 
                             ref={fileInputRef} 
@@ -436,7 +432,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         </div>
 
         <div className="p-6 text-center text-xs text-gray-400">
-            Version 1.2.8 (Sync Wait)
+            Version 1.3.0 (Stable Sync)
         </div>
 
       </div>
