@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
-import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, UploadCloud } from 'lucide-react';
+import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2 } from 'lucide-react';
 import { db, auth } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
@@ -12,287 +12,236 @@ interface SettingsViewProps {
   onLogout: () => void;
 }
 
-// --- UTILS ---
-
-// Robust Image Compressor
-// Firestore has a 1MB limit per document. We target ~100KB for avatars to be safe.
-const processImage = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        // Max 300x300 is plenty for an avatar
-        const MAX_SIZE = 300; 
-        let width = img.width;
-        let height = img.height;
-
-        // Maintain aspect ratio
-        if (width > height) {
-          if (width > MAX_SIZE) {
-            height *= MAX_SIZE / width;
-            width = MAX_SIZE;
-          }
-        } else {
-          if (height > MAX_SIZE) {
-            width *= MAX_SIZE / height;
-            height = MAX_SIZE;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-            reject(new Error("Browser does not support canvas"));
-            return;
-        }
-
-        // White background for transparent PNGs converted to JPEG
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, width, height);
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Convert to JPEG with 0.7 quality to save space
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        resolve(dataUrl);
-      };
-      img.onerror = (err) => reject(err);
-    };
-    reader.onerror = (err) => reject(err);
-  });
-};
-
 const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) => {
-  // Mode: 'view' or 'edit'
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
-  // Form State
   const [formData, setFormData] = useState<User>(user);
-  
-  // UI Helpers
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync state when entering edit mode to ensure we have latest data
+  // Sync state when entering edit mode
   useEffect(() => {
     if (isEditing) {
-        setFormData(user);
+      setFormData(user);
     }
   }, [isEditing, user]);
 
-  // --- HANDLERS ---
+  // Image Processing Helper
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Image is too large. Please select an image under 2MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      setFormData(prev => ({ ...prev, avatarUrl: result }));
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = async () => {
-    // 1. Basic Validation
-    if (!formData.displayName?.trim() || !formData.username?.trim()) {
-        alert("Name and Username are required.");
-        return;
+    // 1. Validation
+    if (!formData.displayName?.trim()) {
+      alert("Display Name is required");
+      return;
+    }
+    if (!formData.username?.trim()) {
+      alert("Username is required");
+      return;
     }
 
     setIsSaving(true);
 
     try {
-        if (!auth.currentUser) throw new Error("You are not logged in.");
-        if (!db) throw new Error("Database connection not established.");
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error("You are not currently signed in.");
+      }
 
-        const userRef = doc(db, 'users', auth.currentUser.uid);
+      // 2. Prepare Data (Clean undefined values)
+      const userDataToSave = {
+        displayName: formData.displayName,
+        username: formData.username,
+        bio: formData.bio || "",
+        gender: formData.gender || "Prefer not to say",
+        preferredSports: formData.preferredSports || [],
+        avatarUrl: formData.avatarUrl || ""
+      };
 
-        // 2. Data Cleaning
-        // Firestore throws errors if you send 'undefined'. We replace them with defaults.
-        const cleanData = {
-            displayName: formData.displayName || '',
-            username: formData.username || '',
-            bio: formData.bio || '',
-            gender: formData.gender || 'Prefer not to say',
-            preferredSports: formData.preferredSports || [],
-            avatarUrl: formData.avatarUrl || ''
-        };
-
-        // 3. Standard Save
-        console.log("Saving user data...", cleanData);
-        await setDoc(userRef, cleanData, { merge: true });
-        
-        console.log("Save complete.");
-        setIsEditing(false);
+      // 3. Firestore Write
+      const userRef = doc(db, 'users', currentUser.uid);
+      await setDoc(userRef, userDataToSave, { merge: true });
+      
+      console.log("Profile updated successfully");
+      setIsEditing(false);
 
     } catch (error: any) {
-        console.error("Save Error:", error);
-        alert(`Failed to save: ${error.message}`);
+      console.error("Save failed:", error);
+      let errorMessage = "Failed to save profile.";
+      
+      if (error.code === 'permission-denied') {
+        errorMessage = "Permission denied. Check Firestore Security Rules.";
+      } else if (error.code === 'unavailable') {
+        errorMessage = "Network error. Please check your internet connection.";
+      } else {
+        errorMessage = error.message || errorMessage;
+      }
+      
+      alert(errorMessage);
     } finally {
-        setIsSaving(false);
-    }
-  };
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-        const file = e.target.files[0];
-        
-        // Quick size check (5MB limit for raw file)
-        if (file.size > 5 * 1024 * 1024) {
-            alert("Image is too large. Please choose an image under 5MB.");
-            return;
-        }
-
-        try {
-            const compressedBase64 = await processImage(file);
-            setFormData(prev => ({ ...prev, avatarUrl: compressedBase64 }));
-        } catch (error) {
-            console.error("Image error:", error);
-            alert("Failed to process image.");
-        }
+      setIsSaving(false);
     }
   };
 
   const toggleSport = (sport: SportType) => {
     setFormData(prev => {
-        const current = prev.preferredSports || [];
-        if (current.includes(sport)) {
-            return { ...prev, preferredSports: current.filter(s => s !== sport) };
-        } else {
-            return { ...prev, preferredSports: [...current, sport] };
-        }
+      const current = prev.preferredSports || [];
+      if (current.includes(sport)) {
+        return { ...prev, preferredSports: current.filter(s => s !== sport) };
+      } else {
+        return { ...prev, preferredSports: [...current, sport] };
+      }
     });
   };
 
-  // --- RENDER: EDIT MODE ---
   if (isEditing) {
     return (
-        <div className="fixed inset-0 bg-white z-[2000] flex flex-col animate-in slide-in-from-bottom duration-300">
-            {/* Header */}
-            <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
-                <button 
-                    onClick={() => setIsEditing(false)}
-                    disabled={isSaving}
-                    className="text-gray-500 font-medium hover:text-gray-900"
-                >
-                    Cancel
-                </button>
-                <h2 className="text-lg font-bold">Edit Profile</h2>
-                <button 
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="text-blue-600 font-bold hover:text-blue-700 min-w-[60px] flex justify-end"
-                >
-                    {isSaving ? <Loader2 className="animate-spin" size={20} /> : 'Save'}
-                </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 pb-20">
-                {/* Avatar */}
-                <div className="flex flex-col items-center mb-8">
-                    <div 
-                        className="relative w-28 h-28 rounded-full overflow-hidden bg-gray-100 border-4 border-gray-50 shadow-sm cursor-pointer group"
-                        onClick={() => fileInputRef.current?.click()}
-                    >
-                        <img 
-                            src={formData.avatarUrl || 'https://via.placeholder.com/150'} 
-                            alt="Avatar" 
-                            className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                             <Camera className="text-white" size={32} />
-                        </div>
-                    </div>
-                    <button 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="mt-3 text-sm font-semibold text-blue-600"
-                    >
-                        Change Photo
-                    </button>
-                    <input 
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleFileSelect}
-                    />
-                </div>
-
-                {/* Fields */}
-                <div className="space-y-6">
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Display Name</label>
-                        <input 
-                            type="text"
-                            value={formData.displayName}
-                            onChange={e => setFormData({...formData, displayName: e.target.value})}
-                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl font-medium outline-none focus:bg-white focus:border-blue-500 transition-all"
-                            placeholder="e.g. John Doe"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Username</label>
-                        <input 
-                            type="text"
-                            value={formData.username}
-                            onChange={e => setFormData({...formData, username: e.target.value})}
-                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl font-medium outline-none focus:bg-white focus:border-blue-500 transition-all"
-                            placeholder="username"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Bio</label>
-                        <textarea 
-                            rows={3}
-                            value={formData.bio}
-                            onChange={e => setFormData({...formData, bio: e.target.value})}
-                            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl font-medium outline-none focus:bg-white focus:border-blue-500 transition-all resize-none"
-                            placeholder="Tell us about yourself..."
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Gender</label>
-                        <div className="relative">
-                            <select 
-                                value={formData.gender}
-                                onChange={e => setFormData({...formData, gender: e.target.value})}
-                                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl font-medium outline-none focus:bg-white focus:border-blue-500 transition-all appearance-none"
-                            >
-                                <option>Prefer not to say</option>
-                                <option>Male</option>
-                                <option>Female</option>
-                                <option>Non-binary</option>
-                            </select>
-                            <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-gray-400" size={20} />
-                        </div>
-                    </div>
-
-                    <div>
-                         <label className="block text-sm font-bold text-gray-700 mb-2">Sports Interest</label>
-                         <div className="flex flex-wrap gap-2">
-                             {SPORTS_LIST.filter(s => s.type !== 'All').map(sport => {
-                                 const isSelected = formData.preferredSports?.includes(sport.type);
-                                 return (
-                                     <button
-                                         key={sport.type}
-                                         onClick={() => toggleSport(sport.type)}
-                                         className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-all flex items-center gap-2 ${
-                                             isSelected 
-                                             ? 'bg-blue-600 text-white border-blue-600' 
-                                             : 'bg-white text-gray-600 border-gray-200'
-                                         }`}
-                                     >
-                                         {sport.icon}
-                                         {sport.label}
-                                     </button>
-                                 );
-                             })}
-                         </div>
-                    </div>
-                </div>
-            </div>
+      <div className="fixed inset-0 bg-white z-[2000] flex flex-col animate-in slide-in-from-bottom duration-300">
+        {/* Edit Header */}
+        <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
+          <button 
+            onClick={() => setIsEditing(false)}
+            disabled={isSaving}
+            className="text-gray-500 font-medium hover:text-gray-900"
+          >
+            Cancel
+          </button>
+          <h2 className="text-lg font-bold">Edit Profile</h2>
+          <button 
+            onClick={handleSave}
+            disabled={isSaving}
+            className="text-blue-600 font-bold hover:text-blue-700 disabled:opacity-50"
+          >
+            {isSaving ? <Loader2 className="animate-spin" size={20} /> : 'Save'}
+          </button>
         </div>
+
+        <div className="flex-1 overflow-y-auto p-6 pb-24">
+          {/* Avatar Section */}
+          <div className="flex flex-col items-center mb-8">
+            <div 
+              className="relative w-28 h-28 rounded-full overflow-hidden bg-gray-100 border-4 border-gray-50 shadow-sm cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <img 
+                src={formData.avatarUrl || 'https://via.placeholder.com/150'} 
+                alt="Avatar" 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                 <Camera className="text-white" size={32} />
+              </div>
+            </div>
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="mt-3 text-sm font-semibold text-blue-600"
+            >
+              Change Photo
+            </button>
+            <input 
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+          </div>
+
+          {/* Form Fields */}
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Display Name</label>
+              <input 
+                type="text"
+                value={formData.displayName}
+                onChange={e => setFormData({...formData, displayName: e.target.value})}
+                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl font-medium outline-none focus:bg-white focus:border-blue-500 transition-all"
+                placeholder="Your Name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Username</label>
+              <input 
+                type="text"
+                value={formData.username}
+                onChange={e => setFormData({...formData, username: e.target.value})}
+                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl font-medium outline-none focus:bg-white focus:border-blue-500 transition-all"
+                placeholder="Username"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Bio</label>
+              <textarea 
+                rows={3}
+                value={formData.bio}
+                onChange={e => setFormData({...formData, bio: e.target.value})}
+                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl font-medium outline-none focus:bg-white focus:border-blue-500 transition-all resize-none"
+                placeholder="About you..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Gender</label>
+              <div className="relative">
+                <select 
+                  value={formData.gender}
+                  onChange={e => setFormData({...formData, gender: e.target.value})}
+                  className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl font-medium outline-none focus:bg-white focus:border-blue-500 appearance-none"
+                >
+                  <option>Prefer not to say</option>
+                  <option>Male</option>
+                  <option>Female</option>
+                  <option>Non-binary</option>
+                </select>
+                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-gray-400" size={20} />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Sports Interests</label>
+              <div className="flex flex-wrap gap-2">
+                {SPORTS_LIST.filter(s => s.type !== 'All').map(sport => {
+                  const isSelected = formData.preferredSports?.includes(sport.type);
+                  return (
+                    <button
+                      key={sport.type}
+                      onClick={() => toggleSport(sport.type)}
+                      className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-all flex items-center gap-2 ${
+                        isSelected 
+                        ? 'bg-blue-600 text-white border-blue-600' 
+                        : 'bg-white text-gray-600 border-gray-200'
+                      }`}
+                    >
+                      {sport.icon}
+                      {sport.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
-  // --- RENDER: VIEW MODE ---
+  // View Mode
   return (
     <div className="fixed inset-0 bg-gray-50 z-[2000] flex flex-col animate-in slide-in-from-right duration-300">
        <div className="px-4 py-4 border-b border-gray-200 flex items-center gap-4 bg-white sticky top-0">
@@ -309,10 +258,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
             </div>
             <h1 className="text-2xl font-bold text-gray-900">{user.displayName}</h1>
             <p className="text-gray-500">@{user.username}</p>
-            
-            {user.bio && (
-                <p className="mt-4 text-gray-600 text-sm max-w-xs italic">"{user.bio}"</p>
-            )}
+            {user.bio && <p className="mt-4 text-gray-600 text-sm italic">"{user.bio}"</p>}
 
             <button 
                 onClick={() => setIsEditing(true)}
@@ -323,9 +269,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         </div>
 
         <div className="bg-white border-t border-b border-gray-200">
-            <MenuButton icon={<Shield size={20} />} label="Privacy" />
+            <MenuButton icon={<Shield size={20} />} label="Privacy Policy" />
             <MenuButton icon={<Bell size={20} />} label="Notifications" />
-            <MenuButton icon={<HelpCircle size={20} />} label="Help" />
+            <MenuButton icon={<HelpCircle size={20} />} label="Support" />
             <button 
                 onClick={onLogout}
                 className="w-full flex items-center gap-4 px-6 py-4 text-red-600 hover:bg-red-50 transition-colors"
@@ -336,7 +282,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         </div>
         
         <div className="p-8 text-center text-xs text-gray-400">
-            v2.0 (Stable Rewrite)
+            v3.0 (Simplified)
         </div>
       </div>
     </div>

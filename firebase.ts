@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore, initializeFirestore, memoryLocalCache } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // 1. Config
@@ -14,26 +14,21 @@ const firebaseConfig = {
 };
 
 // 2. Initialize App (Singleton)
+// We check if apps are already initialized to avoid "Firebase App named '[DEFAULT]' already exists" errors
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// 3. Initialize Auth
+// 3. Initialize Services
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
-// 4. Initialize Firestore
-// We use memoryLocalCache to avoid indexDB locks during development hot-reloads.
-// In production, you might switch this to persistentLocalCache if needed, but memory is safer for now.
-const db = initializeFirestore(app, {
-  localCache: memoryLocalCache()
-});
+// Use default settings for Firestore (best for general compatibility)
+const db = getFirestore(app);
 
-// 5. Initialize Storage
 const storage = getStorage(app);
 
-console.log("Firebase Services Initialized:", { 
+console.log("Firebase Initialized:", { 
   projectId: firebaseConfig.projectId, 
-  auth: !!auth, 
-  db: !!db 
+  authDomain: firebaseConfig.authDomain 
 });
 
 export { auth, googleProvider, db, storage };
