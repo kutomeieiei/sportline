@@ -11,12 +11,14 @@ import { Party, SportType, User } from './types';
 import { INITIAL_USER, DEFAULT_CENTER } from './constants';
 import { Crosshair, Loader2 } from 'lucide-react';
 import { auth, db } from './firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { collection, query, onSnapshot, orderBy, doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
+import { collection, query, onSnapshot, orderBy, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
+  
   const [selectedSport, setSelectedSport] = useState<SportType>('All');
   const [user, setUser] = useState<User>(INITIAL_USER);
   const [parties, setParties] = useState<Party[]>([]);
@@ -26,7 +28,7 @@ function App() {
   // Chat Navigation State
   const [selectedChatUser, setSelectedChatUser] = useState<ChatUser | null>(null);
 
-  // --- Auth & User Data Listener ---
+  // --- 1. Auth Listener ---
   useEffect(() => {
     // Safety check: if auth failed to initialize (e.g. bad config), stop loading and stay unauthenticated
     if (!auth) {
@@ -35,30 +37,13 @@ function App() {
         return;
     }
 
-    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setAuthUser(currentUser);
       if (currentUser) {
-        // Fetch extended user profile from Firestore
-        const userRef = doc(db!, 'users', currentUser.uid); // db! is safe here if auth works usually
-        
-        try {
-            const userSnap = await getDoc(userRef);
-            if (userSnap.exists()) {
-                setUser(userSnap.data() as User);
-            } else {
-                // Fallback if firestore doc missing but auth exists
-                setUser({
-                    ...INITIAL_USER,
-                    displayName: currentUser.displayName || 'User',
-                    username: currentUser.email?.split('@')[0] || 'user',
-                    avatarUrl: currentUser.photoURL || INITIAL_USER.avatarUrl
-                });
-            }
-        } catch (e) {
-            console.error("Error fetching user profile:", e);
-        }
         setIsAuthenticated(true);
       } else {
         setIsAuthenticated(false);
+        setUser(INITIAL_USER); // Reset user data on logout
       }
       setIsLoadingAuth(false);
     });
@@ -66,7 +51,36 @@ function App() {
     return () => unsubscribeAuth();
   }, []);
 
-  // --- Real-time Parties Listener ---
+  // --- 2. Real-time User Profile Listener ---
+  // This ensures that when settings are changed (even in another tab), the app updates immediately.
+  useEffect(() => {
+    if (authUser && db) {
+        const userRef = doc(db, 'users', authUser.uid);
+        
+        const unsubscribeUser = onSnapshot(userRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const userData = docSnap.data() as User;
+                setUser(userData);
+            } else {
+                // Fallback: This typically happens only for a split second before LoginView creates the doc,
+                // or if the doc creation failed. We use auth data as fallback.
+                console.log("User document not found, using auth fallback");
+                setUser({
+                    ...INITIAL_USER,
+                    displayName: authUser.displayName || 'User',
+                    username: authUser.email?.split('@')[0] || 'user',
+                    avatarUrl: authUser.photoURL || INITIAL_USER.avatarUrl
+                });
+            }
+        }, (error) => {
+            console.error("Error listening to user profile:", error);
+        });
+
+        return () => unsubscribeUser();
+    }
+  }, [authUser]);
+
+  // --- 3. Real-time Parties Listener ---
   useEffect(() => {
     if (!isAuthenticated || !db) return;
 
@@ -83,7 +97,8 @@ function App() {
   }, [isAuthenticated]);
 
   const handleLogin = (loggedInUser: User) => {
-    setUser(loggedInUser);
+    // Note: The onSnapshot listener above will handle setting the user state.
+    // We just ensure authenticated state here if LoginView passes control manually.
     setIsAuthenticated(true);
   };
 
@@ -91,7 +106,7 @@ function App() {
     if (auth) {
         await signOut(auth);
     }
-    setIsAuthenticated(false);
+    // State cleanup is handled by onAuthStateChanged
     setCurrentTab('explore');
     setSelectedChatUser(null);
   };
@@ -197,7 +212,11 @@ function App() {
       {currentTab === 'settings' && (
         <SettingsView 
           user={user}
-          onUpdateUser={setUser}
+          onUpdateUser={(updatedUser) => {
+             // We can optionally update local state immediately for perceived speed, 
+             // but the onSnapshot will verify it shortly.
+             setUser(updatedUser); 
+          }}
           onClose={() => setCurrentTab('explore')}
           onLogout={handleLogout}
         />

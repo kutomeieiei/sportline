@@ -1,36 +1,51 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 
-// Helper to safely access process.env if available (injected by vite config or existing)
-const getProcessEnv = (key: string) => {
+// Helper to safely access environment variables
+// This handles cases where import.meta.env might be undefined or process.env is needed as fallback
+const getEnv = (key: string) => {
   try {
-    // We access process.env directly. If it's replaced by Vite's define, this works.
-    // If it's not replaced and process is undefined, this throws and we catch it.
+    // Check import.meta.env (Standard Vite)
     // @ts-ignore
-    return process.env[key];
-  } catch(e) {
-    return undefined;
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
+      // @ts-ignore
+      return import.meta.env[key];
+    }
+  } catch (e) {
+    // Ignore errors accessing import.meta
   }
+
+  try {
+    // Check process.env (Polyfilled via vite.config.ts)
+    // @ts-ignore
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+      // @ts-ignore
+      return process.env[key];
+    }
+  } catch (e) {
+    // Ignore errors accessing process
+  }
+
+  return undefined;
 };
 
-// Explicit configuration with safety checks.
-// We use direct property access 'import.meta.env.VITE_...' to ensure Vite performs static replacement.
-// We use logical OR to fallback to process.env if the static replacement yields undefined.
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || getProcessEnv('VITE_FIREBASE_API_KEY'),
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || getProcessEnv('VITE_FIREBASE_AUTH_DOMAIN'),
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || getProcessEnv('VITE_FIREBASE_PROJECT_ID'),
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || getProcessEnv('VITE_FIREBASE_STORAGE_BUCKET'),
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || getProcessEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || getProcessEnv('VITE_FIREBASE_APP_ID')
+  apiKey: getEnv('VITE_FIREBASE_API_KEY'),
+  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: getEnv('VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: getEnv('VITE_FIREBASE_APP_ID')
 };
 
-// Initialize Firebase services with null fallbacks
-let app;
+// Initialize Firebase services
+let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let googleProvider: GoogleAuthProvider | undefined;
 let db: Firestore | undefined;
+let storage: FirebaseStorage | undefined;
 
 try {
   // Check if we have the critical config
@@ -39,15 +54,20 @@ try {
     auth = getAuth(app);
     googleProvider = new GoogleAuthProvider();
     db = getFirestore(app);
+    storage = getStorage(app);
     console.log("Firebase initialized successfully");
   } else {
-    console.warn("Firebase configuration is missing. Authentication service will not be available.");
-    console.log("Debug Config:", JSON.stringify(firebaseConfig, null, 2));
+    console.warn("Firebase configuration is missing or incomplete. Authentication service will not be available.");
+    console.log("Debug Config Status:", {
+      hasApiKey: !!firebaseConfig.apiKey,
+      hasProjectId: !!firebaseConfig.projectId,
+      hasAuthDomain: !!firebaseConfig.authDomain
+    });
   }
 } catch (error) {
   console.error("Firebase initialization error:", error);
 }
 
-// Export services (they might be undefined if initialization failed)
-export { auth, googleProvider, db };
+// Export services
+export { auth, googleProvider, db, storage };
 export default app;

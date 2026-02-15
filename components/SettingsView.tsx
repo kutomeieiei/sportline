@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
-import { Camera, Save, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2 } from 'lucide-react';
-import { db, auth } from '../firebase';
+import { Camera, Save, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, UploadCloud } from 'lucide-react';
+import { db, auth, storage } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface SettingsViewProps {
   user: User;
@@ -15,14 +16,18 @@ interface SettingsViewProps {
 const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose, onLogout }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  
+  // File Input Ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Edit Mode State
   const [formData, setFormData] = useState({
-    displayName: user.displayName,
-    username: user.username,
-    avatarUrl: user.avatarUrl,
-    bio: user.bio,
-    gender: user.gender,
+    displayName: user.displayName || '',
+    username: user.username || '',
+    avatarUrl: user.avatarUrl || '',
+    bio: user.bio || '',
+    gender: user.gender || 'Prefer not to say',
     preferredSports: user.preferredSports || []
   });
 
@@ -40,16 +45,19 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
                 preferredSports: formData.preferredSports,
                 avatarUrl: formData.avatarUrl
             });
+            
+            // Optimistic update locally
+            onUpdateUser({
+                ...user,
+                ...formData
+            });
+            setIsEditing(false);
+        } else {
+            alert("You must be logged in to save changes.");
         }
-        
-        onUpdateUser({
-            ...user,
-            ...formData
-        });
-        setIsEditing(false);
     } catch (error) {
         console.error("Error updating profile:", error);
-        alert("Failed to save profile changes.");
+        alert("Failed to save profile changes. Please try again.");
     } finally {
         setIsSaving(false);
     }
@@ -58,24 +66,63 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
   const handleCancel = () => {
     // Reset form to current user data
     setFormData({
-        displayName: user.displayName,
-        username: user.username,
-        avatarUrl: user.avatarUrl,
-        bio: user.bio,
-        gender: user.gender,
+        displayName: user.displayName || '',
+        username: user.username || '',
+        avatarUrl: user.avatarUrl || '',
+        bio: user.bio || '',
+        gender: user.gender || 'Prefer not to say',
         preferredSports: user.preferredSports || []
     });
     setIsEditing(false);
   };
 
-  const handleRandomizeAvatar = () => {
-    const randomId = Math.floor(Math.random() * 1000);
-    setFormData(prev => ({ ...prev, avatarUrl: `https://picsum.photos/id/${randomId}/200/200` }));
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0] && auth?.currentUser) {
+        const file = e.target.files[0];
+        
+        // Basic validation
+        if (file.size > 5 * 1024 * 1024) {
+            alert("File is too large. Max size is 5MB.");
+            return;
+        }
+
+        if (!file.type.startsWith('image/')) {
+            alert("Please upload an image file.");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            if (!storage) throw new Error("Storage not initialized");
+            
+            // Create a reference to 'avatars/uid_timestamp'
+            const fileRef = ref(storage, `avatars/${auth.currentUser.uid}_${Date.now()}`);
+            
+            // Upload
+            const snapshot = await uploadBytes(fileRef, file);
+            
+            // Get URL
+            const downloadURL = await getDownloadURL(snapshot.ref);
+            
+            // Update local state immediately so user sees new image
+            setFormData(prev => ({ ...prev, avatarUrl: downloadURL }));
+            
+        } catch (error) {
+            console.error("Upload failed", error);
+            alert("Failed to upload image. Check your connection.");
+        } finally {
+            setIsUploading(false);
+        }
+    }
+  };
+
+  const triggerFileInput = () => {
+      fileInputRef.current?.click();
   };
 
   const toggleSport = (sport: SportType) => {
     setFormData(prev => {
-        const current = prev.preferredSports;
+        const current = prev.preferredSports || [];
         if (current.includes(sport)) {
             return { ...prev, preferredSports: current.filter(s => s !== sport) };
         } else {
@@ -92,7 +139,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
             <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
                 <button 
                     onClick={handleCancel}
-                    disabled={isSaving}
+                    disabled={isSaving || isUploading}
                     className="text-base text-gray-500 font-medium hover:text-gray-800 transition-colors"
                 >
                     Cancel
@@ -100,8 +147,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
                 <h2 className="text-lg font-bold text-gray-900">Edit Profile</h2>
                 <button 
                     onClick={handleSave}
-                    disabled={isSaving}
-                    className="text-base text-blue-600 font-bold hover:text-blue-700 transition-colors flex items-center gap-1"
+                    disabled={isSaving || isUploading}
+                    className="text-base text-blue-600 font-bold hover:text-blue-700 transition-colors flex items-center gap-1 disabled:opacity-50"
                 >
                     {isSaving && <Loader2 size={14} className="animate-spin" />}
                     Done
@@ -111,18 +158,45 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
             <div className="flex-1 overflow-y-auto p-6 pb-12">
                 {/* Avatar Edit */}
                 <div className="flex flex-col items-center mb-8">
-                    <div className="relative group cursor-pointer" onClick={handleRandomizeAvatar}>
-                        <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-gray-100 shadow-md">
-                            <img src={formData.avatarUrl} alt="User Avatar" className="w-full h-full object-cover" />
+                    <div className="relative group cursor-pointer" onClick={triggerFileInput}>
+                        <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-gray-100 shadow-md bg-gray-100">
+                            <img src={formData.avatarUrl || 'https://via.placeholder.com/150'} alt="User Avatar" className="w-full h-full object-cover" />
                         </div>
-                        <div className="absolute inset-0 bg-black/20 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                             <Camera className="text-white" size={32} />
-                        </div>
-                        <button className="absolute bottom-0 right-0 bg-gray-900 text-white p-2 rounded-full border-2 border-white shadow-sm">
+                        
+                        {/* Loading Overlay */}
+                        {isUploading && (
+                             <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+                                 <Loader2 className="animate-spin text-white" size={32} />
+                             </div>
+                        )}
+
+                        {/* Hover Overlay */}
+                        {!isUploading && (
+                            <div className="absolute inset-0 bg-black/20 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <UploadCloud className="text-white" size={32} />
+                            </div>
+                        )}
+
+                        <button type="button" className="absolute bottom-0 right-0 bg-gray-900 text-white p-2 rounded-full border-2 border-white shadow-sm hover:bg-gray-700 transition-colors">
                             <Camera size={16} />
                         </button>
+                        
+                        {/* Hidden File Input */}
+                        <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={handleFileChange}
+                        />
                     </div>
-                    <p className="text-xs text-blue-600 font-semibold mt-3">Change Profile Photo</p>
+                    <button 
+                        onClick={triggerFileInput} 
+                        className="text-xs text-blue-600 font-semibold mt-3 hover:underline"
+                        disabled={isUploading}
+                    >
+                        {isUploading ? 'Uploading...' : 'Change Profile Photo'}
+                    </button>
                 </div>
 
                 <div className="space-y-6 max-w-lg mx-auto">
@@ -227,12 +301,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
         {/* Profile Card */}
         <div className="bg-white p-6 mb-6 shadow-sm">
             <div className="flex flex-col items-center">
-                <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg mb-4">
-                    <img src={user.avatarUrl} alt="User Avatar" className="w-full h-full object-cover" />
+                <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg mb-4 bg-gray-100">
+                    <img src={user.avatarUrl || 'https://via.placeholder.com/150'} alt="User Avatar" className="w-full h-full object-cover" />
                 </div>
                 
-                <h3 className="text-2xl font-bold text-gray-900 mb-0">{user.displayName}</h3>
-                <p className="text-gray-500 text-sm mb-2">@{user.username}</p>
+                <h3 className="text-2xl font-bold text-gray-900 mb-0">{user.displayName || 'User'}</h3>
+                <p className="text-gray-500 text-sm mb-2">@{user.username || 'username'}</p>
                 
                 {user.bio && (
                     <p className="text-gray-600 text-center text-sm max-w-xs mb-4 px-4 py-2 bg-gray-50 rounded-lg italic">
@@ -282,7 +356,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
         </div>
 
         <div className="p-6 text-center text-xs text-gray-400">
-            Version 1.1.0 (Cloud Enabled)
+            Version 1.2.0 (Cloud Sync & Storage Enabled)
         </div>
 
       </div>
