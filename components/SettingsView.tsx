@@ -3,7 +3,7 @@ import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
 import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, UploadCloud, AlertTriangle } from 'lucide-react';
 import { db, auth } from '../firebase';
-import { doc, setDoc, enableNetwork } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface SettingsViewProps {
   user: User;
@@ -78,7 +78,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
   const withTimeout = (promise: Promise<any>, ms: number) => {
       return new Promise((resolve, reject) => {
           const timer = setTimeout(() => {
-              reject(new Error("Request timed out. Please check your internet connection."));
+              reject(new Error("Request timed out. The server did not respond in time."));
           }, ms);
           promise
               .then(value => {
@@ -106,13 +106,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         if (!currentUser) throw new Error("No authenticated user");
 
         if (db) {
-            // Force network to ensure we aren't stuck in offline mode
-            try { await enableNetwork(db); } catch (e) { console.warn("Network enable warning:", e); }
-
             const userRef = doc(db, 'users', currentUser.uid);
             
             // 2. Prepare Data (Strict Sanitization)
-            // Firestore throws errors if you pass 'undefined'. We convert everything to safe values.
             const updates: Record<string, any> = {
                 displayName: formData.displayName || '',
                 username: formData.username || '',
@@ -128,13 +124,13 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
                 updates.avatarUrl = newAvatar;
             }
 
-            // Remove any keys that are strictly undefined (double check)
+            // Remove any keys that are strictly undefined
             Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
 
-            console.log("Attempting to save:", updates); // For debugging
+            console.log("Attempting to save:", updates);
 
             // 3. Perform Save with Timeout
-            // Increased to 30 seconds because we switched to Long Polling which can be slower
+            // 30 seconds timeout
             await withTimeout(setDoc(userRef, updates, { merge: true }), 30000);
             
             setIsEditing(false);
@@ -145,16 +141,16 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
     } catch (error: any) {
         console.error("Error saving profile:", error);
         
-        // SPECIFIC ERROR HANDLING FOR PERMISSIONS
+        // SPECIFIC ERROR HANDLING
         if (error.code === 'permission-denied' || error.message.includes('permission')) {
             alert(
-                "ACCESS DENIED: Your database is locked.\n\n" +
-                "1. Go to Firebase Console > Firestore Database > Rules\n" +
-                "2. Change 'allow read, write: if false;' to 'allow read, write: if true;'\n" +
-                "3. Publish the rules."
+                "ACCESS DENIED: Database Locked.\n" +
+                "Please check your Firestore Rules in the Firebase Console."
             );
         } else if (error.code === 'unavailable') {
-             alert("Network Error: Cannot reach Firebase. You might be offline or a firewall is blocking the connection.");
+             alert("Connection Failed: Firebase is unreachable. Check firewall or ad-blockers.");
+        } else if (error.message.includes('timed out')) {
+             alert("Save Timed Out: The database is not responding. \n\nWe have switched to 'Memory Cache' mode to fix this. Please try clicking 'Done' again.");
         } else {
             alert(`Save Failed: ${error.message}`);
         }
@@ -455,7 +451,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         </div>
 
         <div className="p-6 text-center text-xs text-gray-400">
-            Version 1.3.2 (Long Polling)
+            Version 1.3.3 (Memory Cache)
         </div>
 
       </div>
