@@ -13,7 +13,6 @@ interface SettingsViewProps {
 }
 
 // Helper: Compress image and convert to Base64
-// We use aggressive compression (200px, 0.5 quality) to ensure the string is small enough for Firestore.
 const compressImage = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -23,9 +22,9 @@ const compressImage = (file: File): Promise<string> => {
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // Aggressive resizing for Firestore storage
-        const MAX_WIDTH = 200; 
-        const MAX_HEIGHT = 200;
+        // Reasonable dimensions for profile pictures
+        const MAX_WIDTH = 300; 
+        const MAX_HEIGHT = 300;
         let width = img.width;
         let height = img.height;
 
@@ -45,13 +44,12 @@ const compressImage = (file: File): Promise<string> => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (ctx) {
-             // White background (for transparent PNGs converted to JPEG)
              ctx.fillStyle = '#FFFFFF';
              ctx.fillRect(0, 0, width, height);
              ctx.drawImage(img, 0, 0, width, height);
              
-             // Compress to JPEG with 0.5 quality (very small string size)
-             const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+             // 0.6 quality is a good balance for standard web use
+             const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
              resolve(dataUrl);
         } else {
             reject(new Error("Canvas context failed"));
@@ -97,31 +95,39 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         if (db) {
             const userRef = doc(db, 'users', currentUser.uid);
             
-            // Clean undefined values to prevent Firestore errors
-            const safeData = Object.fromEntries(
-                Object.entries({
-                    displayName: formData.displayName,
-                    username: formData.username,
-                    bio: formData.bio || '',
-                    gender: formData.gender || 'Prefer not to say',
-                    preferredSports: formData.preferredSports || [],
-                    avatarUrl: formData.avatarUrl || ''
-                }).filter(([_, v]) => v !== undefined)
-            );
+            // Build payload
+            // Optimization: Only include avatar if it has changed from the original user prop.
+            // This drastically reduces payload size if the user is just editing text, making the save much faster.
+            const updates: any = {
+                displayName: formData.displayName,
+                username: formData.username,
+                bio: formData.bio || '',
+                gender: formData.gender || 'Prefer not to say',
+                preferredSports: formData.preferredSports || [],
+            };
 
-            // Await server confirmation
-            await setDoc(userRef, safeData, { merge: true });
-            console.log("Profile synced to server successfully");
+            const currentAvatar = user.avatarUrl || '';
+            const newAvatar = formData.avatarUrl || '';
+            
+            // Only add avatar to payload if it changed
+            if (currentAvatar !== newAvatar) {
+                updates.avatarUrl = newAvatar;
+            }
+
+            // Standard Wait-for-Server logic (await)
+            // The UI will block until this completes
+            await setDoc(userRef, updates, { merge: true });
+            
+            // Only close on success
+            setIsEditing(false);
         } else {
-            throw new Error("Database connection unavailable");
+            throw new Error("Database not connected");
         }
-
-        // Only close after successful server save
-        setIsEditing(false);
 
     } catch (error: any) {
         console.error("Error saving profile:", error);
-        alert(`Failed to save to server: ${error.message}`);
+        alert(`Failed to save changes: ${error.message}`);
+        // We do NOT close the modal here, so the user can try again
     } finally {
         setIsSaving(false);
     }
@@ -159,7 +165,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
             // Compress
             const base64Image = await compressImage(file);
             
-            // Check size (must be under 1MB for Firestore, aiming for <100KB for speed)
             if (base64Image.length > 900000) { 
                  alert("Image is still too large after compression. Please try a different photo.");
                  setIsUploading(false);
@@ -202,7 +207,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
                 <button 
                     onClick={handleCancel}
                     disabled={isSaving || isUploading}
-                    className="text-base text-gray-500 font-medium hover:text-gray-800 transition-colors"
+                    className="text-base text-gray-500 font-medium hover:text-gray-800 transition-colors disabled:opacity-50"
                 >
                     Cancel
                 </button>
@@ -210,10 +215,16 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
                 <button 
                     onClick={handleSave}
                     disabled={isSaving || isUploading}
-                    className="text-base text-blue-600 font-bold hover:text-blue-700 transition-colors flex items-center gap-1 disabled:opacity-50"
+                    className="text-base text-blue-600 font-bold hover:text-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 min-w-[60px] justify-end"
                 >
-                    {isSaving && <Loader2 size={14} className="animate-spin" />}
-                    {isSaving ? 'Saving...' : 'Done'}
+                    {isSaving ? (
+                        <>
+                            <Loader2 size={16} className="animate-spin" />
+                            <span>Saving</span>
+                        </>
+                    ) : (
+                        'Done'
+                    )}
                 </button>
             </div>
 
@@ -269,7 +280,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
                             type="text"
                             value={formData.displayName}
                             onChange={(e) => setFormData({...formData, displayName: e.target.value})}
-                            className="w-full p-4 border border-gray-200 rounded-2xl bg-gray-50 text-gray-900 font-medium outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                            disabled={isSaving}
+                            className="w-full p-4 border border-gray-200 rounded-2xl bg-gray-50 text-gray-900 font-medium outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all disabled:opacity-70"
                             placeholder="Your Display Name"
                         />
                     </div>
@@ -281,7 +293,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
                             type="text"
                             value={formData.username}
                             onChange={(e) => setFormData({...formData, username: e.target.value})}
-                            className="w-full p-4 border border-gray-200 rounded-2xl bg-gray-50 text-gray-900 font-medium outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                            disabled={isSaving}
+                            className="w-full p-4 border border-gray-200 rounded-2xl bg-gray-50 text-gray-900 font-medium outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all disabled:opacity-70"
                             placeholder="username"
                         />
                     </div>
@@ -293,7 +306,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
                             rows={3}
                             value={formData.bio}
                             onChange={(e) => setFormData({...formData, bio: e.target.value})}
-                            className="w-full p-4 border border-gray-200 rounded-2xl bg-gray-50 text-gray-900 font-medium outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all resize-none"
+                            disabled={isSaving}
+                            className="w-full p-4 border border-gray-200 rounded-2xl bg-gray-50 text-gray-900 font-medium outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all resize-none disabled:opacity-70"
                             placeholder="Write something about yourself..."
                         />
                     </div>
@@ -305,7 +319,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
                             <select
                                 value={formData.gender}
                                 onChange={(e) => setFormData({...formData, gender: e.target.value})}
-                                className="w-full p-4 border border-gray-200 rounded-2xl bg-gray-50 text-gray-900 font-medium outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all appearance-none"
+                                disabled={isSaving}
+                                className="w-full p-4 border border-gray-200 rounded-2xl bg-gray-50 text-gray-900 font-medium outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all appearance-none disabled:opacity-70"
                             >
                                 <option value="Prefer not to say">Prefer not to say</option>
                                 <option value="Male">Male</option>
@@ -327,10 +342,13 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
                                          <button
                                              key={sport.type}
                                              onClick={() => toggleSport(sport.type)}
+                                             disabled={isSaving}
                                              className={`px-3 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all border
                                                  ${isSelected 
                                                      ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105' 
-                                                     : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'}`}
+                                                     : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'}
+                                                 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}
+                                                 `}
                                          >
                                              {sport.icon}
                                              {sport.label}
@@ -418,7 +436,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         </div>
 
         <div className="p-6 text-center text-xs text-gray-400">
-            Version 1.2.6 (Server Only)
+            Version 1.2.8 (Sync Wait)
         </div>
 
       </div>
