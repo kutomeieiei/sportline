@@ -3,7 +3,7 @@ import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
 import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, UploadCloud } from 'lucide-react';
 import { db, auth } from '../firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore'; // Changed updateDoc to setDoc
 
 interface SettingsViewProps {
   user: User;
@@ -107,22 +107,34 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
         onUpdateUser(updatedUser);
         
         // 4. Close the modal IMMEDIATELY (Do not wait for database)
+        // This gives the "Instant" feeling the user requested.
         setIsEditing(false);
 
         // 5. Background Sync to Firestore (Fire and Forget)
         if (db) {
             const userRef = doc(db, 'users', currentUser.uid);
-            // We purposely do NOT await this promise. We let it run in the background.
-            // Firebase SDK handles the queueing and retrying if offline.
-            updateDoc(userRef, {
-                displayName: formData.displayName,
-                username: formData.username,
-                bio: formData.bio,
-                gender: formData.gender,
-                preferredSports: formData.preferredSports,
-                avatarUrl: formData.avatarUrl
+            
+            // Clean undefined values to prevent Firestore errors
+            const safeData = Object.fromEntries(
+                Object.entries({
+                    displayName: formData.displayName,
+                    username: formData.username,
+                    bio: formData.bio || '',
+                    gender: formData.gender || 'Prefer not to say',
+                    preferredSports: formData.preferredSports || [],
+                    avatarUrl: formData.avatarUrl || ''
+                }).filter(([_, v]) => v !== undefined)
+            );
+
+            // USE setDoc WITH MERGE instead of updateDoc
+            // This fixes the issue where updateDoc fails if the document doesn't exist yet
+            // (common if the user was loaded via the "Instant Load" fallback).
+            setDoc(userRef, safeData, { merge: true }).then(() => {
+                console.log("Profile synced to server");
             }).catch((err) => {
-                console.warn("Background cloud sync failed (local save is okay):", err);
+                console.error("Background sync failed:", err);
+                // Alert the user even if the modal is closed, so they know the server sync failed.
+                alert(`Note: Changes saved locally, but server sync failed: ${err.message}`);
             });
         }
 
@@ -425,7 +437,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
         </div>
 
         <div className="p-6 text-center text-xs text-gray-400">
-            Version 1.2.4 (Instant Save)
+            Version 1.2.5 (SetDoc)
         </div>
 
       </div>
