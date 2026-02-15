@@ -3,7 +3,7 @@ import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
 import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, UploadCloud, AlertTriangle } from 'lucide-react';
 import { db, auth } from '../firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, enableNetwork } from 'firebase/firestore';
 
 interface SettingsViewProps {
   user: User;
@@ -106,6 +106,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         if (!currentUser) throw new Error("No authenticated user");
 
         if (db) {
+            // Force network to ensure we aren't stuck in offline mode
+            try { await enableNetwork(db); } catch (e) { console.warn("Network enable warning:", e); }
+
             const userRef = doc(db, 'users', currentUser.uid);
             
             // 2. Prepare Data (Strict Sanitization)
@@ -131,7 +134,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
             console.log("Attempting to save:", updates); // For debugging
 
             // 3. Perform Save with Timeout
-            await withTimeout(setDoc(userRef, updates, { merge: true }), 10000);
+            // Increased to 30 seconds because we switched to Long Polling which can be slower
+            await withTimeout(setDoc(userRef, updates, { merge: true }), 30000);
             
             setIsEditing(false);
         } else {
@@ -451,7 +455,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         </div>
 
         <div className="p-6 text-center text-xs text-gray-400">
-            Version 1.3.1 (Debug Mode)
+            Version 1.3.2 (Long Polling)
         </div>
 
       </div>

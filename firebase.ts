@@ -1,6 +1,6 @@
 import { initializeApp, FirebaseApp, FirebaseOptions } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, Auth } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { initializeFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 // Helper to safely access environment variables
@@ -48,14 +48,17 @@ try {
     auth = getAuth(app);
     googleProvider = new GoogleAuthProvider();
     
-    // STANDARD INITIALIZATION:
-    // We use getFirestore(app) which uses a default memory cache.
-    // This prevents the "persistentLocalCache" from locking the DB in browser tabs,
-    // which is the #1 cause of "hanging forever" during development.
-    db = getFirestore(app);
+    // CRITICAL FIX FOR CONNECTION ISSUES:
+    // We use initializeFirestore with experimentalForceLongPolling: true.
+    // Standard Firestore uses WebSockets, which are often blocked by corporate firewalls,
+    // school networks, or aggressive antivirus software.
+    // Long Polling uses standard HTTP requests, which are much more reliable (though slightly slower).
+    db = initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+    });
     
     storage = getStorage(app);
-    console.log(`Firebase initialized successfully. Project ID: ${firebaseConfig.projectId}`);
+    console.log(`Firebase initialized successfully (Long Polling Mode). Project ID: ${firebaseConfig.projectId}`);
   } else {
     console.warn("Firebase configuration is missing or incomplete.");
   }
