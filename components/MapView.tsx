@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { Party, SportType } from '../types';
-import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, ExternalLink, CheckCircle } from 'lucide-react';
+import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, ExternalLink, CheckCircle, Navigation } from 'lucide-react';
+import { formatDistance } from '../utils/geospatial';
 
 // Declare google global to avoid TS namespace errors
 declare var google: any;
@@ -51,8 +52,6 @@ const getMarkerIcon = (sport: SportType) => {
   const color = colorMap[sport] || '#2563eb';
 
   // SVG string for a pin (teardrop) shape with a hole in the center
-  // ViewBox 0 0 40 40
-  // Pin tip at bottom center (20, 40)
   const svg = `
     <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
       <path d="M20 0C11.16 0 4 7.16 4 16c0 9.5 13.5 22.5 15.2 24.1.4.4 1.1.4 1.6 0C22.5 38.5 36 25.5 36 16c0-8.84-7.16-16-16-16z" fill="${color}" stroke="white" stroke-width="1.5"/>
@@ -63,7 +62,7 @@ const getMarkerIcon = (sport: SportType) => {
   return {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
     scaledSize: { width: 40, height: 40 } as any,
-    anchor: { x: 20, y: 40 } as any // Anchor at the bottom tip
+    anchor: { x: 20, y: 40 } as any
   };
 };
 
@@ -84,7 +83,6 @@ const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center
     setMap(null);
   }, []);
 
-  // Handle center updates from parent (e.g., search result)
   useEffect(() => {
     if (map) {
       map.panTo(center);
@@ -127,7 +125,6 @@ const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center
     );
   }
 
-  // Determine button state helper
   const getButtonState = (party: Party) => {
     const isJoined = party.members.includes(currentUser);
     const isFull = party.playersCurrent >= party.playersMax;
@@ -165,15 +162,26 @@ const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center
           position={{ lat: selectedParty.latitude, lng: selectedParty.longitude }}
           onCloseClick={() => setSelectedParty(null)}
           options={{
-             pixelOffset: new google.maps.Size(0, -42), // Adjusted offset for taller pin (40px height + margin)
+             pixelOffset: new google.maps.Size(0, -42),
              disableAutoPan: false
           }}
         >
           <div className="p-1 min-w-[200px] max-w-[240px]">
             <h3 className="font-bold text-lg mb-1 text-gray-800">{selectedParty.title}</h3>
-            <div className="flex items-center gap-1 text-xs font-semibold text-blue-600 mb-2 uppercase tracking-wider">
-              {selectedParty.sport}
+            
+            <div className="flex items-center justify-between mb-2">
+                 <div className="flex items-center gap-1 text-xs font-semibold text-blue-600 uppercase tracking-wider">
+                    {selectedParty.sport}
+                 </div>
+                 {/* Display Precise Distance if available */}
+                 {selectedParty.distance !== undefined && (
+                     <div className="flex items-center gap-1 text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                         <Navigation size={10} />
+                         {formatDistance(selectedParty.distance)}
+                     </div>
+                 )}
             </div>
+
             <p className="text-sm text-gray-600 mb-3 line-clamp-2">{selectedParty.description}</p>
             
             <div className="flex flex-col gap-1.5 text-sm text-gray-700">
@@ -214,10 +222,7 @@ const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center
 };
 
 const MapView: React.FC<MapViewProps> = (props) => {
-  // Safely access env
   const rawApiKey = ((import.meta as any).env && (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY);
-  
-  // Clean up key: remove whitespace and quotes if user accidentally added them
   const apiKey = rawApiKey ? rawApiKey.replace(/['"]/g, '').trim() : '';
   const isDefault = apiKey === 'YOUR_GOOGLE_MAPS_API_KEY_HERE';
 
@@ -232,7 +237,6 @@ const MapView: React.FC<MapViewProps> = (props) => {
             <p className="text-sm text-gray-600 leading-relaxed">
                 To use this app, you need to generate a free API Key from Google.
             </p>
-            
             <a 
                 href="https://developers.google.com/maps/documentation/javascript/get-api-key" 
                 target="_blank" 
@@ -241,7 +245,6 @@ const MapView: React.FC<MapViewProps> = (props) => {
             >
                 Get your API Key here <ExternalLink size={14} />
             </a>
-
             <div className="w-full bg-gray-50 p-4 rounded-xl text-left border border-gray-100 mt-2">
                 <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-2">Instructions</p>
                 <ol className="text-xs text-gray-600 space-y-2 list-decimal list-inside">
@@ -253,18 +256,16 @@ const MapView: React.FC<MapViewProps> = (props) => {
                     <code className="text-xs text-green-400 font-mono whitespace-nowrap">VITE_GOOGLE_MAPS_API_KEY=AIzaSy...</code>
                 </div>
             </div>
-
             <button 
                 onClick={() => window.location.reload()}
                 className="mt-2 w-full bg-gray-900 text-white py-3 rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors shadow-lg active:scale-95"
             >
-                I've added the key, Reload App
+                Reload App
             </button>
         </div>
       </div>
     );
   }
-
   return <MapInner {...props} apiKey={apiKey} />;
 };
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import MapView from './components/MapView';
 import TopBar from './components/TopBar';
 import BottomNav from './components/BottomNav';
@@ -13,14 +13,13 @@ import { Crosshair, Loader2 } from 'lucide-react';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { collection, query, onSnapshot, orderBy, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { calculateHaversineDistance } from './utils/geospatial';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   
-  // State to track if we have fetched the initial data from the server
   const [isServerDataLoaded, setIsServerDataLoaded] = useState(false);
-  
   const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
   
   const [selectedSport, setSelectedSport] = useState<SportType>('All');
@@ -45,12 +44,10 @@ function App() {
       
       if (currentUser) {
         setIsAuthenticated(true);
-        // We do not set isServerDataLoaded to true yet. 
-        // We wait for the Firestore listener (Effect #2) to fire at least once.
       } else {
         setIsAuthenticated(false);
         setUser(INITIAL_USER);
-        setIsServerDataLoaded(true); // No server data needed if not logged in
+        setIsServerDataLoaded(true);
       }
       setIsLoadingAuth(false);
     });
@@ -58,19 +55,15 @@ function App() {
     return () => unsubscribeAuth();
   }, []);
 
-  // --- 2. Real-time User Profile Listener (Server Data) ---
+  // --- 2. Real-time User Profile Listener ---
   useEffect(() => {
     if (authUser && db) {
         const userRef = doc(db, 'users', authUser.uid);
-        
-        // This listener fetches data directly from the server (or Firebase SDK internal cache)
         const unsubscribeUser = onSnapshot(userRef, (docSnap) => {
             if (docSnap.exists()) {
                 const userData = docSnap.data() as User;
                 setUser(userData);
             } else {
-                // Fallback if doc doesn't exist on server yet (rare, but handled)
-                console.log("No user profile found on server, using defaults.");
                 setUser({
                     ...INITIAL_USER,
                     displayName: authUser.displayName || 'User',
@@ -81,7 +74,7 @@ function App() {
             setIsServerDataLoaded(true);
         }, (error) => {
             console.error("Error fetching server data:", error);
-            setIsServerDataLoaded(true); // Stop loading even on error
+            setIsServerDataLoaded(true);
         });
 
         return () => unsubscribeUser();
@@ -104,9 +97,31 @@ function App() {
     return () => unsubscribeParties();
   }, [isAuthenticated]);
 
+  // --- 4. TIER 2: Spatial Refinement (Distance Sorting) ---
+  // Memoize the filtered and sorted parties to optimize performance.
+  // This executes the Haversine formula to sort candidates by precise Euclidean distance.
+  const processedParties = useMemo(() => {
+    let filtered = selectedSport === 'All' 
+        ? parties 
+        : parties.filter(p => p.sport === selectedSport);
+    
+    // Calculate distance for each party relative to current map center
+    const withDistance = filtered.map(party => {
+        const dist = calculateHaversineDistance(
+            mapCenter.lat, 
+            mapCenter.lng, 
+            party.latitude, 
+            party.longitude
+        );
+        return { ...party, distance: dist };
+    });
+
+    // Sort by distance (ASC)
+    return withDistance.sort((a, b) => a.distance - b.distance);
+  }, [parties, selectedSport, mapCenter]);
+
+
   const handleLogin = (loggedInUser: User) => {
-    // When logging in via LoginView, we optimistically set the user 
-    // while the Firestore listener connects in the background.
     setUser(loggedInUser);
     setIsAuthenticated(true);
     setIsServerDataLoaded(true);
@@ -121,9 +136,6 @@ function App() {
     setIsServerDataLoaded(false);
   };
 
-  // --- RENDERING ---
-
-  // 1. Initial Auth Check
   if (isLoadingAuth) {
      return (
         <div className="w-full h-screen flex items-center justify-center bg-white">
@@ -132,13 +144,10 @@ function App() {
      );
   }
 
-  // 2. Login Screen
   if (!isAuthenticated) {
     return <LoginView onLogin={handleLogin} />;
   }
 
-  // 3. Server Data Loading Gate
-  // This ensures we don't show the app until we have the data from the DB
   if (!isServerDataLoaded) {
     return (
         <div className="w-full h-screen flex flex-col items-center justify-center bg-gray-50">
@@ -147,11 +156,6 @@ function App() {
         </div>
      );
   }
-
-  // 4. Main App
-  const filteredParties = selectedSport === 'All' 
-    ? parties 
-    : parties.filter(p => p.sport === selectedSport);
 
   const handleTabChange = (tab: 'explore' | 'create' | 'settings' | 'chat') => {
     setCurrentTab(tab);
@@ -192,7 +196,7 @@ function App() {
       {/* Map Layer */}
       <div className="absolute inset-0 top-0 bottom-[72px] z-0">
         <MapView 
-            parties={filteredParties} 
+            parties={processedParties} 
             center={mapCenter} 
             currentUser={user.username}
             onJoinParty={handleJoinParty}
@@ -232,9 +236,6 @@ function App() {
       {currentTab === 'settings' && (
         <SettingsView 
           user={user}
-          // We don't need to manually set user state here anymore because 
-          // App.tsx is listening to the database. When SettingsView updates the DB, 
-          // the onSnapshot in App.tsx will automatically update the UI.
           onUpdateUser={() => {}} 
           onClose={() => setCurrentTab('explore')}
           onLogout={handleLogout}

@@ -5,13 +5,14 @@ import { SPORTS_LIST, KHON_KAEN_CENTER, DEFAULT_CITY } from '../constants';
 import { X, MapPin, Calendar, Clock, Users, Search, Loader2 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { encodeGeohash } from '../utils/geospatial';
 
 // Declare google global to avoid TS namespace errors
 declare var google: any;
 
 interface CreatePartyViewProps {
   onClose: () => void;
-  onCreate: (party: Party) => void; // Kept for optimistic UI update if needed, though App.tsx should listen to DB
+  onCreate: (party: Party) => void;
   userLocation: { lat: number; lng: number };
   currentUser: string;
 }
@@ -195,7 +196,6 @@ const SportSelectionSection: React.FC<{
 // --- MAIN COMPONENT ---
 
 const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, currentUser }) => {
-  // Use VITE_GOOGLE_MAPS_API_KEY from env
   const rawApiKey = ((import.meta as any).env && (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY) || '';
   const apiKey = rawApiKey.replace(/['"]/g, '').trim();
 
@@ -210,7 +210,6 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
     playersMax: 10
   });
 
-  // Location State
   const [selectedLocation, setSelectedLocation] = useState(KHON_KAEN_CENTER);
   const [displayLocationName, setDisplayLocationName] = useState(DEFAULT_CITY);
 
@@ -219,11 +218,15 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
     setIsSubmitting(true);
     
     try {
+        // TIER 1: Compute Geohash for Spatial Indexing
+        const geohash = encodeGeohash(selectedLocation.lat, selectedLocation.lng);
+
         const partyData = {
           ...formData,
           playersCurrent: 1,
           latitude: selectedLocation.lat,
           longitude: selectedLocation.lng,
+          geohash: geohash, // Stored for future Tier 1 queries
           host: currentUser,
           members: [currentUser],
           createdAt: serverTimestamp()
@@ -231,7 +234,6 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
 
         const docRef = await addDoc(collection(db, 'parties'), partyData);
         
-        // Construct local object to update UI immediately if needed
         const newParty: Party = {
             id: docRef.id,
             ...partyData
@@ -248,7 +250,6 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
 
   return (
     <div className="fixed inset-0 bg-white z-[2000] flex flex-col animate-in slide-in-from-bottom duration-300">
-      {/* Header */}
       <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between bg-white shadow-sm">
         <h2 className="text-xl font-bold text-gray-800">Host a Game</h2>
         <button onClick={onClose} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
@@ -256,7 +257,6 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
         </button>
       </div>
 
-      {/* Form Content */}
       <div className="flex-1 overflow-y-auto p-4 pb-28 no-scrollbar">
         <form id="create-party-form" onSubmit={handleSubmit} className="space-y-8 max-w-md mx-auto">
           

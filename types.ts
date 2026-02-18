@@ -21,6 +21,10 @@ export interface Party {
   playersMax: number;
   latitude: number;
   longitude: number;
+  // Tier 1: Geohash for spatial indexing
+  geohash?: string; 
+  // Tier 2: Runtime distance from user/center in km
+  distance?: number; 
   host: string;
   members: string[];
 }
