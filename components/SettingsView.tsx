@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
-import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, Mail } from 'lucide-react';
+import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, Mail, Database, CheckCircle, AlertTriangle } from 'lucide-react';
 import { db, auth } from '../firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 interface SettingsViewProps {
   user: User;
@@ -16,6 +16,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<User>(user);
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [testMessage, setTestMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync state when entering edit mode
@@ -97,6 +99,35 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       alert(errorMessage);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setTestStatus('testing');
+    setTestMessage('Attempting to write to database...');
+    
+    try {
+        if (!auth.currentUser) throw new Error("Not logged in");
+        
+        // Try to write a dummy document to a test collection
+        await addDoc(collection(db, 'connection_test'), {
+            timestamp: serverTimestamp(),
+            uid: auth.currentUser.uid,
+            test: true
+        });
+
+        setTestStatus('success');
+        setTestMessage('Success! Database is connected and writable.');
+    } catch (error: any) {
+        console.error("Connection Test Failed:", error);
+        setTestStatus('error');
+        if (error.code === 'permission-denied') {
+            setTestMessage('PERMISSION DENIED: You need to update Firestore Rules in Firebase Console.');
+        } else if (error.code === 'unavailable') {
+            setTestMessage('OFFLINE: Browser cannot reach Firebase. Check internet or Firewall.');
+        } else {
+            setTestMessage(`ERROR: ${error.message}`);
+        }
     }
   };
 
@@ -288,21 +319,55 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
             </button>
         </div>
 
-        <div className="bg-white border-t border-b border-gray-200">
+        <div className="bg-white border-t border-b border-gray-200 mb-6">
             <MenuButton icon={<Shield size={20} />} label="Privacy Policy" />
             <MenuButton icon={<Bell size={20} />} label="Notifications" />
             <MenuButton icon={<HelpCircle size={20} />} label="Support" />
+        </div>
+
+        {/* Diagnostic Tool */}
+        <div className="px-6 mb-6">
+             <div className="bg-gray-100 rounded-xl p-4">
+                 <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                     <Database size={16} /> Connection Diagnostics
+                 </h3>
+                 <p className="text-xs text-gray-500 mb-3">If you are having trouble saving data, run this test.</p>
+                 
+                 {testStatus !== 'idle' && (
+                     <div className={`text-xs p-2 rounded mb-3 ${
+                         testStatus === 'success' ? 'bg-green-100 text-green-700' :
+                         testStatus === 'error' ? 'bg-red-100 text-red-700' :
+                         'bg-blue-50 text-blue-600'
+                     }`}>
+                         {testStatus === 'testing' && <Loader2 className="inline animate-spin mr-2 w-3 h-3" />}
+                         {testStatus === 'success' && <CheckCircle className="inline mr-2 w-3 h-3" />}
+                         {testStatus === 'error' && <AlertTriangle className="inline mr-2 w-3 h-3" />}
+                         {testMessage}
+                     </div>
+                 )}
+
+                 <button 
+                    onClick={handleTestConnection}
+                    disabled={testStatus === 'testing'}
+                    className="w-full py-2 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50"
+                 >
+                    Test Database Write
+                 </button>
+             </div>
+        </div>
+        
+        <div className="px-6 pb-6">
             <button 
                 onClick={onLogout}
-                className="w-full flex items-center gap-4 px-6 py-4 text-red-600 hover:bg-red-50 transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-red-50 text-red-600 hover:bg-red-100 transition-colors rounded-xl font-bold"
             >
                 <LogOut size={20} />
-                <span className="font-medium">Log Out</span>
+                <span>Log Out</span>
             </button>
         </div>
         
-        <div className="p-8 text-center text-xs text-gray-400">
-            v3.0 (Simplified)
+        <div className="p-4 text-center text-xs text-gray-400">
+            v3.0.1 (Simplified)
         </div>
       </div>
     </div>
@@ -310,7 +375,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
 };
 
 const MenuButton = ({ icon, label }: { icon: any, label: string }) => (
-    <button className="w-full flex items-center gap-4 px-6 py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors text-left">
+    <button className="w-full flex items-center gap-4 px-6 py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors text-left last:border-0">
         <div className="text-gray-400">{icon}</div>
         <span className="text-gray-700 font-medium">{label}</span>
         <ChevronRight className="ml-auto text-gray-300" size={16} />
