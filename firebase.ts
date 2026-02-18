@@ -13,6 +13,11 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID 
 };
 
+// Validation
+if (!firebaseConfig.apiKey) {
+    console.error("CRITICAL: Firebase Configuration is missing. Check your .env file.");
+}
+
 // 2. Initialize App (Singleton)
 // Check if apps are already initialized
 const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
@@ -20,10 +25,22 @@ const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : fir
 // 3. Initialize Services
 const auth = firebase.auth();
 const db = firebase.firestore();
+
+// FIX: Force Long Polling
+// This fixes "Timeout" and "Hanging" issues on networks that block WebSockets or have proxy issues.
+try {
+    db.settings({
+        experimentalForceLongPolling: true,
+        merge: true
+    });
+} catch (e) {
+    console.warn("Firestore settings already locked, skipping reconfiguration.");
+}
+
 const storage = firebase.storage();
 const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-console.log("Firebase Initialized:", { 
+console.log("Firebase Initialized (Long Polling Enabled):", { 
   projectId: firebaseConfig.projectId, 
   authDomain: firebaseConfig.authDomain 
 });

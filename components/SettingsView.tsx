@@ -79,7 +79,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       
       // Add timeout to save operation
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("TIMEOUT: Save operation took too long.")), 8000)
+        setTimeout(() => reject(new Error("TIMEOUT: Save operation took too long.")), 10000)
       );
       
       await Promise.race([
@@ -112,14 +112,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
 
   const handleTestConnection = async () => {
     setTestStatus('testing');
-    setTestMessage('Attempting to write... (timeout in 5s)');
+    setTestMessage('Attempting to write... (timeout in 10s)');
     
     try {
         if (!auth.currentUser) throw new Error("Not logged in");
         
-        // TIMEOUT WRAPPER: Fail if database doesn't respond in 5 seconds
+        // TIMEOUT WRAPPER: Fail if database doesn't respond in 10 seconds (increased for Long Polling)
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("TIMEOUT: Database did not respond in 5 seconds. Check your internet or firewall.")), 5000)
+            setTimeout(() => reject(new Error("TIMEOUT: Database did not respond in 10 seconds. Check your internet or firewall.")), 10000)
         );
 
         const writePromise = db.collection('connection_test').add({
@@ -132,7 +132,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
         await Promise.race([writePromise, timeoutPromise]);
 
         setTestStatus('success');
-        setTestMessage('Success! Database is connected and writable.');
+        setTestMessage('Success! Database is connected via Long Polling.');
     } catch (error: any) {
         console.error("Connection Test Failed:", error);
         setTestStatus('error');
