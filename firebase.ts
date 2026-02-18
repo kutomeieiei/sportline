@@ -27,11 +27,10 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 
 // FIX: Force Long Polling
-// This fixes "Timeout" and "Hanging" issues on networks that block WebSockets or have proxy issues.
+// This helps with restrictive networks/firewalls.
 try {
     db.settings({
         experimentalForceLongPolling: true,
-        merge: true
     });
 } catch (e) {
     console.warn("Firestore settings already locked, skipping reconfiguration.");
@@ -40,7 +39,7 @@ try {
 const storage = firebase.storage();
 const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-console.log("Firebase Initialized (Long Polling Enabled):", { 
+console.log("Firebase Initialized (Compatibility Mode):", { 
   projectId: firebaseConfig.projectId, 
   authDomain: firebaseConfig.authDomain 
 });

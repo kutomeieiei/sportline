@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
-import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, Mail, Database, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, Mail, Database, CheckCircle, AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
 import { db, auth, firebase } from '../firebase';
 
 interface SettingsViewProps {
@@ -64,11 +64,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       }
 
       // 2. Prepare Data (Clean undefined values)
-      // Firestore throws an error if any field is 'undefined'. We must use null or default strings.
       const userDataToSave = {
         displayName: formData.displayName || "",
         username: formData.username || "",
-        email: formData.email || "", // FIX: Fallback to empty string if undefined
+        email: formData.email || "", 
         bio: formData.bio || "",
         gender: formData.gender || "Prefer not to say",
         preferredSports: formData.preferredSports || [],
@@ -76,8 +75,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       };
 
       // 3. Firestore Write
-      
-      // Add timeout to save operation
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error("TIMEOUT: Save operation took too long.")), 10000)
       );
@@ -112,41 +109,62 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
 
   const handleTestConnection = async () => {
     setTestStatus('testing');
-    setTestMessage('Attempting to write... (timeout in 10s)');
+    setTestMessage('Testing Read/Write... (10s timeout)');
     
     try {
         if (!auth.currentUser) throw new Error("Not logged in");
-        
-        // TIMEOUT WRAPPER: Fail if database doesn't respond in 10 seconds (increased for Long Polling)
+        if (!navigator.onLine) throw new Error("You appear to be offline.");
+
+        // TIMEOUT WRAPPER
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("TIMEOUT: Database did not respond in 10 seconds. Check your internet or firewall.")), 10000)
+            setTimeout(() => reject(new Error("TIMEOUT: Database did not respond.")), 10000)
         );
 
+        // Step 1: Test READ (usually faster)
+        // We read a non-existent doc just to see if we can reach the server
+        const readPromise = db.collection('connection_test').doc('ping').get();
+        await Promise.race([readPromise, timeoutPromise]);
+
+        // Step 2: Test WRITE
         const writePromise = db.collection('connection_test').add({
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
             uid: auth.currentUser.uid,
-            test: true
+            test: true,
+            platform: navigator.userAgent
         });
 
-        // Race the write against the timeout
         await Promise.race([writePromise, timeoutPromise]);
 
         setTestStatus('success');
-        setTestMessage('Success! Database is connected via Long Polling.');
+        setTestMessage('Success! Read & Write operational.');
     } catch (error: any) {
         console.error("Connection Test Failed:", error);
         setTestStatus('error');
         
         if (error.message.includes("TIMEOUT")) {
-            setTestMessage("TIMEOUT: Connection too slow. Check Internet/VPN.");
+            setTestMessage("TIMEOUT: Firewall blocking connection. Try 'Reset Cache'.");
         } else if (error.code === 'permission-denied') {
             setTestMessage('PERMISSION DENIED: Update Firestore Rules in Console.');
-        } else if (error.code === 'unavailable') {
-            setTestMessage('OFFLINE: Browser cannot reach Firebase.');
+        } else if (error.code === 'unavailable' || error.message.includes("offline")) {
+            setTestMessage('OFFLINE: Check your internet connection.');
         } else {
             setTestMessage(`ERROR: ${error.message}`);
         }
     }
+  };
+
+  const handleResetCache = async () => {
+      if (!confirm("This will refresh the app and clear local database data. Continue?")) return;
+      
+      try {
+          // Terminate connection and clear persistence
+          await db.terminate();
+          await db.clearPersistence();
+          window.location.reload();
+      } catch (e: any) {
+          alert("Error resetting cache: " + e.message);
+          window.location.reload(); // Reload anyway
+      }
   };
 
   const toggleSport = (sport: SportType) => {
@@ -349,7 +367,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
                  <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
                      <Database size={16} /> Connection Diagnostics
                  </h3>
-                 <p className="text-xs text-gray-500 mb-3">If you are having trouble saving data, run this test.</p>
+                 <p className="text-xs text-gray-500 mb-3">Troubleshoot database connectivity issues.</p>
                  
                  {testStatus !== 'idle' && (
                      <div className={`text-xs p-2 rounded mb-3 ${
@@ -364,13 +382,24 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
                      </div>
                  )}
 
-                 <button 
-                    onClick={handleTestConnection}
-                    disabled={testStatus === 'testing'}
-                    className="w-full py-2 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50"
-                 >
-                    Test Database Write
-                 </button>
+                 <div className="flex gap-2">
+                     <button 
+                        onClick={handleTestConnection}
+                        disabled={testStatus === 'testing'}
+                        className="flex-1 py-2 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"
+                     >
+                        <RefreshCw size={12} className={testStatus === 'testing' ? 'animate-spin' : ''} />
+                        Test Connection
+                     </button>
+                     <button 
+                        onClick={handleResetCache}
+                        title="Clear local database cache and reload"
+                        className="px-3 py-2 bg-red-50 border border-red-100 rounded-lg text-xs font-bold text-red-600 hover:bg-red-100 flex items-center justify-center gap-2"
+                     >
+                        <Trash2 size={12} />
+                        Reset Cache
+                     </button>
+                 </div>
              </div>
         </div>
         
