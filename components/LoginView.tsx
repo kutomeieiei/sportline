@@ -53,6 +53,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       const newUser: User = {
         username: additionalData.username || authUser.email?.split('@')[0] || 'user',
         displayName: authUser.displayName || additionalData.username || 'Sports Fan',
+        email: authUser.email || "", // Save email
         avatarUrl: authUser.photoURL || `https://ui-avatars.com/api/?name=${authUser.displayName || 'User'}&background=random`,
         bio: "Ready to play!",
         gender: "Prefer not to say",
@@ -60,8 +61,15 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       };
       await setDoc(userRef, newUser);
       return newUser;
+    } else {
+        // If user exists but has no email saved, update it
+        const userData = userSnap.data() as User;
+        if (!userData.email && authUser.email) {
+            await setDoc(userRef, { email: authUser.email }, { merge: true });
+            userData.email = authUser.email;
+        }
+        return userData;
     }
-    return userSnap.data() as User;
   };
 
   const formatError = (err: any) => {

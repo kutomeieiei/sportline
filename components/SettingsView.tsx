@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
-import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2 } from 'lucide-react';
+import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, Mail } from 'lucide-react';
 import { db, auth } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
@@ -66,6 +66,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       const userDataToSave = {
         displayName: formData.displayName,
         username: formData.username,
+        email: formData.email, // Ensure email is saved if present
         bio: formData.bio || "",
         gender: formData.gender || "Prefer not to say",
         preferredSports: formData.preferredSports || [],
@@ -184,6 +185,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
                 placeholder="Username"
               />
             </div>
+            
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Email</label>
+              <input 
+                type="email"
+                value={formData.email || ''}
+                disabled
+                className="w-full p-4 bg-gray-100 border border-gray-200 rounded-xl font-medium outline-none text-gray-500 cursor-not-allowed"
+              />
+              <p className="text-xs text-gray-400 mt-1 ml-1">Email cannot be changed here.</p>
+            </div>
 
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Bio</label>
@@ -258,6 +270,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
             </div>
             <h1 className="text-2xl font-bold text-gray-900">{user.displayName}</h1>
             <p className="text-gray-500">@{user.username}</p>
+            {user.email && (
+                 <div className="flex items-center gap-1.5 mt-1 text-gray-400 text-sm">
+                    <Mail size={12} />
+                    <span>{user.email}</span>
+                 </div>
+            )}
             {user.bio && <p className="mt-4 text-gray-600 text-sm italic">"{user.bio}"</p>}
 
             <button 

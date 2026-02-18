@@ -23,6 +23,7 @@ export const DEFAULT_CITY = "Khon Kaen";
 export const INITIAL_USER: User = {
   username: "calyxohm",
   displayName: "CalyxOhm",
+  email: "calyxohm@example.com",
   avatarUrl: "https://picsum.photos/200/200",
   bio: "Just a sports fan! Love meeting new people for a game.",
   gender: "Prefer not to say",

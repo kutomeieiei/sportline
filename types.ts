@@ -3,6 +3,7 @@ export type SportType = 'All' | 'Football' | 'Basketball' | 'Badminton' | 'Tenni
 export interface User {
   username: string;
   displayName: string;
+  email?: string;
   avatarUrl: string;
   bio: string;
   gender: string;
