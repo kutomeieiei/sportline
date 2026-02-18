@@ -63,10 +63,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       }
 
       // 2. Prepare Data (Clean undefined values)
+      // Firestore throws an error if any field is 'undefined'. We must use null or default strings.
       const userDataToSave = {
-        displayName: formData.displayName,
-        username: formData.username,
-        email: formData.email, // Ensure email is saved if present
+        displayName: formData.displayName || "",
+        username: formData.username || "",
+        email: formData.email || "", // FIX: Fallback to empty string if undefined
         bio: formData.bio || "",
         gender: formData.gender || "Prefer not to say",
         preferredSports: formData.preferredSports || [],
@@ -79,6 +80,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       
       console.log("Profile updated successfully");
       setIsEditing(false);
+      // Notify parent/context if needed, though onSnapshot in App.tsx handles updates
 
     } catch (error: any) {
       console.error("Save failed:", error);
