@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GoogleMap, useJsApiLoader, MarkerF } from '@react-google-maps/api';
+import { GoogleMap, MarkerF } from '@react-google-maps/api';
 import { Party, SportType } from '../types';
 import { SPORTS_LIST, KHON_KAEN_CENTER, DEFAULT_CITY } from '../constants';
 import { X, MapPin, Calendar, Clock, Users, Search, Loader2 } from 'lucide-react';
@@ -15,6 +15,8 @@ interface CreatePartyViewProps {
   onCreate: (party: Party) => void;
   userLocation: { lat: number; lng: number };
   currentUser: string;
+  // Prop from centralized loader
+  isLoaded: boolean;
 }
 
 // Map configuration
@@ -32,8 +34,6 @@ const mapOptions = {
   fullscreenControl: false,
 };
 
-const LIBRARIES: ("places" | "geometry")[] = ["places", "geometry"];
-
 // --- SUB-COMPONENTS ---
 
 const LocationSection: React.FC<{
@@ -42,8 +42,8 @@ const LocationSection: React.FC<{
   displayLocationName: string;
   setDisplayLocationName: (name: string) => void;
   setPlaceId: (id: string) => void;
-  apiKey: string;
-}> = ({ selectedLocation, setSelectedLocation, displayLocationName, setDisplayLocationName, setPlaceId, apiKey }) => {
+  isLoaded: boolean;
+}> = ({ selectedLocation, setSelectedLocation, displayLocationName, setDisplayLocationName, setPlaceId, isLoaded }) => {
   const [locationQuery, setLocationQuery] = useState('');
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -51,15 +51,9 @@ const LocationSection: React.FC<{
   const placesService = useRef<any>(null);
   const mapRef = useRef<any>(null);
 
-  const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script-create',
-    googleMapsApiKey: apiKey,
-    libraries: LIBRARIES
-  });
-
   // Initialize Autocomplete Service
   useEffect(() => {
-    if (isLoaded && !autocompleteService.current && google) {
+    if (isLoaded && !autocompleteService.current && typeof google !== 'undefined') {
       autocompleteService.current = new google.maps.places.AutocompleteService();
     }
   }, [isLoaded]);
@@ -96,7 +90,7 @@ const LocationSection: React.FC<{
 
     const timeoutId = setTimeout(fetchSuggestions, 500);
     return () => clearTimeout(timeoutId);
-  }, [locationQuery, selectedLocation]);
+  }, [locationQuery, selectedLocation, isLoaded]);
 
   const handleSelectSuggestion = (prediction: any) => {
     setDisplayLocationName(prediction.structured_formatting.main_text);
@@ -246,10 +240,7 @@ const SportSelectionSection: React.FC<{
 
 // --- MAIN COMPONENT ---
 
-const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, currentUser }) => {
-  const rawApiKey = ((import.meta as any).env && (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY) || '';
-  const apiKey = rawApiKey.replace(/['"]/g, '').trim();
-
+const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, currentUser, isLoaded }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -320,7 +311,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
             displayLocationName={displayLocationName}
             setDisplayLocationName={setDisplayLocationName}
             setPlaceId={setPlaceId}
-            apiKey={apiKey}
+            isLoaded={isLoaded}
           />
 
           <SportSelectionSection 

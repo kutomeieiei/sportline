@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, Menu, Mic, X, MapPin, Loader2 } from 'lucide-react';
 import { SportType } from '../types';
 import { SPORTS_LIST, APP_CONFIG } from '../constants';
-import { useJsApiLoader } from '@react-google-maps/api';
 
 // Declare google global to avoid TS namespace errors
 declare var google: any;
@@ -13,37 +12,24 @@ interface TopBarProps {
   userAvatar: string;
   onAvatarClick: () => void;
   onLocationSelect: (lat: number, lng: number) => void;
+  // Prop from centralized loader
+  isLoaded: boolean;
 }
 
-const LIBRARIES: ("places")[] = ["places"];
-
-const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvatar, onAvatarClick, onLocationSelect }) => {
+const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvatar, onAvatarClick, onLocationSelect, isLoaded }) => {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const autocompleteService = useRef<any>(null);
-  const placesService = useRef<any>(null);
-
-  const rawApiKey = ((import.meta as any).env && (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY) || '';
-  const apiKey = rawApiKey.replace(/['"]/g, '').trim();
-
-  const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script-topbar',
-    googleMapsApiKey: apiKey,
-    libraries: LIBRARIES
-  });
 
   const displayLogo = APP_CONFIG.headerLogoUrl || APP_CONFIG.logoUrl;
 
-  // Initialize Autocomplete Service
+  // Initialize Autocomplete Service when maps script is loaded
   useEffect(() => {
-    if (isLoaded && !autocompleteService.current && google) {
+    if (isLoaded && !autocompleteService.current && typeof google !== 'undefined') {
       autocompleteService.current = new google.maps.places.AutocompleteService();
-      // We need a dummy div or similar to init PlacesService effectively sometimes, 
-      // but usually we just need it to getDetails. 
-      // We'll create it on demand.
     }
   }, [isLoaded]);
 
@@ -78,7 +64,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
 
     const timeoutId = setTimeout(fetchSuggestions, 500);
     return () => clearTimeout(timeoutId);
-  }, [query]);
+  }, [query, isLoaded]);
 
   // Handle outside click to close dropdown
   useEffect(() => {

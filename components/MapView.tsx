@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF } from '@react-google-maps/api';
+import { GoogleMap, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { Party, SportType } from '../types';
 import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, ExternalLink, CheckCircle, Navigation, Car } from 'lucide-react';
 import { formatDistance } from '../utils/geospatial';
@@ -12,6 +12,9 @@ interface MapViewProps {
   center: { lat: number; lng: number };
   currentUser: string;
   onJoinParty: (partyId: string) => void;
+  // Props from centralized loader in App.tsx
+  isLoaded: boolean;
+  loadError?: Error;
 }
 
 const containerStyle = {
@@ -66,15 +69,9 @@ const getMarkerIcon = (sport: SportType) => {
   };
 };
 
-const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center, apiKey, currentUser, onJoinParty }) => {
+const MapView: React.FC<MapViewProps> = ({ parties, center, currentUser, onJoinParty, isLoaded, loadError }) => {
   const [map, setMap] = useState<any | null>(null);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
-
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: apiKey,
-    libraries: ['places'] // Ensure places lib is loaded for consistent global google object
-  });
 
   const onLoad = useCallback((mapInstance: any) => {
     setMap(mapInstance);
@@ -102,7 +99,7 @@ const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center
             </p>
           </div>
           <p className="text-sm text-gray-500 mt-2">
-            Double check your API key in the <code>.env</code> file.
+            Make sure <strong>Maps JavaScript API</strong> is enabled in Google Cloud Console.
           </p>
           <button 
              onClick={() => window.location.reload()}
@@ -140,9 +137,6 @@ const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center
   };
 
   const handleNavigate = (party: Party) => {
-    // Google Maps Deep Link
-    // If we have a placeId, navigation is extremely precise to the Venue Entry Point.
-    // Fallback to lat/lng.
     const baseUrl = "https://www.google.com/maps/dir/?api=1";
     let destinationParam = "";
     
@@ -255,54 +249,6 @@ const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center
       )}
     </GoogleMap>
   );
-};
-
-const MapView: React.FC<MapViewProps> = (props) => {
-  const rawApiKey = ((import.meta as any).env && (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY);
-  const apiKey = rawApiKey ? rawApiKey.replace(/['"]/g, '').trim() : '';
-  const isDefault = apiKey === 'YOUR_GOOGLE_MAPS_API_KEY_HERE';
-
-  if (!apiKey || isDefault) {
-    return (
-      <div className="h-full w-full flex items-center justify-center bg-gray-100 p-6">
-        <div className="flex flex-col items-center gap-4 text-center max-w-sm bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
-            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 mb-2">
-               <MapPin size={32} />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900">Setup Google Maps</h3>
-            <p className="text-sm text-gray-600 leading-relaxed">
-                To use this app, you need to generate a free API Key from Google.
-            </p>
-            <a 
-                href="https://developers.google.com/maps/documentation/javascript/get-api-key" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-600 text-sm font-semibold hover:underline flex items-center gap-1 my-1"
-            >
-                Get your API Key here <ExternalLink size={14} />
-            </a>
-            <div className="w-full bg-gray-50 p-4 rounded-xl text-left border border-gray-100 mt-2">
-                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-2">Instructions</p>
-                <ol className="text-xs text-gray-600 space-y-2 list-decimal list-inside">
-                    <li>Get a key from the link above</li>
-                    <li>Open the <code className="bg-gray-200 px-1 rounded text-gray-800">.env</code> file in this project</li>
-                    <li>Paste your key like this:</li>
-                </ol>
-                <div className="mt-3 bg-gray-800 p-3 rounded-lg overflow-x-auto">
-                    <code className="text-xs text-green-400 font-mono whitespace-nowrap">VITE_GOOGLE_MAPS_API_KEY=AIzaSy...</code>
-                </div>
-            </div>
-            <button 
-                onClick={() => window.location.reload()}
-                className="mt-2 w-full bg-gray-900 text-white py-3 rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors shadow-lg active:scale-95"
-            >
-                Reload App
-            </button>
-        </div>
-      </div>
-    );
-  }
-  return <MapInner {...props} apiKey={apiKey} />;
 };
 
 export default React.memo(MapView);

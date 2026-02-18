@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useJsApiLoader } from '@react-google-maps/api';
 import MapView from './components/MapView';
 import TopBar from './components/TopBar';
 import BottomNav from './components/BottomNav';
@@ -17,6 +18,9 @@ import { calculateHaversineDistance } from './utils/geospatial';
 
 // Declare google for global access
 declare var google: any;
+
+// Define libraries outside component to prevent re-render loop
+const LIBRARIES: ("places" | "geometry")[] = ["places", "geometry"];
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -40,6 +44,16 @@ function App() {
 
   // Rate limiting for distance matrix
   const lastMatrixCall = useRef<number>(0);
+
+  // --- GOOGLE MAPS LOADER (Centralized) ---
+  const rawApiKey = ((import.meta as any).env && (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY) || '';
+  const apiKey = rawApiKey.replace(/['"]/g, '').trim();
+
+  const { isLoaded: isMapsLoaded, loadError: mapsLoadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: apiKey,
+    libraries: LIBRARIES
+  });
 
   // --- 1. Auth Listener ---
   useEffect(() => {
@@ -133,7 +147,7 @@ function App() {
   // --- 5. TIER 3: Distance Matrix (Travel Time) Logic ---
   useEffect(() => {
     // Only fetch if google maps is loaded and we have parties
-    if (typeof google === 'undefined' || !google.maps || !google.maps.DistanceMatrixService) return;
+    if (!isMapsLoaded || typeof google === 'undefined' || !google.maps || !google.maps.DistanceMatrixService) return;
     if (sortedParties.length === 0) return;
 
     // Debounce: Only call every 5 seconds max to avoid quota limits
@@ -172,7 +186,7 @@ function App() {
         }
     });
 
-  }, [sortedParties, mapCenter]); // Dependency on sortedParties ensures we re-calc when list changes/sorts
+  }, [sortedParties, mapCenter, isMapsLoaded]);
 
   const handleLogin = (loggedInUser: User) => {
     setUser(loggedInUser);
@@ -254,6 +268,8 @@ function App() {
             center={mapCenter} 
             currentUser={user.username}
             onJoinParty={handleJoinParty}
+            isLoaded={isMapsLoaded}
+            loadError={mapsLoadError}
         />
       </div>
 
@@ -266,6 +282,7 @@ function App() {
             userAvatar={user.avatarUrl}
             onAvatarClick={() => setCurrentTab('settings')}
             onLocationSelect={handleLocationSelect}
+            isLoaded={isMapsLoaded}
           />
 
           <button 
@@ -284,6 +301,7 @@ function App() {
           onCreate={handleCreateParty}
           userLocation={mapCenter}
           currentUser={user.username}
+          isLoaded={isMapsLoaded}
         />
       )}
 
