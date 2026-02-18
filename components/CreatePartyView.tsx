@@ -269,8 +269,8 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
           playersCurrent: 1,
           latitude: selectedLocation.lat,
           longitude: selectedLocation.lng,
-          venueName: displayLocationName,
-          placeId: placeId, // Store Google Place ID for deep linking
+          venueName: displayLocationName || "Pinned Location",
+          placeId: placeId || "", 
           geohash: geohash, 
           host: currentUser,
           members: [currentUser],
@@ -285,9 +285,14 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
         };
         
         onCreate(newParty);
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error creating party: ", error);
-        alert("Failed to create party. Check your internet connection.");
+        
+        if (error.code === 'permission-denied') {
+            alert("⚠️ Database Permission Denied.\n\nThe app cannot save your party because the database is locked.\n\nPlease go to Firebase Console > Firestore Database > Rules and change 'allow write: if false;' to 'allow write: if request.auth != null;'.");
+        } else {
+            alert(`Failed to create party. Error: ${error.message || "Unknown error"}`);
+        }
     } finally {
         setIsSubmitting(false);
     }

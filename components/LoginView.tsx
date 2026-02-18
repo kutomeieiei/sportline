@@ -78,8 +78,11 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       
       try {
         await setDoc(userRef, newUser);
-      } catch (writeErr) {
-        console.error("Failed to create user profile in DB (likely offline):", writeErr);
+      } catch (writeErr: any) {
+        console.error("Failed to create user profile in DB:", writeErr);
+        if (writeErr.code === 'permission-denied') {
+             alert("⚠️ Account created, but Profile saving failed.\n\nDatabase Permission Denied. Check Firebase Console > Firestore Database > Rules.");
+        }
       }
       return newUser;
     } else {
