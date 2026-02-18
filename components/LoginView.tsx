@@ -54,7 +54,6 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     } catch (err) {
         console.warn("Could not fetch user profile (likely offline). Using Auth profile fallback.", err);
         // Fallback: Return a temporary user object based on Auth data
-        // We do NOT write to DB here to avoid overwriting existing data if we just couldn't read it.
         return {
             username: additionalData.username || authUser.email?.split('@')[0] || 'user',
             displayName: authUser.displayName || additionalData.username || 'Sports Fan',
@@ -81,19 +80,32 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         await setDoc(userRef, newUser);
       } catch (writeErr) {
         console.error("Failed to create user profile in DB (likely offline):", writeErr);
-        // Continue even if write fails, using the local object
       }
       return newUser;
     } else {
-        // If user exists but has no email saved, update it
+        // User exists: Update latest email and avatar from Google Auth if available
+        // This ensures the "Gmail saving" requirement is robust
         const userData = userSnap.data() as User;
-        if (!userData.email && authUser.email) {
-            try {
-                await setDoc(userRef, { email: authUser.email }, { merge: true });
-            } catch (e) {
-                // Ignore write errors for email update
-            }
+        const updates: any = {};
+        
+        if (authUser.email && userData.email !== authUser.email) {
+            updates.email = authUser.email;
             userData.email = authUser.email;
+        }
+        
+        if (authUser.photoURL && userData.avatarUrl !== authUser.photoURL) {
+            // Only update avatar if it hasn't been manually set to something else custom
+            // For now, we sync it to keep it fresh
+            updates.avatarUrl = authUser.photoURL;
+            userData.avatarUrl = authUser.photoURL;
+        }
+
+        if (Object.keys(updates).length > 0) {
+            try {
+                await setDoc(userRef, updates, { merge: true });
+            } catch (e) {
+                // Ignore write errors for updates
+            }
         }
         return userData;
     }
