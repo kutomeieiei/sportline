@@ -47,7 +47,24 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const ensureUserDocument = async (authUser: any, additionalData: any = {}) => {
     if (!db) throw new Error("Database not initialized");
     const userRef = doc(db, 'users', authUser.uid);
-    const userSnap = await getDoc(userRef);
+    
+    let userSnap;
+    try {
+        userSnap = await getDoc(userRef);
+    } catch (err) {
+        console.warn("Could not fetch user profile (likely offline). Using Auth profile fallback.", err);
+        // Fallback: Return a temporary user object based on Auth data
+        // We do NOT write to DB here to avoid overwriting existing data if we just couldn't read it.
+        return {
+            username: additionalData.username || authUser.email?.split('@')[0] || 'user',
+            displayName: authUser.displayName || additionalData.username || 'Sports Fan',
+            email: authUser.email || "",
+            avatarUrl: authUser.photoURL || `https://ui-avatars.com/api/?name=${authUser.displayName || 'User'}&background=random`,
+            bio: "Ready to play!",
+            gender: "Prefer not to say",
+            preferredSports: []
+        } as User;
+    }
 
     if (!userSnap.exists()) {
       const newUser: User = {
@@ -59,13 +76,23 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         gender: "Prefer not to say",
         preferredSports: []
       };
-      await setDoc(userRef, newUser);
+      
+      try {
+        await setDoc(userRef, newUser);
+      } catch (writeErr) {
+        console.error("Failed to create user profile in DB (likely offline):", writeErr);
+        // Continue even if write fails, using the local object
+      }
       return newUser;
     } else {
         // If user exists but has no email saved, update it
         const userData = userSnap.data() as User;
         if (!userData.email && authUser.email) {
-            await setDoc(userRef, { email: authUser.email }, { merge: true });
+            try {
+                await setDoc(userRef, { email: authUser.email }, { merge: true });
+            } catch (e) {
+                // Ignore write errors for email update
+            }
             userData.email = authUser.email;
         }
         return userData;
@@ -85,6 +112,9 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     }
     if (err.code === 'auth/invalid-credential') {
       return "Invalid email or password.";
+    }
+    if (err.message && err.message.includes('offline')) {
+        return "You are offline. Please check your internet connection.";
     }
     return err.message ? err.message.replace('Firebase: ', '') : "An unknown error occurred.";
   };
