@@ -189,18 +189,24 @@ const MapView: React.FC<MapViewProps> = ({ parties, center, currentUser, onJoinP
                  <div className="flex items-center gap-1 text-xs font-semibold text-blue-600 uppercase tracking-wider">
                     {selectedParty.sport}
                  </div>
-                 {/* Display Travel Time if available, else standard distance */}
-                 {selectedParty.travelTime ? (
-                    <div className="flex items-center gap-1 text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                        <Car size={10} />
-                        {selectedParty.travelTime}
-                    </div>
-                 ) : selectedParty.distance !== undefined ? (
-                     <div className="flex items-center gap-1 text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                         <Navigation size={10} />
-                         {formatDistance(selectedParty.distance)}
-                     </div>
-                 ) : null}
+                 
+                 <div className="flex items-center gap-1">
+                     {/* Show Distance */}
+                     {selectedParty.distance !== undefined && (
+                         <div className="flex items-center gap-1 text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full" title="Straight-line distance">
+                             <Navigation size={10} />
+                             {formatDistance(selectedParty.distance)}
+                         </div>
+                     )}
+                     
+                     {/* Show Travel Time */}
+                     {selectedParty.travelTime && (
+                        <div className="flex items-center gap-1 text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full" title="Driving time">
+                            <Car size={10} />
+                            {selectedParty.travelTime}
+                        </div>
+                     )}
+                 </div>
             </div>
 
             <p className="text-sm text-gray-600 mb-3 line-clamp-2">{selectedParty.description}</p>
