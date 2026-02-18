@@ -3,8 +3,6 @@ import { User } from '../types';
 import { Loader2, ArrowLeft, Menu, Flame, AlertCircle } from 'lucide-react';
 import { APP_CONFIG } from '../constants';
 import { auth, googleProvider, db } from '../firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, updateProfile } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 interface LoginViewProps {
   onLogin: (user: User) => void;
@@ -46,11 +44,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   // Helper to ensure user document exists in Firestore
   const ensureUserDocument = async (authUser: any, additionalData: any = {}) => {
     if (!db) throw new Error("Database not initialized");
-    const userRef = doc(db, 'users', authUser.uid);
     
     let userSnap;
     try {
-        userSnap = await getDoc(userRef);
+        userSnap = await db.collection('users').doc(authUser.uid).get();
     } catch (err) {
         console.warn("Could not fetch user profile (likely offline). Using Auth profile fallback.", err);
         // Fallback: Return a temporary user object based on Auth data
@@ -65,7 +62,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         } as User;
     }
 
-    if (!userSnap.exists()) {
+    if (!userSnap.exists) {
       const newUser: User = {
         username: additionalData.username || authUser.email?.split('@')[0] || 'user',
         displayName: authUser.displayName || additionalData.username || 'Sports Fan',
@@ -77,7 +74,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       };
       
       try {
-        await setDoc(userRef, newUser);
+        await db.collection('users').doc(authUser.uid).set(newUser);
       } catch (writeErr: any) {
         console.error("Failed to create user profile in DB:", writeErr);
         if (writeErr.code === 'permission-denied') {
@@ -105,7 +102,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
         if (Object.keys(updates).length > 0) {
             try {
-                await setDoc(userRef, updates, { merge: true });
+                await db.collection('users').doc(authUser.uid).set(updates, { merge: true });
             } catch (e) {
                 // Ignore write errors for updates
             }
@@ -152,7 +149,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     }
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await auth.signInWithEmailAndPassword(email, password);
       const userProfile = await ensureUserDocument(userCredential.user);
       onLogin(userProfile);
     } catch (err: any) {
@@ -174,9 +171,9 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     }
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
       // Update Auth Profile
-      await updateProfile(userCredential.user, {
+      await userCredential.user?.updateProfile({
         displayName: username
       });
       
@@ -200,7 +197,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     }
 
     try {
-        const result = await signInWithPopup(auth, googleProvider);
+        const result = await auth.signInWithPopup(googleProvider);
         const userProfile = await ensureUserDocument(result.user);
         onLogin(userProfile);
     } catch (err: any) {

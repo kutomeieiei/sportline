@@ -1,7 +1,7 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
+import 'firebase/compat/firestore';
+import 'firebase/compat/storage';
 
 // 1. Config
 const firebaseConfig = {
@@ -14,26 +14,19 @@ const firebaseConfig = {
 };
 
 // 2. Initialize App (Singleton)
-// We check if apps are already initialized to avoid "Firebase App named '[DEFAULT]' already exists" errors
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+// Check if apps are already initialized
+const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
 
 // 3. Initialize Services
-const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
-
-// Initialize Firestore with persistent cache (Offline Support)
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
-});
-
-const storage = getStorage(app);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
 
 console.log("Firebase Initialized:", { 
   projectId: firebaseConfig.projectId, 
   authDomain: firebaseConfig.authDomain 
 });
 
-export { auth, googleProvider, db, storage };
+export { auth, googleProvider, db, storage, firebase };
 export default app;

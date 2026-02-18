@@ -2,8 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
 import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, Mail, Database, CheckCircle, AlertTriangle } from 'lucide-react';
-import { db, auth } from '../firebase';
-import { doc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { db, auth, firebase } from '../firebase';
 
 interface SettingsViewProps {
   user: User;
@@ -77,12 +76,19 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       };
 
       // 3. Firestore Write
-      const userRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userRef, userDataToSave, { merge: true });
+      
+      // Add timeout to save operation
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("TIMEOUT: Save operation took too long.")), 8000)
+      );
+      
+      await Promise.race([
+        db.collection('users').doc(currentUser.uid).set(userDataToSave, { merge: true }),
+        timeoutPromise
+      ]);
       
       console.log("Profile updated successfully");
       setIsEditing(false);
-      // Notify parent/context if needed, though onSnapshot in App.tsx handles updates
 
     } catch (error: any) {
       console.error("Save failed:", error);
@@ -90,6 +96,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       
       if (error.code === 'permission-denied') {
         errorMessage = "Permission denied. Check Firestore Security Rules.";
+      } else if (error.message.includes("TIMEOUT")) {
+        errorMessage = "Connection Timed Out. Please check your internet.";
       } else if (error.code === 'unavailable') {
         errorMessage = "Network error. Please check your internet connection.";
       } else {
@@ -104,27 +112,37 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
 
   const handleTestConnection = async () => {
     setTestStatus('testing');
-    setTestMessage('Attempting to write to database...');
+    setTestMessage('Attempting to write... (timeout in 5s)');
     
     try {
         if (!auth.currentUser) throw new Error("Not logged in");
         
-        // Try to write a dummy document to a test collection
-        await addDoc(collection(db, 'connection_test'), {
-            timestamp: serverTimestamp(),
+        // TIMEOUT WRAPPER: Fail if database doesn't respond in 5 seconds
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("TIMEOUT: Database did not respond in 5 seconds. Check your internet or firewall.")), 5000)
+        );
+
+        const writePromise = db.collection('connection_test').add({
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
             uid: auth.currentUser.uid,
             test: true
         });
+
+        // Race the write against the timeout
+        await Promise.race([writePromise, timeoutPromise]);
 
         setTestStatus('success');
         setTestMessage('Success! Database is connected and writable.');
     } catch (error: any) {
         console.error("Connection Test Failed:", error);
         setTestStatus('error');
-        if (error.code === 'permission-denied') {
-            setTestMessage('PERMISSION DENIED: You need to update Firestore Rules in Firebase Console.');
+        
+        if (error.message.includes("TIMEOUT")) {
+            setTestMessage("TIMEOUT: Connection too slow. Check Internet/VPN.");
+        } else if (error.code === 'permission-denied') {
+            setTestMessage('PERMISSION DENIED: Update Firestore Rules in Console.');
         } else if (error.code === 'unavailable') {
-            setTestMessage('OFFLINE: Browser cannot reach Firebase. Check internet or Firewall.');
+            setTestMessage('OFFLINE: Browser cannot reach Firebase.');
         } else {
             setTestMessage(`ERROR: ${error.message}`);
         }

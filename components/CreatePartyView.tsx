@@ -3,8 +3,7 @@ import { GoogleMap, MarkerF } from '@react-google-maps/api';
 import { Party, SportType } from '../types';
 import { SPORTS_LIST, KHON_KAEN_CENTER, DEFAULT_CITY } from '../constants';
 import { X, MapPin, Calendar, Clock, Users, Search, Loader2 } from 'lucide-react';
-import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db, firebase } from '../firebase';
 import { encodeGeohash } from '../utils/geospatial';
 
 // Declare google global to avoid TS namespace errors
@@ -274,10 +273,18 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
           geohash: geohash, 
           host: currentUser,
           members: [currentUser],
-          createdAt: serverTimestamp()
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
 
-        const docRef = await addDoc(collection(db, 'parties'), partyData);
+        // Create a promise that rejects after 10 seconds
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("TIMEOUT: Creation timed out. Check your connection.")), 10000)
+        );
+
+        const docRef = await Promise.race([
+            db.collection('parties').add(partyData),
+            timeoutPromise
+        ]) as any; // Type assertion needed due to race
         
         const newParty: Party = {
             id: docRef.id,
@@ -288,7 +295,9 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
     } catch (error: any) {
         console.error("Error creating party: ", error);
         
-        if (error.code === 'permission-denied') {
+        if (error.message && error.message.includes("TIMEOUT")) {
+             alert("⚠️ Request Timed Out.\n\nThe server is not responding. Please check your internet connection and try again.");
+        } else if (error.code === 'permission-denied') {
             alert("⚠️ Database Permission Denied.\n\nThe app cannot save your party because the database is locked.\n\nPlease go to Firebase Console > Firestore Database > Rules and change 'allow write: if false;' to 'allow write: if request.auth != null;'.");
         } else {
             alert(`Failed to create party. Error: ${error.message || "Unknown error"}`);

@@ -11,9 +11,8 @@ import ChatDetailView from './components/ChatDetailView';
 import { Party, SportType, User } from './types';
 import { INITIAL_USER, DEFAULT_CENTER } from './constants';
 import { Crosshair, Loader2 } from 'lucide-react';
-import { auth, db } from './firebase';
-import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
-import { collection, query, onSnapshot, orderBy, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { auth, db, firebase } from './firebase'; // Import firebase for compat utilities
+import { User as FirebaseUser } from 'firebase/auth';
 import { calculateHaversineDistance } from './utils/geospatial';
 
 // Declare google for global access
@@ -63,7 +62,7 @@ function App() {
         return;
     }
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribeAuth = auth.onAuthStateChanged((currentUser) => {
       setAuthUser(currentUser);
       
       if (currentUser) {
@@ -82,9 +81,8 @@ function App() {
   // --- 2. Real-time User Profile Listener ---
   useEffect(() => {
     if (authUser && db) {
-        const userRef = doc(db, 'users', authUser.uid);
-        const unsubscribeUser = onSnapshot(userRef, (docSnap) => {
-            if (docSnap.exists()) {
+        const unsubscribeUser = db.collection('users').doc(authUser.uid).onSnapshot((docSnap) => {
+            if (docSnap.exists) {
                 const userData = docSnap.data() as User;
                 setUser(userData);
             } else {
@@ -109,13 +107,14 @@ function App() {
   useEffect(() => {
     if (!isAuthenticated || !db) return;
 
-    const q = query(collection(db, 'parties'), orderBy('createdAt', 'desc'));
-    const unsubscribeParties = onSnapshot(q, (snapshot) => {
-      const partiesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Party[];
-      setParties(partiesData);
+    const unsubscribeParties = db.collection('parties')
+      .orderBy('createdAt', 'desc')
+      .onSnapshot((snapshot) => {
+        const partiesData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Party[];
+        setParties(partiesData);
     });
 
     return () => unsubscribeParties();
@@ -196,7 +195,7 @@ function App() {
 
   const handleLogout = async () => {
     if (auth) {
-        await signOut(auth);
+        await auth.signOut();
     }
     setCurrentTab('explore');
     setSelectedChatUser(null);
@@ -239,9 +238,8 @@ function App() {
   const handleJoinParty = async (partyId: string) => {
     if (!db) return;
     try {
-        const partyRef = doc(db, 'parties', partyId);
-        await updateDoc(partyRef, {
-            members: arrayUnion(user.username),
+        await db.collection('parties').doc(partyId).update({
+            members: firebase.firestore.FieldValue.arrayUnion(user.username),
             playersCurrent: (parties.find(p => p.id === partyId)?.playersCurrent || 0) + 1
         });
     } catch (error) {
