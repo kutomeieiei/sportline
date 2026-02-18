@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { Party, SportType } from '../types';
-import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, ExternalLink, CheckCircle, Navigation } from 'lucide-react';
+import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, ExternalLink, CheckCircle, Navigation, Car } from 'lucide-react';
 import { formatDistance } from '../utils/geospatial';
 
 // Declare google global to avoid TS namespace errors
@@ -72,7 +72,8 @@ const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: apiKey
+    googleMapsApiKey: apiKey,
+    libraries: ['places'] // Ensure places lib is loaded for consistent global google object
   });
 
   const onLoad = useCallback((mapInstance: any) => {
@@ -138,6 +139,22 @@ const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center
     return { text: "Join Party", disabled: false, className: "bg-blue-600 text-white hover:bg-blue-700" };
   };
 
+  const handleNavigate = (party: Party) => {
+    // Google Maps Deep Link
+    // If we have a placeId, navigation is extremely precise to the Venue Entry Point.
+    // Fallback to lat/lng.
+    const baseUrl = "https://www.google.com/maps/dir/?api=1";
+    let destinationParam = "";
+    
+    if (party.placeId) {
+        destinationParam = `&destination_place_id=${party.placeId}&destination=${encodeURIComponent(party.venueName || "Destination")}`;
+    } else {
+        destinationParam = `&destination=${party.latitude},${party.longitude}`;
+    }
+
+    window.open(`${baseUrl}${destinationParam}&travelmode=driving`, '_blank');
+  };
+
   return (
     <GoogleMap
       mapContainerStyle={containerStyle}
@@ -167,19 +184,29 @@ const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center
           }}
         >
           <div className="p-1 min-w-[200px] max-w-[240px]">
-            <h3 className="font-bold text-lg mb-1 text-gray-800">{selectedParty.title}</h3>
+            <h3 className="font-bold text-lg mb-0.5 text-gray-800 leading-tight">{selectedParty.title}</h3>
+            {selectedParty.venueName && (
+                <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+                    <MapPin size={10} /> {selectedParty.venueName}
+                </p>
+            )}
             
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-2 mt-2">
                  <div className="flex items-center gap-1 text-xs font-semibold text-blue-600 uppercase tracking-wider">
                     {selectedParty.sport}
                  </div>
-                 {/* Display Precise Distance if available */}
-                 {selectedParty.distance !== undefined && (
+                 {/* Display Travel Time if available, else standard distance */}
+                 {selectedParty.travelTime ? (
+                    <div className="flex items-center gap-1 text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                        <Car size={10} />
+                        {selectedParty.travelTime}
+                    </div>
+                 ) : selectedParty.distance !== undefined ? (
                      <div className="flex items-center gap-1 text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
                          <Navigation size={10} />
                          {formatDistance(selectedParty.distance)}
                      </div>
-                 )}
+                 ) : null}
             </div>
 
             <p className="text-sm text-gray-600 mb-3 line-clamp-2">{selectedParty.description}</p>
@@ -201,19 +228,28 @@ const MapInner: React.FC<MapViewProps & { apiKey: string }> = ({ parties, center
                 </div>
             </div>
 
-            {(() => {
-                const btn = getButtonState(selectedParty);
-                return (
-                    <button 
-                        onClick={() => onJoinParty(selectedParty.id)}
-                        disabled={btn.disabled}
-                        className={`mt-3 w-full py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${btn.className}`}
-                    >
-                        {btn.text === "Joined" && <CheckCircle size={14} />}
-                        {btn.text}
-                    </button>
-                );
-            })()}
+            <div className="flex gap-2 mt-3">
+                <button 
+                    onClick={() => handleNavigate(selectedParty)}
+                    className="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                    title="Navigate"
+                >
+                    <Navigation size={16} />
+                </button>
+                {(() => {
+                    const btn = getButtonState(selectedParty);
+                    return (
+                        <button 
+                            onClick={() => onJoinParty(selectedParty.id)}
+                            disabled={btn.disabled}
+                            className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${btn.className}`}
+                        >
+                            {btn.text === "Joined" && <CheckCircle size={14} />}
+                            {btn.text}
+                        </button>
+                    );
+                })()}
+            </div>
           </div>
         </InfoWindowF>
       )}

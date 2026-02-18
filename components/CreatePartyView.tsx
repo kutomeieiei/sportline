@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, MarkerF } from '@react-google-maps/api';
 import { Party, SportType } from '../types';
 import { SPORTS_LIST, KHON_KAEN_CENTER, DEFAULT_CITY } from '../constants';
@@ -17,13 +17,6 @@ interface CreatePartyViewProps {
   currentUser: string;
 }
 
-interface PlaceSuggestion {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-}
-
 // Map configuration
 const mapContainerStyle = {
   width: '100%',
@@ -39,6 +32,8 @@ const mapOptions = {
   fullscreenControl: false,
 };
 
+const LIBRARIES: ("places" | "geometry")[] = ["places", "geometry"];
+
 // --- SUB-COMPONENTS ---
 
 const LocationSection: React.FC<{
@@ -46,56 +41,97 @@ const LocationSection: React.FC<{
   setSelectedLocation: (loc: { lat: number; lng: number }) => void;
   displayLocationName: string;
   setDisplayLocationName: (name: string) => void;
+  setPlaceId: (id: string) => void;
   apiKey: string;
-}> = ({ selectedLocation, setSelectedLocation, displayLocationName, setDisplayLocationName, apiKey }) => {
+}> = ({ selectedLocation, setSelectedLocation, displayLocationName, setDisplayLocationName, setPlaceId, apiKey }) => {
   const [locationQuery, setLocationQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const autocompleteService = useRef<any>(null);
+  const placesService = useRef<any>(null);
+  const mapRef = useRef<any>(null);
 
   const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: apiKey
+    id: 'google-map-script-create',
+    googleMapsApiKey: apiKey,
+    libraries: LIBRARIES
   });
 
+  // Initialize Autocomplete Service
+  useEffect(() => {
+    if (isLoaded && !autocompleteService.current && google) {
+      autocompleteService.current = new google.maps.places.AutocompleteService();
+    }
+  }, [isLoaded]);
+
+  // Handle Text Search (Google Places Autocomplete)
   useEffect(() => {
     const fetchSuggestions = async () => {
-      if (!locationQuery.trim() || locationQuery.length < 3) {
+      if (!locationQuery.trim() || locationQuery.length < 3 || !autocompleteService.current) {
         setSuggestions([]);
         return;
       }
       setIsSearching(true);
+      
       try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationQuery)}&limit=5&addressdetails=1&viewbox=${KHON_KAEN_CENTER.lng-0.1},${KHON_KAEN_CENTER.lat+0.1},${KHON_KAEN_CENTER.lng+0.1},${KHON_KAEN_CENTER.lat-0.1}`
-        );
-        const data = await response.json();
-        setSuggestions(data);
+        const request = {
+            input: locationQuery,
+            location: new google.maps.LatLng(selectedLocation.lat, selectedLocation.lng),
+            radius: 5000, // Bias to 5km radius
+        };
+
+        autocompleteService.current.getPlacePredictions(request, (predictions: any[], status: any) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+                setSuggestions(predictions);
+            } else {
+                setSuggestions([]);
+            }
+            setIsSearching(false);
+        });
       } catch (error) {
-        console.error('Error fetching locations:', error);
-      } finally {
+        console.error('Error fetching places:', error);
         setIsSearching(false);
       }
     };
 
     const timeoutId = setTimeout(fetchSuggestions, 500);
     return () => clearTimeout(timeoutId);
-  }, [locationQuery]);
+  }, [locationQuery, selectedLocation]);
 
-  const handleSelectSuggestion = (place: PlaceSuggestion) => {
-    const lat = parseFloat(place.lat);
-    const lng = parseFloat(place.lon);
-    setSelectedLocation({ lat, lng });
-    setDisplayLocationName(place.display_name.split(',')[0]);
+  const handleSelectSuggestion = (prediction: any) => {
+    setDisplayLocationName(prediction.structured_formatting.main_text);
+    setPlaceId(prediction.place_id);
     setLocationQuery('');
     setSuggestions([]);
+
+    // We need to get the geometry (lat/lng) for this place ID
+    if (!placesService.current && mapRef.current) {
+        // Create a temporary PlacesService using the map instance (or a dummy div if map not ready)
+        placesService.current = new google.maps.places.PlacesService(mapRef.current);
+    }
+
+    if (placesService.current) {
+        placesService.current.getDetails({
+            placeId: prediction.place_id,
+            fields: ['geometry', 'name']
+        }, (place: any, status: any) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && place.geometry && place.geometry.location) {
+                setSelectedLocation({
+                    lat: place.geometry.location.lat(),
+                    lng: place.geometry.location.lng()
+                });
+            }
+        });
+    }
   };
 
   const handleMapClick = useCallback((e: any) => {
     if (e.latLng) {
       setSelectedLocation({ lat: e.latLng.lat(), lng: e.latLng.lng() });
-      setDisplayLocationName("Custom Point");
+      setDisplayLocationName("Custom Pinned Location");
+      setPlaceId(""); // Clear place ID if picking manually
     }
-  }, [setSelectedLocation, setDisplayLocationName]);
+  }, [setSelectedLocation, setDisplayLocationName, setPlaceId]);
 
   return (
     <div className="space-y-4">
@@ -107,9 +143,13 @@ const LocationSection: React.FC<{
           <GoogleMap
             mapContainerStyle={mapContainerStyle}
             center={selectedLocation}
-            zoom={14}
+            zoom={15}
             options={mapOptions}
             onClick={handleMapClick}
+            onLoad={(map) => {
+                mapRef.current = map;
+                placesService.current = new google.maps.places.PlacesService(map);
+            }}
           >
             <MarkerF position={selectedLocation} />
           </GoogleMap>
@@ -137,7 +177,7 @@ const LocationSection: React.FC<{
         <input 
           type="text" 
           className="w-full pl-10 p-3 border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all text-sm"
-          placeholder="Search for a location near Khon Kaen..."
+          placeholder="Search verified venues (Google Maps)..."
           value={locationQuery}
           onChange={(e) => setLocationQuery(e.target.value)}
         />
@@ -145,7 +185,7 @@ const LocationSection: React.FC<{
       </div>
 
       {suggestions.length > 0 && (
-        <div className="absolute z-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden mt-[-10px] w-[calc(100%-2rem)]">
+        <div className="absolute z-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden mt-[-10px] w-[calc(100%-2rem)] max-h-60 overflow-y-auto">
           {suggestions.map((place) => (
             <button
               key={place.place_id}
@@ -155,12 +195,23 @@ const LocationSection: React.FC<{
             >
               <MapPin size={16} className="text-gray-400 mt-0.5 shrink-0" />
               <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-800 truncate">{place.display_name.split(',')[0]}</p>
-                <p className="text-xs text-gray-500 truncate">{place.display_name}</p>
+                <p className="text-sm font-medium text-gray-800 truncate">
+                    {place.structured_formatting.main_text}
+                </p>
+                <p className="text-xs text-gray-500 truncate">
+                    {place.structured_formatting.secondary_text}
+                </p>
               </div>
             </button>
           ))}
         </div>
+      )}
+      
+      {/* Powered by Google Footer */}
+      {suggestions.length > 0 && (
+          <div className="flex justify-end px-2">
+               <span className="text-[10px] text-gray-400">Powered by Google</span>
+          </div>
       )}
     </div>
   );
@@ -212,6 +263,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
 
   const [selectedLocation, setSelectedLocation] = useState(KHON_KAEN_CENTER);
   const [displayLocationName, setDisplayLocationName] = useState(DEFAULT_CITY);
+  const [placeId, setPlaceId] = useState<string>("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,7 +278,9 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
           playersCurrent: 1,
           latitude: selectedLocation.lat,
           longitude: selectedLocation.lng,
-          geohash: geohash, // Stored for future Tier 1 queries
+          venueName: displayLocationName,
+          placeId: placeId, // Store Google Place ID for deep linking
+          geohash: geohash, 
           host: currentUser,
           members: [currentUser],
           createdAt: serverTimestamp()
@@ -265,6 +319,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
             setSelectedLocation={setSelectedLocation}
             displayLocationName={displayLocationName}
             setDisplayLocationName={setDisplayLocationName}
+            setPlaceId={setPlaceId}
             apiKey={apiKey}
           />
 

@@ -2,6 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, Menu, Mic, X, MapPin, Loader2 } from 'lucide-react';
 import { SportType } from '../types';
 import { SPORTS_LIST, APP_CONFIG } from '../constants';
+import { useJsApiLoader } from '@react-google-maps/api';
+
+// Declare google global to avoid TS namespace errors
+declare var google: any;
 
 interface TopBarProps {
   selectedSport: SportType;
@@ -11,42 +15,63 @@ interface TopBarProps {
   onLocationSelect: (lat: number, lng: number) => void;
 }
 
-interface PlaceSuggestion {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-}
+const LIBRARIES: ("places")[] = ["places"];
 
 const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvatar, onAvatarClick, onLocationSelect }) => {
   const [query, setQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const autocompleteService = useRef<any>(null);
+  const placesService = useRef<any>(null);
+
+  const rawApiKey = ((import.meta as any).env && (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY) || '';
+  const apiKey = rawApiKey.replace(/['"]/g, '').trim();
+
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script-topbar',
+    googleMapsApiKey: apiKey,
+    libraries: LIBRARIES
+  });
 
   const displayLogo = APP_CONFIG.headerLogoUrl || APP_CONFIG.logoUrl;
 
-  // Debounced search effect
+  // Initialize Autocomplete Service
+  useEffect(() => {
+    if (isLoaded && !autocompleteService.current && google) {
+      autocompleteService.current = new google.maps.places.AutocompleteService();
+      // We need a dummy div or similar to init PlacesService effectively sometimes, 
+      // but usually we just need it to getDetails. 
+      // We'll create it on demand.
+    }
+  }, [isLoaded]);
+
+  // Google Places Search
   useEffect(() => {
     const fetchSuggestions = async () => {
-      if (!query.trim() || query.length < 3) {
+      if (!query.trim() || query.length < 3 || !autocompleteService.current) {
         setSuggestions([]);
         return;
       }
 
       setIsLoading(true);
       try {
-        // Using OpenStreetMap Nominatim API to simulate Google Places Autocomplete
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`
-        );
-        const data = await response.json();
-        setSuggestions(data);
-        setIsOpen(true);
+        const request = {
+            input: query,
+        };
+
+        autocompleteService.current.getPlacePredictions(request, (predictions: any[], status: any) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+                setSuggestions(predictions);
+                setIsOpen(true);
+            } else {
+                setSuggestions([]);
+            }
+            setIsLoading(false);
+        });
       } catch (error) {
-        console.error('Error fetching locations:', error);
-      } finally {
+        console.error('Error fetching places:', error);
         setIsLoading(false);
       }
     };
@@ -66,13 +91,25 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelectLocation = (place: PlaceSuggestion) => {
-    const lat = parseFloat(place.lat);
-    const lng = parseFloat(place.lon);
-    onLocationSelect(lat, lng);
-    setQuery(place.display_name.split(',')[0]); // Keep short name
-    setIsOpen(false);
-    setSuggestions([]);
+  const handleSelectLocation = (place: any) => {
+    // We need to fetch geometry for the selected place
+    const mapDiv = document.createElement('div');
+    const service = new google.maps.places.PlacesService(mapDiv);
+
+    service.getDetails({
+        placeId: place.place_id,
+        fields: ['geometry', 'name']
+    }, (result: any, status: any) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && result.geometry) {
+            const lat = result.geometry.location.lat();
+            const lng = result.geometry.location.lng();
+            
+            onLocationSelect(lat, lng);
+            setQuery(result.name || place.structured_formatting.main_text);
+            setIsOpen(false);
+            setSuggestions([]);
+        }
+    });
   };
 
   const clearSearch = () => {
@@ -89,7 +126,6 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
           
           <Menu className="text-gray-500 cursor-pointer min-w-[24px]" size={24} />
           
-          {/* Configurable Logo - Shows next to Menu if configured */}
           {displayLogo && (
             <div className="h-8 w-auto flex items-center border-r border-gray-200 pr-3 mr-1">
                 <img src={displayLogo} alt="App Logo" className="h-full object-contain" />
@@ -102,7 +138,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => { if (suggestions.length > 0) setIsOpen(true); }}
-              placeholder={displayLogo ? "Search locations..." : `Search ${APP_CONFIG.appName}`}
+              placeholder="Search places..."
               className="w-full outline-none text-gray-700 text-base placeholder-gray-500 bg-transparent"
             />
           </div>
@@ -124,7 +160,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
 
         {/* Autocomplete Dropdown */}
         {isOpen && suggestions.length > 0 && (
-          <div className="absolute left-4 right-4 bg-white shadow-xl border-t border-gray-100 rounded-b-2xl overflow-hidden flex flex-col pointer-events-auto">
+          <div className="absolute left-4 right-4 bg-white shadow-xl border-t border-gray-100 rounded-b-2xl overflow-hidden flex flex-col pointer-events-auto max-h-60 overflow-y-auto">
             {suggestions.map((place) => (
               <button
                 key={place.place_id}
@@ -136,14 +172,17 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <p className="text-sm font-semibold text-gray-800 truncate">
-                    {place.display_name.split(',')[0]}
+                    {place.structured_formatting.main_text}
                   </p>
                   <p className="text-xs text-gray-500 truncate">
-                    {place.display_name.split(',').slice(1).join(',')}
+                    {place.structured_formatting.secondary_text}
                   </p>
                 </div>
               </button>
             ))}
+            <div className="p-2 bg-gray-50 text-right">
+                <span className="text-[10px] text-gray-400">Powered by Google</span>
+            </div>
           </div>
         )}
       </div>

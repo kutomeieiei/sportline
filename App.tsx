@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import MapView from './components/MapView';
 import TopBar from './components/TopBar';
 import BottomNav from './components/BottomNav';
@@ -15,6 +15,9 @@ import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth
 import { collection, query, onSnapshot, orderBy, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { calculateHaversineDistance } from './utils/geospatial';
 
+// Declare google for global access
+declare var google: any;
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
@@ -25,11 +28,18 @@ function App() {
   const [selectedSport, setSelectedSport] = useState<SportType>('All');
   const [user, setUser] = useState<User>(INITIAL_USER);
   const [parties, setParties] = useState<Party[]>([]);
+  
+  // Store travel times separately to avoid re-rendering loops
+  const [travelTimes, setTravelTimes] = useState<Record<string, string>>({});
+
   const [currentTab, setCurrentTab] = useState<'explore' | 'create' | 'settings' | 'chat'>('explore');
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
   
   // Chat Navigation State
   const [selectedChatUser, setSelectedChatUser] = useState<ChatUser | null>(null);
+
+  // Rate limiting for distance matrix
+  const lastMatrixCall = useRef<number>(0);
 
   // --- 1. Auth Listener ---
   useEffect(() => {
@@ -98,9 +108,7 @@ function App() {
   }, [isAuthenticated]);
 
   // --- 4. TIER 2: Spatial Refinement (Distance Sorting) ---
-  // Memoize the filtered and sorted parties to optimize performance.
-  // This executes the Haversine formula to sort candidates by precise Euclidean distance.
-  const processedParties = useMemo(() => {
+  const sortedParties = useMemo(() => {
     let filtered = selectedSport === 'All' 
         ? parties 
         : parties.filter(p => p.sport === selectedSport);
@@ -113,13 +121,58 @@ function App() {
             party.latitude, 
             party.longitude
         );
-        return { ...party, distance: dist };
+        // Inject travel time if we have it calculated
+        const time = travelTimes[party.id];
+        return { ...party, distance: dist, travelTime: time };
     });
 
     // Sort by distance (ASC)
     return withDistance.sort((a, b) => a.distance - b.distance);
-  }, [parties, selectedSport, mapCenter]);
+  }, [parties, selectedSport, mapCenter, travelTimes]);
 
+  // --- 5. TIER 3: Distance Matrix (Travel Time) Logic ---
+  useEffect(() => {
+    // Only fetch if google maps is loaded and we have parties
+    if (typeof google === 'undefined' || !google.maps || !google.maps.DistanceMatrixService) return;
+    if (sortedParties.length === 0) return;
+
+    // Debounce: Only call every 5 seconds max to avoid quota limits
+    const now = Date.now();
+    if (now - lastMatrixCall.current < 5000) return;
+    lastMatrixCall.current = now;
+
+    // Take top 10 closest parties to calculate precise time for
+    const topCandidates = sortedParties.slice(0, 10);
+    const destinations = topCandidates.map(p => ({ lat: p.latitude, lng: p.longitude }));
+
+    // If we already have times for all these, skip
+    const allHaveTime = topCandidates.every(p => travelTimes[p.id]);
+    if (allHaveTime && topCandidates.length > 0) return;
+
+    const service = new google.maps.DistanceMatrixService();
+    service.getDistanceMatrix({
+        origins: [mapCenter],
+        destinations: destinations,
+        travelMode: google.maps.TravelMode.DRIVING,
+        unitSystem: google.maps.UnitSystem.METRIC,
+    }, (response: any, status: any) => {
+        if (status === 'OK' && response.rows[0].elements) {
+            const results = response.rows[0].elements;
+            const newTimes: Record<string, string> = {};
+            
+            results.forEach((element: any, index: number) => {
+                if (element.status === 'OK' && element.duration) {
+                    const partyId = topCandidates[index].id;
+                    newTimes[partyId] = element.duration.text;
+                }
+            });
+
+            // Update state safely
+            setTravelTimes(prev => ({ ...prev, ...newTimes }));
+        }
+    });
+
+  }, [sortedParties, mapCenter]); // Dependency on sortedParties ensures we re-calc when list changes/sorts
 
   const handleLogin = (loggedInUser: User) => {
     setUser(loggedInUser);
@@ -183,6 +236,7 @@ function App() {
   };
 
   const handleRecenter = () => {
+    // Small jitter to force map refresh if needed
     setMapCenter({ ...DEFAULT_CENTER, lat: DEFAULT_CENTER.lat + (Math.random() * 0.001) });
   };
   
@@ -196,7 +250,7 @@ function App() {
       {/* Map Layer */}
       <div className="absolute inset-0 top-0 bottom-[72px] z-0">
         <MapView 
-            parties={processedParties} 
+            parties={sortedParties} 
             center={mapCenter} 
             currentUser={user.username}
             onJoinParty={handleJoinParty}
