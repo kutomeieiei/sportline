@@ -112,18 +112,24 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   };
 
   const formatError = (err: any) => {
-    console.error(err);
+    console.error("Auth Error Object:", err);
     if (err.code === 'auth/unauthorized-domain') {
-      return "Domain not allowed. Add 'localhost' to Firebase Console > Auth > Settings > Authorized Domains.";
+      return "Domain not allowed. Go to Firebase Console -> Authentication -> Settings -> Authorized Domains and add this domain.";
     }
-    if (err.code === 'auth/popup-closed-by-user') {
-      return "Sign-in cancelled.";
+    if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/user-cancelled') {
+      return "Login cancelled. If you did not close the popup, you likely need to add this domain/IP (e.g., 127.0.0.1) to Firebase Console > Authentication > Settings > Authorized Domains.";
     }
     if (err.code === 'auth/email-already-in-use') {
       return "This email is already registered. Please log in.";
     }
     if (err.code === 'auth/invalid-credential') {
       return "Invalid email or password.";
+    }
+    if (err.code === 'auth/popup-blocked') {
+        return "Popup blocked. Please allow popups for this site.";
+    }
+    if (err.code === 'auth/operation-not-allowed') {
+        return "Google Sign-In is not enabled. Go to Firebase Console > Authentication > Sign-in method and enable Google.";
     }
     if (err.message && err.message.includes('offline')) {
         return "You are offline. Please check your internet connection.";
@@ -357,33 +363,19 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-gray-900 font-medium"
-                            placeholder="Min 6 characters"
+                            placeholder="••••••"
                         />
                     </div>
-
-                    {viewMode === 'login' && (
-                        <div className="flex justify-end">
-                            <button type="button" className="text-sm font-semibold text-gray-500 hover:text-red-500">
-                                Forgot Password?
-                            </button>
-                        </div>
-                    )}
 
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className={`w-full py-4 rounded-full text-white font-bold text-lg shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center justify-center ${APP_CONFIG.primaryGradient}`}
+                        className={`w-full py-3.5 rounded-full text-white font-bold text-lg tracking-wide shadow-lg transform active:scale-95 transition-transform ${APP_CONFIG.primaryGradient}`}
                     >
-                        {isLoading ? <Loader2 className="animate-spin" /> : (viewMode === 'login' ? 'LOG IN' : 'SIGN UP')}
+                        {isLoading ? <Loader2 className="animate-spin mx-auto" /> : (viewMode === 'login' ? 'Log In' : 'Create Account')}
                     </button>
                 </form>
             </div>
-       </div>
-
-       <div className="p-4 text-center">
-            <p className="text-xs text-gray-400">
-                Cloud features powered by Firebase.
-            </p>
        </div>
     </div>
   );
