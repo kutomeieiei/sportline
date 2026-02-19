@@ -19,7 +19,7 @@ if (!firebaseConfig.apiKey) {
 }
 
 console.log("Firebase Config Check:", {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY, // or import.meta.env.VITE_FIREBASE_API_KEY
+  apiKey: process.env.VITE_FIREBASE_API_KEY, // or import.meta.env.VITE_FIREBASE_API_KEY
   projectId: "your-project-id"
 });
 
