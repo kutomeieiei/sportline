@@ -18,6 +18,11 @@ if (!firebaseConfig.apiKey) {
     console.error("CRITICAL: Firebase Configuration is missing. Check your .env file.");
 }
 
+console.log("Firebase Config Check:", {
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY, // or import.meta.env.VITE_FIREBASE_API_KEY
+  projectId: "your-project-id"
+});
+
 // 2. Initialize App (Singleton)
 // Check if apps are already initialized
 const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
