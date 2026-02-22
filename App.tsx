@@ -14,7 +14,7 @@ import { Crosshair, Loader2, Sparkles, X } from 'lucide-react';
 import { auth } from './services/firebaseService'; // Import firebase for compat utilities
 
 
-import { rankUsers, RankedUser } from './services/rankingService';
+// import { rankUsers, RankedUser } from './services/rankingService';
 import { useAuth } from './hooks/useAuth';
 import { useUserProfile } from './hooks/useUserProfile';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -53,7 +53,7 @@ function App() {
 
   // AI Ranking State
   const [isRanking, setIsRanking] = useState(false);
-  const [rankedResults, setRankedResults] = useState<RankedUser[] | null>(null);
+  // const [rankedResults, setRankedResults] = useState<RankedUser[] | null>(null);
   const [showRankingModal, setShowRankingModal] = useState(false);
 
   // Rate limiting for distance matrix
@@ -144,8 +144,8 @@ function App() {
     setShowRankingModal(true);
     
     // Use DUMMY_USERS for demonstration, in real app fetch from Firestore
-    const results = await rankUsers(user, constants.DUMMY_USERS, mapCenter);
-    setRankedResults(results);
+    // const results = await rankUsers(user, constants.DUMMY_USERS, mapCenter);
+    // setRankedResults(results);
     setIsRanking(false);
   };
 
@@ -262,7 +262,7 @@ function App() {
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {rankedResults && rankedResults.length > 0 ? (
+                            {/* {rankedResults && rankedResults.length > 0 ? (
                                 rankedResults.map((result) => {
                                     const candidate = constants.DUMMY_USERS.find(u => u.uid === result.uid);
                                     if (!candidate) return null;
@@ -308,7 +308,7 @@ function App() {
                                     <p>No matches found nearby.</p>
                                     <p className="text-xs mt-1">Try expanding your search radius or changing preferences.</p>
                                 </div>
-                            )}
+                            )} */}
                         </div>
                     )}
                 </div>
