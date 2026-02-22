@@ -263,7 +263,7 @@ function App() {
                     ) : (
                         <div className="space-y-3">
                             {rankedResults && rankedResults.length > 0 ? (
-                                rankedResults.map((result, index) => {
+                                rankedResults.map((result) => {
                                     const candidate = DUMMY_USERS.find(u => u.uid === result.uid);
                                     if (!candidate) return null;
                                     
