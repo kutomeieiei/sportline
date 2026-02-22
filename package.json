@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
+    "@tailwindcss/postcss": "^4.2.0",
     "@types/express": "^5.0.6",
     "@types/google.maps": "^3.58.1",
     "@types/react": "^18.2.64",
