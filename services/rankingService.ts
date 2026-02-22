@@ -2,9 +2,19 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { User } from "../types";
 import { calculateHaversineDistance } from "../utils/geospatial";
 
-// Initialize Gemini API
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-const ai = new GoogleGenAI({ apiKey });
+// Lazily initialize Gemini API client
+let ai: GoogleGenAI | null = null;
+const getAiClient = () => {
+    if (!ai) {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (!apiKey) {
+            console.error("VITE_GEMINI_API_KEY is not set. Ranking service will not work.");
+            return null;
+        }
+        ai = new GoogleGenAI({ apiKey });
+    }
+    return ai;
+}
 
 export interface RankedUser {
   uid: string;
@@ -17,7 +27,8 @@ export const rankUsers = async (
   candidates: User[],
   userLocation: { lat: number; lng: number }
 ): Promise<RankedUser[]> => {
-  if (!apiKey) {
+  const aiClient = getAiClient();
+  if (!aiClient) {
     console.warn("Gemini API Key is missing. Returning unranked list.");
     return candidates.map(c => ({ uid: c.uid, compatibilityScore: 0, reason: "API Key missing" }));
   }
@@ -84,7 +95,7 @@ export const rankUsers = async (
   `;
 
   try {
-    const response = await ai.models.generateContent({
+        const response = await aiClient.models.generateContent({
       model: "gemini-2.0-flash-exp",
       contents: prompt,
       config: {
