@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { auth } from '../services/firebaseService';
-import { User as FirebaseUser } from 'firebase/auth';
+import firebase from 'firebase/compat/app';
 
 export function useAuth() {
-  const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
+  const [authUser, setAuthUser] = useState<firebase.User | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 

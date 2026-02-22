@@ -3,7 +3,7 @@ import { User } from '../types';
 import { Loader2, ArrowLeft, Menu, Flame, AlertCircle } from 'lucide-react';
 import { APP_CONFIG } from '../constants';
 import { auth, googleProvider, db } from '../services/firebaseService';
-import { User as FirebaseUser } from 'firebase/auth';
+import firebase from 'firebase/compat/app';
 
 interface LoginViewProps {
   onLogin: (user: User) => void;
@@ -44,7 +44,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
   // Helper to ensure user document exists in Firestore
 
-const ensureUserDocument = async (authUser: FirebaseUser, additionalData: { username?: string } = {}) => {
+const ensureUserDocument = async (authUser: firebase.User, additionalData: { username?: string } = {}) => {
     if (!db) throw new Error("Database not initialized");
     
     let userSnap;

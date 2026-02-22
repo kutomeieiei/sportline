@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { db } from '../services/firebaseService';
 import { User } from '../types';
 import { INITIAL_USER } from '../constants';
-import { User as FirebaseUser } from 'firebase/auth';
+import firebase from 'firebase/compat/app';
 
-export function useUserProfile(authUser: FirebaseUser | null) {
+export function useUserProfile(authUser: firebase.User | null) {
   const [user, setUser] = useState<User>(INITIAL_USER);
   const [isServerDataLoaded, setIsServerDataLoaded] = useState(false);
 
