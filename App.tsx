@@ -9,7 +9,7 @@ import LoginView from './components/LoginView';
 import ChatListView, { ChatUser } from './components/ChatListView';
 import ChatDetailView from './components/ChatDetailView';
 import { Party, SportType } from './types';
-import { DEFAULT_CENTER, DUMMY_USERS } from './constants';
+import * as constants from './constants';
 import { Crosshair, Loader2, Sparkles, X } from 'lucide-react';
 import { auth } from './firebase'; // Import firebase for compat utilities
 
@@ -46,7 +46,7 @@ function App() {
   const [travelTimes, setTravelTimes] = useState<Record<string, string>>({});
 
   const [currentTab, setCurrentTab] = useState<'explore' | 'create' | 'settings' | 'chat'>('explore');
-  const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
+  const [mapCenter, setMapCenter] = useState(constants.DEFAULT_CENTER);
   
   // Chat Navigation State
   const [selectedChatUser, setSelectedChatUser] = useState<ChatUser | null>(null);
@@ -144,7 +144,7 @@ function App() {
     setShowRankingModal(true);
     
     // Use DUMMY_USERS for demonstration, in real app fetch from Firestore
-    const results = await rankUsers(user, DUMMY_USERS, mapCenter);
+    const results = await rankUsers(user, constants.DUMMY_USERS, mapCenter);
     setRankedResults(results);
     setIsRanking(false);
   };
@@ -186,7 +186,7 @@ function App() {
 
   const handleRecenter = () => {
     // Small jitter to force map refresh if needed
-    setMapCenter({ ...DEFAULT_CENTER, lat: DEFAULT_CENTER.lat + (Math.random() * 0.001) });
+    setMapCenter({ ...constants.DEFAULT_CENTER, lat: constants.DEFAULT_CENTER.lat + (Math.random() * 0.001) });
   };
   
   const handleLocationSelect = (lat: number, lng: number) => {
@@ -200,7 +200,7 @@ function App() {
       <div className="absolute inset-0 top-0 bottom-[72px] z-0">
         <Map 
             parties={sortedParties} 
-            users={DUMMY_USERS} // Pass dummy users for visualization
+            users={constants.DUMMY_USERS} // Pass dummy users for visualization
             center={mapCenter} 
             onCameraIdle={(center) => {
               setMapCenter(center);
@@ -264,7 +264,7 @@ function App() {
                         <div className="space-y-3">
                             {rankedResults && rankedResults.length > 0 ? (
                                 rankedResults.map((result) => {
-                                    const candidate = DUMMY_USERS.find(u => u.uid === result.uid);
+                                    const candidate = constants.DUMMY_USERS.find(u => u.uid === result.uid);
                                     if (!candidate) return null;
                                     
                                     return (

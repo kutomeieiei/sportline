@@ -32,7 +32,8 @@ try {
     db.settings({
         experimentalForceLongPolling: true,
     });
-} catch (e) {
+} catch {
+    // This can happen if settings are applied on a hot-reload. It's safe to ignore.
     console.warn("Firestore settings already locked, skipping reconfiguration.");
 }
 
