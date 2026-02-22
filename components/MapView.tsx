@@ -1,14 +1,15 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { GoogleMap, MarkerF, InfoWindowF } from '@react-google-maps/api';
-import { Party, SportType } from '../types';
-import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, ExternalLink, CheckCircle, Navigation, Car } from 'lucide-react';
-import { formatDistance } from '../utils/geospatial';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { GoogleMap, MarkerF, InfoWindowF, MarkerClustererF } from '@react-google-maps/api';
+import { Party, SportType, User } from '../types';
+import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, ExternalLink, CheckCircle, Navigation, Car, User as UserIcon } from 'lucide-react';
+import { formatDistance, fuzzCoordinates } from '../utils/geospatial';
 
 // Declare google global to avoid TS namespace errors
 declare var google: any;
 
 interface MapViewProps {
   parties: Party[];
+  users?: User[]; // Add users prop
   center: { lat: number; lng: number };
   currentUser: string;
   onJoinParty: (partyId: string) => void;
@@ -69,9 +70,24 @@ const getMarkerIcon = (sport: SportType) => {
   };
 };
 
-const MapView: React.FC<MapViewProps> = ({ parties, center, currentUser, onJoinParty, isLoaded, loadError }) => {
+const getUserMarkerIcon = () => {
+    const svg = `
+      <svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="18" cy="18" r="16" fill="#8b5cf6" stroke="white" stroke-width="2"/>
+        <circle cx="18" cy="18" r="6" fill="white"/>
+      </svg>
+    `;
+    return {
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+        scaledSize: { width: 36, height: 36 } as any,
+        anchor: { x: 18, y: 18 } as any
+    };
+};
+
+const MapView: React.FC<MapViewProps> = ({ parties, users = [], center, currentUser, onJoinParty, isLoaded, loadError }) => {
   const [map, setMap] = useState<any | null>(null);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   const onLoad = useCallback((mapInstance: any) => {
     setMap(mapInstance);
@@ -86,6 +102,17 @@ const MapView: React.FC<MapViewProps> = ({ parties, center, currentUser, onJoinP
       map.panTo(center);
     }
   }, [center, map]);
+
+  // Filter and Fuzz Users
+  const visibleUsers = useMemo(() => {
+    return users
+        .filter(u => u.is_visible && u.static_coords && u.username !== currentUser)
+        .map(u => {
+            // Apply coordinate fuzzing for privacy
+            const fuzzed = fuzzCoordinates(u.static_coords!.lat, u.static_coords!.lng);
+            return { ...u, displayCoords: fuzzed };
+        });
+  }, [users, currentUser]);
 
   if (loadError) {
     return (
@@ -157,17 +184,36 @@ const MapView: React.FC<MapViewProps> = ({ parties, center, currentUser, onJoinP
       options={mapOptions}
       onLoad={onLoad}
       onUnmount={onUnmount}
-      onClick={() => setSelectedParty(null)}
+      onClick={() => { setSelectedParty(null); setSelectedUser(null); }}
     >
+      {/* Parties Markers */}
       {parties.map((party) => (
         <MarkerF
           key={party.id}
           position={{ lat: party.latitude, lng: party.longitude }}
           icon={getMarkerIcon(party.sport)}
-          onClick={() => setSelectedParty(party)}
+          onClick={() => { setSelectedParty(party); setSelectedUser(null); }}
         />
       ))}
 
+      {/* User Markers (Clustered) */}
+      <MarkerClustererF>
+        {(clusterer) => (
+            <>
+                {visibleUsers.map(user => (
+                    <MarkerF
+                        key={user.uid}
+                        position={user.displayCoords}
+                        icon={getUserMarkerIcon()}
+                        clusterer={clusterer}
+                        onClick={() => { setSelectedUser(user); setSelectedParty(null); }}
+                    />
+                ))}
+            </>
+        )}
+      </MarkerClustererF>
+
+      {/* Party Info Window */}
       {selectedParty && (
         <InfoWindowF
           position={{ lat: selectedParty.latitude, lng: selectedParty.longitude }}
@@ -251,6 +297,43 @@ const MapView: React.FC<MapViewProps> = ({ parties, center, currentUser, onJoinP
                 })()}
             </div>
           </div>
+        </InfoWindowF>
+      )}
+
+      {/* User Info Window */}
+      {selectedUser && (
+        <InfoWindowF
+          position={selectedUser.displayCoords!}
+          onCloseClick={() => setSelectedUser(null)}
+          options={{
+             pixelOffset: new google.maps.Size(0, -38),
+             disableAutoPan: false
+          }}
+        >
+            <div className="p-2 min-w-[180px]">
+                <div className="flex items-center gap-3 mb-2">
+                    <img src={selectedUser.avatarUrl} className="w-10 h-10 rounded-full object-cover border border-gray-200" alt={selectedUser.username} />
+                    <div>
+                        <h3 className="font-bold text-gray-900">{selectedUser.displayName}</h3>
+                        <p className="text-xs text-gray-500">@{selectedUser.username}</p>
+                    </div>
+                </div>
+                <div className="flex flex-wrap gap-1 mb-2">
+                    {selectedUser.preferredSports.slice(0, 3).map(s => (
+                        <span key={s} className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-md font-medium">
+                            {s}
+                        </span>
+                    ))}
+                </div>
+                <p className="text-xs text-gray-600 mb-2 line-clamp-2">{selectedUser.bio}</p>
+                <div className="flex items-center gap-1 text-xs text-gray-400 mb-2">
+                    <MapPin size={10} />
+                    <span>Approximate Location</span>
+                </div>
+                <button className="w-full py-1.5 bg-violet-600 text-white text-xs font-medium rounded-lg hover:bg-violet-700">
+                    Connect
+                </button>
+            </div>
         </InfoWindowF>
       )}
     </GoogleMap>

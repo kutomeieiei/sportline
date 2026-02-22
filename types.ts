@@ -1,13 +1,21 @@
 export type SportType = 'All' | 'Football' | 'Basketball' | 'Badminton' | 'Tennis' | 'Running' | 'Cycling' | 'Yoga';
 
 export interface User {
+  uid: string; // Primary Key
   username: string;
   displayName: string;
   email?: string;
   avatarUrl: string;
   bio: string;
   gender: string;
+  skillLevel?: 'Beginner' | 'Intermediate' | 'Advanced';
   preferredSports: SportType[];
+  
+  // Geospatial & Privacy
+  location_mode: 'live' | 'static';
+  static_coords?: { lat: number; lng: number };
+  is_visible: boolean; // Global privacy toggle
+  geohash?: string; // High-precision spatial index
 }
 
 export interface Party {

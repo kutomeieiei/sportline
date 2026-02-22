@@ -9,11 +9,12 @@ import LoginView from './components/LoginView';
 import ChatListView, { ChatUser } from './components/ChatListView';
 import ChatDetailView from './components/ChatDetailView';
 import { Party, SportType, User } from './types';
-import { INITIAL_USER, DEFAULT_CENTER } from './constants';
-import { Crosshair, Loader2 } from 'lucide-react';
+import { INITIAL_USER, DEFAULT_CENTER, DUMMY_USERS } from './constants';
+import { Crosshair, Loader2, Sparkles, X } from 'lucide-react';
 import { auth, db, firebase } from './firebase'; // Import firebase for compat utilities
 import { User as FirebaseUser } from 'firebase/auth';
 import { calculateHaversineDistance } from './utils/geospatial';
+import { rankUsers, RankedUser } from './services/rankingService';
 
 // Declare google for global access
 declare var google: any;
@@ -40,6 +41,11 @@ function App() {
   
   // Chat Navigation State
   const [selectedChatUser, setSelectedChatUser] = useState<ChatUser | null>(null);
+
+  // AI Ranking State
+  const [isRanking, setIsRanking] = useState(false);
+  const [rankedResults, setRankedResults] = useState<RankedUser[] | null>(null);
+  const [showRankingModal, setShowRankingModal] = useState(false);
 
   // Rate limiting for distance matrix
   const lastMatrixCall = useRef<number>(0);
@@ -202,6 +208,16 @@ function App() {
     setIsServerDataLoaded(false);
   };
 
+  const handleFindPartners = async () => {
+    setIsRanking(true);
+    setShowRankingModal(true);
+    
+    // Use DUMMY_USERS for demonstration, in real app fetch from Firestore
+    const results = await rankUsers(user, DUMMY_USERS, mapCenter);
+    setRankedResults(results);
+    setIsRanking(false);
+  };
+
   if (isLoadingAuth) {
      return (
         <div className="w-full h-screen flex items-center justify-center bg-white">
@@ -220,7 +236,7 @@ function App() {
             <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
             <p className="text-gray-400 text-sm font-medium">Syncing with server...</p>
         </div>
-     );
+      );
   }
 
   const handleTabChange = (tab: 'explore' | 'create' | 'settings' | 'chat') => {
@@ -263,6 +279,7 @@ function App() {
       <div className="absolute inset-0 top-0 bottom-[72px] z-0">
         <MapView 
             parties={sortedParties} 
+            users={DUMMY_USERS} // Pass dummy users for visualization
             center={mapCenter} 
             currentUser={user.username}
             onJoinParty={handleJoinParty}
@@ -283,6 +300,15 @@ function App() {
             isLoaded={isMapsLoaded}
           />
 
+          {/* AI Matchmaking Button */}
+          <button
+            onClick={handleFindPartners}
+            className="absolute top-24 right-4 bg-white p-3 rounded-full shadow-lg text-violet-600 hover:bg-violet-50 z-[1000] border border-violet-100"
+            title="Find Partners with AI"
+          >
+            <Sparkles size={24} />
+          </button>
+
           <button 
             onClick={handleRecenter}
             className="absolute bottom-24 right-4 bg-white p-3 rounded-full shadow-lg text-gray-600 hover:text-blue-600 z-[1000] border border-gray-100"
@@ -290,6 +316,85 @@ function App() {
             <Crosshair size={24} />
           </button>
         </>
+      )}
+
+      {/* AI Ranking Modal */}
+      {showRankingModal && (
+        <div className="absolute inset-0 z-[2000] bg-black/50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col shadow-2xl overflow-hidden">
+                <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-violet-50">
+                    <div className="flex items-center gap-2 text-violet-700">
+                        <Sparkles size={20} />
+                        <h2 className="font-bold text-lg">AI Partner Match</h2>
+                    </div>
+                    <button onClick={() => setShowRankingModal(false)} className="text-gray-400 hover:text-gray-600">
+                        <X size={24} />
+                    </button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-4">
+                    {isRanking ? (
+                        <div className="flex flex-col items-center justify-center py-12 gap-4">
+                            <Loader2 className="animate-spin text-violet-600" size={48} />
+                            <p className="text-gray-500 font-medium text-center">
+                                Analyzing profiles & location...<br/>
+                                <span className="text-xs text-gray-400">Powered by Gemini 2.0 Flash</span>
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {rankedResults && rankedResults.length > 0 ? (
+                                rankedResults.map((result, index) => {
+                                    const candidate = DUMMY_USERS.find(u => u.uid === result.uid);
+                                    if (!candidate) return null;
+                                    
+                                    return (
+                                        <div key={result.uid} className="bg-white border border-gray-100 rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow">
+                                            <div className="flex items-start gap-3">
+                                                <div className="relative">
+                                                    <img src={candidate.avatarUrl} className="w-12 h-12 rounded-full object-cover" alt={candidate.username} />
+                                                    <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5">
+                                                        <div className={`w-3 h-3 rounded-full ${candidate.location_mode === 'live' ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                                                    </div>
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <h3 className="font-bold text-gray-900">{candidate.displayName}</h3>
+                                                            <p className="text-xs text-gray-500">@{candidate.username}</p>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 bg-violet-50 text-violet-700 px-2 py-0.5 rounded-full text-xs font-bold">
+                                                            {result.compatibilityScore}% Match
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <p className="text-xs text-gray-600 mt-2 bg-gray-50 p-2 rounded-lg italic">
+                                                        "{result.reason}"
+                                                    </p>
+                                                    
+                                                    <div className="flex gap-2 mt-2">
+                                                        {candidate.preferredSports.map(s => (
+                                                            <span key={s} className="text-[10px] px-1.5 py-0.5 border border-gray-200 text-gray-600 rounded-md">
+                                                                {s}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="text-center py-8 text-gray-500">
+                                    <p>No matches found nearby.</p>
+                                    <p className="text-xs mt-1">Try expanding your search radius or changing preferences.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
       )}
 
       {/* Overlay Views */}

@@ -1,3 +1,28 @@
+/**
+ * Applies "Point Blurring" to coordinates for privacy.
+ * Adds random jitter within a specified radius (default 500m).
+ * @param lat Latitude
+ * @param lng Longitude
+ * @param radiusKm Fuzzing radius in km
+ */
+export const fuzzCoordinates = (lat: number, lng: number, radiusKm: number = 0.5): { lat: number; lng: number } => {
+  // 1 degree lat is ~111km
+  // 1 degree lng is ~111km * cos(lat)
+  
+  const r = radiusKm / 111;
+  const u = Math.random();
+  const v = Math.random();
+  const w = r * Math.sqrt(u);
+  const t = 2 * Math.PI * v;
+  const x = w * Math.cos(t);
+  const y = w * Math.sin(t);
+
+  const newLat = lat + x;
+  const newLng = lng + y / Math.cos(lat * (Math.PI / 180));
+
+  return { lat: newLat, lng: newLng };
+};
+
 // --- TIER 1: GEOHASH INDEXING ---
 // Base32 map for Geohash
 const B32_CHARS = '0123456789bcdefghjkmnpqrstuvwxyz';
