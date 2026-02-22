@@ -1,6 +1,6 @@
 import express from 'express';
 import { getGeohashRange } from 'geofire-common';
-import { db } from './firebase';
+import { db } from './services/firebaseService';
 import { calculateHaversineDistance } from './utils/geospatial';
 import { createServer as createViteServer } from 'vite';
 

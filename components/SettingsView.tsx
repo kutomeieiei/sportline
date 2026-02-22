@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
 import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, Mail, Database, CheckCircle, AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
-import { db, auth, firebase } from '../firebase';
+import { db, auth, firebase } from '../services/firebaseService';
 
 interface SettingsViewProps {
   user: User;

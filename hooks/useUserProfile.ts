@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db } from '../firebase';
+import { db } from '../services/firebaseService';
 import { User } from '../types';
 import { INITIAL_USER } from '../constants';
 import { User as FirebaseUser } from 'firebase/auth';

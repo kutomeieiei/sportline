@@ -19,7 +19,6 @@ if (!firebaseConfig.apiKey) {
 }
 
 // 2. Initialize App (Singleton)
-// Check if apps are already initialized
 const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
 
 // 3. Initialize Services
@@ -27,7 +26,6 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 
 // FIX: Force Long Polling
-// This helps with restrictive networks/firewalls.
 try {
     db.settings({
         experimentalForceLongPolling: true,

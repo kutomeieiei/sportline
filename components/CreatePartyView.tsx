@@ -3,7 +3,7 @@ import { GoogleMap, MarkerF } from '@react-google-maps/api';
 import { Party, SportType } from '../types';
 import { SPORTS_LIST, KHON_KAEN_CENTER, DEFAULT_CITY } from '../constants';
 import { X, MapPin, Calendar, Clock, Users, Search, Loader2 } from 'lucide-react';
-import { db, firebase } from '../firebase';
+import { db, firebase } from '../services/firebaseService';
 import { encodeGeohash } from '../utils/geospatial';
 
 

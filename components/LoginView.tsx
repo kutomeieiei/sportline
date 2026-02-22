@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User } from '../types';
 import { Loader2, ArrowLeft, Menu, Flame, AlertCircle } from 'lucide-react';
 import { APP_CONFIG } from '../constants';
-import { auth, googleProvider, db } from '../firebase';
+import { auth, googleProvider, db } from '../services/firebaseService';
 import { User as FirebaseUser } from 'firebase/auth';
 
 interface LoginViewProps {

@@ -11,7 +11,7 @@ import ChatDetailView from './components/ChatDetailView';
 import { Party, SportType } from './types';
 import * as constants from './constants';
 import { Crosshair, Loader2, Sparkles, X } from 'lucide-react';
-import { auth } from './firebase'; // Import firebase for compat utilities
+import { auth } from './services/firebaseService'; // Import firebase for compat utilities
 
 
 import { rankUsers, RankedUser } from './services/rankingService';
