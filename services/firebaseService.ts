@@ -43,5 +43,5 @@ console.log("Firebase Initialized (Compatibility Mode):", {
   authDomain: firebaseConfig.authDomain 
 });
 
-export { auth, googleProvider, db, storage, firebase };
+export { auth, googleProvider, db, storage };
 export default app;
