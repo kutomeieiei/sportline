@@ -21,74 +21,19 @@ export const DEFAULT_CENTER = KHON_KAEN_CENTER;
 export const DEFAULT_CITY = "Khon Kaen";
 
 export const INITIAL_USER: User = {
-  uid: 'guest_123',
+  uid: '',
   username: "calyxohm",
   displayName: "CalyxOhm",
   email: "calyxohm@example.com",
   avatarUrl: "https://picsum.photos/200/200",
   bio: "Just a sports fan! Love meeting new people for a game.",
   gender: "Prefer not to say",
-  skillLevel: 'Intermediate',
   preferredSports: ['Football', 'Badminton'],
   location_mode: 'static',
+  static_coords: { lat: DEFAULT_CENTER.lat, lng: DEFAULT_CENTER.lng },
   is_visible: true,
-  static_coords: DEFAULT_CENTER
+  geohash: 'w21z76',
 };
-
-export const DUMMY_USERS: User[] = [
-  {
-    uid: 'user_1',
-    username: 'messi_fan',
-    displayName: 'Leo M.',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=leo',
-    bio: 'Football enthusiast. Looking for 5v5 games.',
-    gender: 'Male',
-    skillLevel: 'Advanced',
-    preferredSports: ['Football'],
-    location_mode: 'live',
-    is_visible: true,
-    static_coords: { lat: 16.4330, lng: 102.8240 } // Near center
-  },
-  {
-    uid: 'user_2',
-    username: 'badminton_pro',
-    displayName: 'May B.',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=may',
-    bio: 'Love badminton and tennis. Intermediate level.',
-    gender: 'Female',
-    skillLevel: 'Intermediate',
-    preferredSports: ['Badminton', 'Tennis'],
-    location_mode: 'static',
-    is_visible: true,
-    static_coords: { lat: 16.4310, lng: 102.8220 } // Near center
-  },
-  {
-    uid: 'user_3',
-    username: 'runner_guy',
-    displayName: 'Ken R.',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ken',
-    bio: 'Marathon runner. Join me for morning runs.',
-    gender: 'Male',
-    skillLevel: 'Advanced',
-    preferredSports: ['Running'],
-    location_mode: 'live',
-    is_visible: false, // Hidden
-    static_coords: { lat: 16.4350, lng: 102.8250 }
-  },
-  {
-    uid: 'user_4',
-    username: 'yoga_lover',
-    displayName: 'Sarah Y.',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sarah',
-    bio: 'Certified yoga instructor. Beginners welcome.',
-    gender: 'Female',
-    skillLevel: 'Advanced',
-    preferredSports: ['Yoga'],
-    location_mode: 'static',
-    is_visible: true,
-    static_coords: { lat: 16.4400, lng: 102.8300 } // Further away
-  }
-];
 
 // ✨ CUSTOMIZATION: Helper for consistent icon sizing
 // Replace the 'src' string with your own image URL

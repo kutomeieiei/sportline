@@ -87,18 +87,19 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       console.log("Profile updated successfully");
       setIsEditing(false);
 
-    } catch (error: any) {
-      console.error("Save failed:", error);
+    } catch (error) {
+      const err = error as { code?: string; message: string };
+      console.error("Save failed:", err);
       let errorMessage = "Failed to save profile.";
       
-      if (error.code === 'permission-denied') {
+      if (err.code === 'permission-denied') {
         errorMessage = "Permission denied. Check Firestore Security Rules.";
-      } else if (error.message.includes("TIMEOUT")) {
+      } else if (err.message.includes("TIMEOUT")) {
         errorMessage = "Connection Timed Out. Please check your internet.";
-      } else if (error.code === 'unavailable') {
+      } else if (err.code === 'unavailable') {
         errorMessage = "Network error. Please check your internet connection.";
       } else {
-        errorMessage = error.message || errorMessage;
+        errorMessage = err.message || errorMessage;
       }
       
       alert(errorMessage);
@@ -137,18 +138,19 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
 
         setTestStatus('success');
         setTestMessage('Success! Read & Write operational.');
-    } catch (error: any) {
-        console.error("Connection Test Failed:", error);
+    } catch (error) {
+        const err = error as { code?: string; message: string };
+        console.error("Connection Test Failed:", err);
         setTestStatus('error');
         
-        if (error.message.includes("TIMEOUT")) {
+        if (err.message.includes("TIMEOUT")) {
             setTestMessage("TIMEOUT: Firewall blocking connection. Try 'Reset Cache'.");
-        } else if (error.code === 'permission-denied') {
+        } else if (err.code === 'permission-denied') {
             setTestMessage('PERMISSION DENIED: Update Firestore Rules in Console.');
-        } else if (error.code === 'unavailable' || error.message.includes("offline")) {
+        } else if (err.code === 'unavailable' || err.message.includes("offline")) {
             setTestMessage('OFFLINE: Check your internet connection.');
         } else {
-            setTestMessage(`ERROR: ${error.message}`);
+            setTestMessage(`ERROR: ${err.message}`);
         }
     }
   };
@@ -161,8 +163,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
           await db.terminate();
           await db.clearPersistence();
           window.location.reload();
-      } catch (e: any) {
-          alert("Error resetting cache: " + e.message);
+      } catch (e) {
+          const err = e as { message: string };
+          alert("Error resetting cache: " + err.message);
           window.location.reload(); // Reload anyway
       }
   };
@@ -421,7 +424,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
   );
 };
 
-const MenuButton = ({ icon, label }: { icon: any, label: string }) => (
+const MenuButton = ({ icon, label }: { icon: React.ReactNode, label: string }) => (
     <button className="w-full flex items-center gap-4 px-6 py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors text-left last:border-0">
         <div className="text-gray-400">{icon}</div>
         <span className="text-gray-700 font-medium">{label}</span>

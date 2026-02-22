@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Menu, Mic, X, MapPin, Loader2 } from 'lucide-react';
+import { Menu, Mic, X, MapPin, Loader2 } from 'lucide-react';
 import { SportType } from '../types';
 import { SPORTS_LIST, APP_CONFIG } from '../constants';
 
-// Declare google global to avoid TS namespace errors
-declare var google: any;
+
 
 interface TopBarProps {
   selectedSport: SportType;
@@ -12,26 +11,25 @@ interface TopBarProps {
   userAvatar: string;
   onAvatarClick: () => void;
   onLocationSelect: (lat: number, lng: number) => void;
-  // Prop from centralized loader
-  isLoaded: boolean;
+
 }
 
-const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvatar, onAvatarClick, onLocationSelect, isLoaded }) => {
+const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvatar, onAvatarClick, onLocationSelect }) => {
   const [query, setQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const autocompleteService = useRef<any>(null);
+  const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
 
   const displayLogo = APP_CONFIG.headerLogoUrl || APP_CONFIG.logoUrl;
 
-  // Initialize Autocomplete Service when maps script is loaded
+  // Initialize Autocomplete Service
   useEffect(() => {
-    if (isLoaded && !autocompleteService.current && typeof google !== 'undefined') {
+    if (!autocompleteService.current && typeof google !== 'undefined' && google.maps && google.maps.places) {
       autocompleteService.current = new google.maps.places.AutocompleteService();
     }
-  }, [isLoaded]);
+  }, []);
 
   // Google Places Search
   useEffect(() => {
@@ -47,7 +45,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
             input: query,
         };
 
-        autocompleteService.current.getPlacePredictions(request, (predictions: any[], status: any) => {
+        autocompleteService.current.getPlacePredictions(request, (predictions: google.maps.places.AutocompletePrediction[] | null, status: google.maps.places.PlacesServiceStatus) => {
             if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
                 setSuggestions(predictions);
                 setIsOpen(true);
@@ -64,7 +62,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
 
     const timeoutId = setTimeout(fetchSuggestions, 500);
     return () => clearTimeout(timeoutId);
-  }, [query, isLoaded]);
+  }, [query]);
 
   // Handle outside click to close dropdown
   useEffect(() => {
@@ -77,7 +75,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelectLocation = (place: any) => {
+  const handleSelectLocation = (place: google.maps.places.AutocompletePrediction) => {
     // We need to fetch geometry for the selected place
     const mapDiv = document.createElement('div');
     const service = new google.maps.places.PlacesService(mapDiv);
@@ -85,7 +83,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
     service.getDetails({
         placeId: place.place_id,
         fields: ['geometry', 'name']
-    }, (result: any, status: any) => {
+    }, (result: google.maps.places.PlaceResult | null, status: google.maps.places.PlacesServiceStatus) => {
         if (status === google.maps.places.PlacesServiceStatus.OK && result.geometry) {
             const lat = result.geometry.location.lat();
             const lng = result.geometry.location.lng();

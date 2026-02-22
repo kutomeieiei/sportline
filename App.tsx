@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useJsApiLoader } from '@react-google-maps/api';
-import MapView from './components/MapView';
+
+import Map from './components/Map';
 import TopBar from './components/TopBar';
 import BottomNav from './components/BottomNav';
 import CreatePartyView from './components/CreatePartyView';
@@ -8,30 +8,39 @@ import SettingsView from './components/SettingsView';
 import LoginView from './components/LoginView';
 import ChatListView, { ChatUser } from './components/ChatListView';
 import ChatDetailView from './components/ChatDetailView';
-import { Party, SportType, User } from './types';
-import { INITIAL_USER, DEFAULT_CENTER, DUMMY_USERS } from './constants';
+import { Party, SportType } from './types';
+import { DEFAULT_CENTER, DUMMY_USERS } from './constants';
 import { Crosshair, Loader2, Sparkles, X } from 'lucide-react';
-import { auth, db, firebase } from './firebase'; // Import firebase for compat utilities
-import { User as FirebaseUser } from 'firebase/auth';
-import { calculateHaversineDistance } from './utils/geospatial';
+import { auth } from './firebase'; // Import firebase for compat utilities
+
+
 import { rankUsers, RankedUser } from './services/rankingService';
+import { useAuth } from './hooks/useAuth';
+import { useUserProfile } from './hooks/useUserProfile';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useDiscovery } from './hooks/useDiscovery';
+import { useDebounce } from './hooks/useDebounce';
 
-// Declare google for global access
-declare var google: any;
 
-// Define libraries outside component to prevent re-render loop
-const LIBRARIES: ("places" | "geometry")[] = ["places", "geometry"];
+
+
+
+const queryClient = new QueryClient();
+
+function AppWrapper() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <App />
+    </QueryClientProvider>
+  )
+}
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  
-  const [isServerDataLoaded, setIsServerDataLoaded] = useState(false);
-  const [authUser, setAuthUser] = useState<FirebaseUser | null>(null);
-  
-  const [selectedSport, setSelectedSport] = useState<SportType>('All');
-  const [user, setUser] = useState<User>(INITIAL_USER);
-  const [parties, setParties] = useState<Party[]>([]);
+  const { authUser, isLoadingAuth, isAuthenticated } = useAuth();
+  const { user, isServerDataLoaded } = useUserProfile(authUser);
+  const [selectedSport, setSelectedSport] = useState<SportType | 'All'>('All');
+  const debouncedMapCenter = useDebounce(mapCenter, 500); // 500ms debounce delay
+  const { data: discoveredParties } = useDiscovery(debouncedMapCenter.lat, debouncedMapCenter.lng, 10); // 10km radius
   
   // Store travel times separately to avoid re-rendering loops
   const [travelTimes, setTravelTimes] = useState<Record<string, string>>({});
@@ -50,109 +59,35 @@ function App() {
   // Rate limiting for distance matrix
   const lastMatrixCall = useRef<number>(0);
 
-  // --- GOOGLE MAPS LOADER (Centralized) ---
-  const rawApiKey = ((import.meta as any).env && (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY) || '';
-  const apiKey = rawApiKey.replace(/['"]/g, '').trim();
+  // The new Map component handles its own API provider and loading.
 
-  const { isLoaded: isMapsLoaded, loadError: mapsLoadError } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: apiKey,
-    libraries: LIBRARIES
-  });
+  // Auth logic is now handled by the useAuth hook.
 
-  // --- 1. Auth Listener ---
-  useEffect(() => {
-    if (!auth) {
-        console.error("Authentication service is not available.");
-        setIsLoadingAuth(false);
-        return;
-    }
+  // User profile logic is now handled by the useUserProfile hook.
 
-    const unsubscribeAuth = auth.onAuthStateChanged((currentUser) => {
-      setAuthUser(currentUser);
-      
-      if (currentUser) {
-        setIsAuthenticated(true);
-      } else {
-        setIsAuthenticated(false);
-        setUser(INITIAL_USER);
-        setIsServerDataLoaded(true);
-      }
-      setIsLoadingAuth(false);
-    });
 
-    return () => unsubscribeAuth();
-  }, []);
-
-  // --- 2. Real-time User Profile Listener ---
-  useEffect(() => {
-    if (authUser && db) {
-        const unsubscribeUser = db.collection('users').doc(authUser.uid).onSnapshot((docSnap) => {
-            if (docSnap.exists) {
-                const userData = docSnap.data() as User;
-                setUser(userData);
-            } else {
-                setUser({
-                    ...INITIAL_USER,
-                    displayName: authUser.displayName || 'User',
-                    username: authUser.email?.split('@')[0] || 'user',
-                    avatarUrl: authUser.photoURL || INITIAL_USER.avatarUrl
-                });
-            }
-            setIsServerDataLoaded(true);
-        }, (error) => {
-            console.error("Error fetching server data:", error);
-            setIsServerDataLoaded(true);
-        });
-
-        return () => unsubscribeUser();
-    }
-  }, [authUser]);
-
-  // --- 3. Real-time Parties Listener ---
-  useEffect(() => {
-    if (!isAuthenticated || !db) return;
-
-    const unsubscribeParties = db.collection('parties')
-      .orderBy('createdAt', 'desc')
-      .onSnapshot((snapshot) => {
-        const partiesData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Party[];
-        setParties(partiesData);
-    });
-
-    return () => unsubscribeParties();
-  }, [isAuthenticated]);
 
   // --- 4. TIER 2: Spatial Refinement (Distance Sorting) ---
   const sortedParties = useMemo(() => {
-    let filtered = selectedSport === 'All' 
-        ? parties 
-        : parties.filter(p => p.sport === selectedSport);
-    
-    // Calculate distance for each party relative to current map center
-    const withDistance = filtered.map(party => {
-        const dist = calculateHaversineDistance(
-            mapCenter.lat, 
-            mapCenter.lng, 
-            party.latitude, 
-            party.longitude
-        );
-        // Inject travel time if we have it calculated
-        const time = travelTimes[party.id];
-        return { ...party, distance: dist, travelTime: time };
-    });
+    if (!discoveredParties) return [];
 
-    // Sort by distance (ASC)
-    return withDistance.sort((a, b) => a.distance - b.distance);
-  }, [parties, selectedSport, mapCenter, travelTimes]);
+    const filtered = selectedSport === 'All'
+      ? discoveredParties
+      : discoveredParties.filter((p: Party) => p.sport === selectedSport);
+
+    // Inject travel time if we have it calculated
+    const withTravelTime = filtered.map((party: Party) => ({
+      ...party,
+      travelTime: travelTimes[party.id],
+    }));
+
+    return withTravelTime;
+  }, [discoveredParties, selectedSport, travelTimes]);
 
   // --- 5. TIER 3: Distance Matrix (Travel Time) Logic ---
   useEffect(() => {
     // Only fetch if google maps is loaded and we have parties
-    if (!isMapsLoaded || typeof google === 'undefined' || !google.maps || !google.maps.DistanceMatrixService) return;
+    if (typeof google === 'undefined' || !google.maps || !google.maps.DistanceMatrixService) return;
     if (sortedParties.length === 0) return;
 
     // Debounce: Only call every 5 seconds max to avoid quota limits
@@ -174,14 +109,14 @@ function App() {
         destinations: destinations,
         travelMode: google.maps.TravelMode.DRIVING,
         unitSystem: google.maps.UnitSystem.METRIC,
-    }, (response: any, status: any) => {
-        if (status === 'OK' && response.rows[0].elements) {
+    }, (response: google.maps.DistanceMatrixResponse | null, status: google.maps.DistanceMatrixStatus) => {
+        if (status === 'OK' && response && response.rows[0].elements) {
             const results = response.rows[0].elements;
             const newTimes: Record<string, string> = {};
             
-            results.forEach((element: any, index: number) => {
+            results.forEach((element: google.maps.DistanceMatrixResponseElement, idx: number) => {
                 if (element.status === 'OK' && element.duration) {
-                    const partyId = topCandidates[index].id;
+                    const partyId = topCandidates[idx].id;
                     newTimes[partyId] = element.duration.text;
                 }
             });
@@ -191,13 +126,9 @@ function App() {
         }
     });
 
-  }, [sortedParties, mapCenter, isMapsLoaded]);
+  }, [sortedParties, mapCenter]);
 
-  const handleLogin = (loggedInUser: User) => {
-    setUser(loggedInUser);
-    setIsAuthenticated(true);
-    setIsServerDataLoaded(true);
-  };
+  // Login state is now managed by the useAuth and useUserProfile hooks.
 
   const handleLogout = async () => {
     if (auth) {
@@ -205,7 +136,7 @@ function App() {
     }
     setCurrentTab('explore');
     setSelectedChatUser(null);
-    setIsServerDataLoaded(false);
+    // User state is reset by hooks
   };
 
   const handleFindPartners = async () => {
@@ -227,7 +158,7 @@ function App() {
   }
 
   if (!isAuthenticated) {
-    return <LoginView onLogin={handleLogin} />;
+    return <LoginView />;
   }
 
   if (!isServerDataLoaded) {
@@ -251,17 +182,7 @@ function App() {
     setMapCenter({ lat: newParty.latitude, lng: newParty.longitude });
   };
 
-  const handleJoinParty = async (partyId: string) => {
-    if (!db) return;
-    try {
-        await db.collection('parties').doc(partyId).update({
-            members: firebase.firestore.FieldValue.arrayUnion(user.username),
-            playersCurrent: (parties.find(p => p.id === partyId)?.playersCurrent || 0) + 1
-        });
-    } catch (error) {
-        console.error("Error joining party:", error);
-    }
-  };
+
 
   const handleRecenter = () => {
     // Small jitter to force map refresh if needed
@@ -277,14 +198,13 @@ function App() {
       
       {/* Map Layer */}
       <div className="absolute inset-0 top-0 bottom-[72px] z-0">
-        <MapView 
+        <Map 
             parties={sortedParties} 
             users={DUMMY_USERS} // Pass dummy users for visualization
             center={mapCenter} 
-            currentUser={user.username}
-            onJoinParty={handleJoinParty}
-            isLoaded={isMapsLoaded}
-            loadError={mapsLoadError}
+            onCameraIdle={(center) => {
+              setMapCenter(center);
+            }}
         />
       </div>
 
@@ -297,7 +217,6 @@ function App() {
             userAvatar={user.avatarUrl}
             onAvatarClick={() => setCurrentTab('settings')}
             onLocationSelect={handleLocationSelect}
-            isLoaded={isMapsLoaded}
           />
 
           {/* AI Matchmaking Button */}
@@ -404,7 +323,6 @@ function App() {
           onCreate={handleCreateParty}
           userLocation={mapCenter}
           currentUser={user.username}
-          isLoaded={isMapsLoaded}
         />
       )}
 
@@ -440,4 +358,4 @@ function App() {
   );
 }
 
-export default App;
+export default AppWrapper;

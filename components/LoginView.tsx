@@ -42,7 +42,9 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const displayHeaderLogo = APP_CONFIG.headerLogoUrl || APP_CONFIG.logoUrl;
 
   // Helper to ensure user document exists in Firestore
-  const ensureUserDocument = async (authUser: any, additionalData: any = {}) => {
+  import { User as FirebaseUser } from 'firebase/auth';
+
+const ensureUserDocument = async (authUser: FirebaseUser, additionalData: { username?: string } = {}) => {
     if (!db) throw new Error("Database not initialized");
     
     let userSnap;
@@ -75,7 +77,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       
       try {
         await db.collection('users').doc(authUser.uid).set(newUser);
-      } catch (writeErr: any) {
+      } catch (writeErr) {
         console.error("Failed to create user profile in DB:", writeErr);
         if (writeErr.code === 'permission-denied') {
              alert("⚠️ Account created, but Profile saving failed.\n\nDatabase Permission Denied. Check Firebase Console > Firestore Database > Rules.");
@@ -86,7 +88,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         // User exists: Update latest email and avatar from Google Auth if available
         // This ensures the "Gmail saving" requirement is robust
         const userData = userSnap.data() as User;
-        const updates: any = {};
+        const updates: { [key: string]: string | string[] } = {};
         
         if (authUser.email && userData.email !== authUser.email) {
             updates.email = authUser.email;
@@ -103,7 +105,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         if (Object.keys(updates).length > 0) {
             try {
                 await db.collection('users').doc(authUser.uid).set(updates, { merge: true });
-            } catch (e) {
+            } catch {
                 // Ignore write errors for updates
             }
         }
@@ -111,7 +113,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     }
   };
 
-  const formatError = (err: any) => {
+  const formatError = (err: { code?: string; message: string }) => {
     console.error("Auth Error Object:", err);
     if (err.code === 'auth/unauthorized-domain') {
       return "Domain not allowed. Go to Firebase Console -> Authentication -> Settings -> Authorized Domains and add this domain.";
@@ -137,7 +139,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     return err.message ? err.message.replace('Firebase: ', '') : "An unknown error occurred.";
   };
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -152,14 +154,14 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       const userCredential = await auth.signInWithEmailAndPassword(email, password);
       const userProfile = await ensureUserDocument(userCredential.user);
       onLogin(userProfile);
-    } catch (err: any) {
-      setError(formatError(err));
+    } catch (err) {
+      setError(formatError(err as { code?: string; message: string }));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSignupSubmit = async (e: React.FormEvent) => {
+  const handleSignupSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -179,8 +181,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       
       const userProfile = await ensureUserDocument(userCredential.user, { username });
       onLogin(userProfile);
-    } catch (err: any) {
-      setError(formatError(err));
+    } catch (err) {
+      setError(formatError(err as { code?: string; message: string }));
     } finally {
       setIsLoading(false);
     }
@@ -200,8 +202,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         const result = await auth.signInWithPopup(googleProvider);
         const userProfile = await ensureUserDocument(result.user);
         onLogin(userProfile);
-    } catch (err: any) {
-        setError(formatError(err));
+    } catch (err) {
+        setError(formatError(err as { code?: string; message: string }));
         setIsLoading(false);
     }
   };
