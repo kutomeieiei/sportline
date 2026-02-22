@@ -3,7 +3,7 @@ import { User } from "../types";
 import { calculateHaversineDistance } from "../utils/geospatial";
 
 // Initialize Gemini API
-const apiKey = AIzaSyCYBu3tbJpGyWaE6xwTurkeEI_7D_ZqPyU;
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 const ai = new GoogleGenAI({ apiKey });
 
 export interface RankedUser {
