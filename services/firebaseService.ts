@@ -29,7 +29,8 @@ const db = firebase.firestore();
 try {
     db.settings({
         experimentalForceLongPolling: true,
-    });
+        merge: true,
+    } as any);
 } catch {
     // This can happen if settings are applied on a hot-reload. It's safe to ignore.
     console.warn("Firestore settings already locked, skipping reconfiguration.");

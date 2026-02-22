@@ -21,10 +21,8 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
-    define: {
-      // Polyfill process.env for robust access.
-      // We must JSON.stringify the object so Vite inserts it as an object literal code fragment.
-      'process.env': JSON.stringify(clientEnv),
-    }
+    // define: {
+    //   'process.env': JSON.stringify(clientEnv),
+    // }
   }
 })
