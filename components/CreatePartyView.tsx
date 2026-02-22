@@ -4,7 +4,7 @@ import { Party, SportType } from '../types';
 import { SPORTS_LIST, KHON_KAEN_CENTER, DEFAULT_CITY } from '../constants';
 import { X, MapPin, Calendar, Clock, Users, Search, Loader2 } from 'lucide-react';
 import { db } from '../services/firebaseService';
-import firebase from 'firebase/compat/app';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { encodeGeohash } from '../utils/geospatial';
 
 
@@ -267,7 +267,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
           geohash: geohash, 
           host: currentUser,
           members: [currentUser],
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          createdAt: serverTimestamp()
         };
 
         // Create a promise that rejects after 10 seconds
@@ -276,15 +276,16 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
         );
 
         const docRef = await Promise.race([
-            db.collection('parties').add(partyData),
+            addDoc(collection(db, 'parties'), partyData),
             timeoutPromise
-        ]) as firebase.firestore.DocumentReference; // Type assertion needed due to race
+        ]) as any; // Type assertion needed due to race
         
         const newParty: Party = {
             id: docRef.id,
-            ...partyData
-        };
-        
+            ...partyData,
+            createdAt: new Date().toISOString() // Optimistic update
+        } as any;
+
         onCreate(newParty);
     } catch (error) {
         const err = error as { code?: string; message: string };

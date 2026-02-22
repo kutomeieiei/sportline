@@ -3,7 +3,8 @@ import { User } from '../types';
 import { Loader2, ArrowLeft, Menu, Flame, AlertCircle } from 'lucide-react';
 import { APP_CONFIG } from '../constants';
 import { auth, googleProvider, db } from '../services/firebaseService';
-import firebase from 'firebase/compat/app';
+import { User as FirebaseUser, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, updateProfile } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface LoginViewProps {
   onLogin: (user: User) => void;
@@ -44,12 +45,13 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
   // Helper to ensure user document exists in Firestore
 
-const ensureUserDocument = async (authUser: firebase.User, additionalData: { username?: string } = {}) => {
+const ensureUserDocument = async (authUser: FirebaseUser, additionalData: { username?: string } = {}) => {
     if (!db) throw new Error("Database not initialized");
     
     let userSnap;
     try {
-        userSnap = await db.collection('users').doc(authUser.uid).get();
+        const userRef = doc(db, 'users', authUser.uid);
+        userSnap = await getDoc(userRef);
     } catch (err) {
         console.warn("Could not fetch user profile (likely offline). Using Auth profile fallback.", err);
         // Fallback: Return a temporary user object based on Auth data
@@ -64,19 +66,24 @@ const ensureUserDocument = async (authUser: firebase.User, additionalData: { use
         } as User;
     }
 
-    if (!userSnap.exists) {
+    if (!userSnap.exists()) {
       const newUser: User = {
+        uid: authUser.uid,
         username: additionalData.username || authUser.email?.split('@')[0] || 'user',
         displayName: authUser.displayName || additionalData.username || 'Sports Fan',
         email: authUser.email || "", // Save email
         avatarUrl: authUser.photoURL || `https://ui-avatars.com/api/?name=${authUser.displayName || 'User'}&background=random`,
         bio: "Ready to play!",
         gender: "Prefer not to say",
-        preferredSports: []
+        preferredSports: [],
+        location_mode: 'static',
+        static_coords: { lat: 16.4322, lng: 102.8236 },
+        is_visible: true,
+        geohash: 'w21z76'
       };
       
       try {
-        await db.collection('users').doc(authUser.uid).set(newUser);
+        await setDoc(doc(db, 'users', authUser.uid), newUser);
       } catch (writeErr) {
         console.error("Failed to create user profile in DB:", writeErr);
         if (writeErr.code === 'permission-denied') {
@@ -104,7 +111,7 @@ const ensureUserDocument = async (authUser: firebase.User, additionalData: { use
 
         if (Object.keys(updates).length > 0) {
             try {
-                await db.collection('users').doc(authUser.uid).set(updates, { merge: true });
+                await setDoc(doc(db, 'users', authUser.uid), updates, { merge: true });
             } catch {
                 // Ignore write errors for updates
             }
@@ -151,7 +158,7 @@ const ensureUserDocument = async (authUser: firebase.User, additionalData: { use
     }
 
     try {
-      const userCredential = await auth.signInWithEmailAndPassword(email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const userProfile = await ensureUserDocument(userCredential.user);
       onLogin(userProfile);
     } catch (err) {
@@ -173,11 +180,13 @@ const ensureUserDocument = async (authUser: firebase.User, additionalData: { use
     }
 
     try {
-      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       // Update Auth Profile
-      await userCredential.user?.updateProfile({
-        displayName: username
-      });
+      if (userCredential.user) {
+          await updateProfile(userCredential.user, {
+            displayName: username
+          });
+      }
       
       const userProfile = await ensureUserDocument(userCredential.user, { username });
       onLogin(userProfile);
@@ -199,7 +208,7 @@ const ensureUserDocument = async (authUser: firebase.User, additionalData: { use
     }
 
     try {
-        const result = await auth.signInWithPopup(googleProvider);
+        const result = await signInWithPopup(auth, googleProvider);
         const userProfile = await ensureUserDocument(result.user);
         onLogin(userProfile);
     } catch (err) {

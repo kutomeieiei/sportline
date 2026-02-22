@@ -3,7 +3,8 @@ import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
 import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, Mail, Database, CheckCircle, AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
 import { db, auth } from '../services/firebaseService';
-import firebase from 'firebase/compat/app';
+import { signOut } from 'firebase/auth';
+import { doc, setDoc, getDoc, addDoc, collection, serverTimestamp, terminate, clearIndexedDbPersistence } from 'firebase/firestore';
 
 interface SettingsViewProps {
   user: User;
@@ -81,7 +82,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       );
       
       await Promise.race([
-        db.collection('users').doc(currentUser.uid).set(userDataToSave, { merge: true }),
+        setDoc(doc(db, 'users', currentUser.uid), userDataToSave, { merge: true }),
         timeoutPromise
       ]);
       
@@ -124,12 +125,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
 
         // Step 1: Test READ (usually faster)
         // We read a non-existent doc just to see if we can reach the server
-        const readPromise = db.collection('connection_test').doc('ping').get();
+        const readPromise = getDoc(doc(db, 'connection_test', 'ping'));
         await Promise.race([readPromise, timeoutPromise]);
 
         // Step 2: Test WRITE
-        const writePromise = db.collection('connection_test').add({
-            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        const writePromise = addDoc(collection(db, 'connection_test'), {
+            timestamp: serverTimestamp(),
             uid: auth.currentUser.uid,
             test: true,
             platform: navigator.userAgent
@@ -161,8 +162,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       
       try {
           // Terminate connection and clear persistence
-          await db.terminate();
-          await db.clearPersistence();
+          await terminate(db);
+          await clearIndexedDbPersistence(db);
           window.location.reload();
       } catch (e) {
           const err = e as { message: string };

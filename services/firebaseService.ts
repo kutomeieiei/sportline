@@ -1,7 +1,7 @@
-import firebase from 'firebase/compat/app';
-import 'firebase/compat/auth';
-import 'firebase/compat/firestore';
-import 'firebase/compat/storage';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 // 1. Config
 const firebaseConfig = {
@@ -19,27 +19,22 @@ if (!firebaseConfig.apiKey) {
 }
 
 // 2. Initialize App (Singleton)
-const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 // 3. Initialize Services
-const auth = firebase.auth();
-const db = firebase.firestore();
+const auth = getAuth(app);
 
-// FIX: Force Long Polling
-try {
-    db.settings({
-        experimentalForceLongPolling: true,
-        merge: true,
-    } as any);
-} catch {
-    // This can happen if settings are applied on a hot-reload. It's safe to ignore.
-    console.warn("Firestore settings already locked, skipping reconfiguration.");
-}
+// Initialize Firestore with settings
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+});
 
-const storage = firebase.storage();
-const googleProvider = new firebase.auth.GoogleAuthProvider();
+const storage = getStorage(app);
+const googleProvider = new GoogleAuthProvider();
 
-console.log("Firebase Initialized (Compatibility Mode):", { 
+console.log("Firebase Initialized (Modular Mode):", { 
   projectId: firebaseConfig.projectId, 
   authDomain: firebaseConfig.authDomain 
 });

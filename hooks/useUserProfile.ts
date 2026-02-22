@@ -2,17 +2,19 @@ import { useState, useEffect } from 'react';
 import { db } from '../services/firebaseService';
 import { User } from '../types';
 import { INITIAL_USER } from '../constants';
-import firebase from 'firebase/compat/app';
+import { User as FirebaseUser } from 'firebase/auth';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
-export function useUserProfile(authUser: firebase.User | null) {
+export function useUserProfile(authUser: FirebaseUser | null) {
   const [user, setUser] = useState<User>(INITIAL_USER);
   const [isServerDataLoaded, setIsServerDataLoaded] = useState(false);
 
   useEffect(() => {
     if (authUser) {
-      const unsubscribe = db.collection('users').doc(authUser.uid).onSnapshot((doc) => {
-        if (doc.exists) {
-          setUser(doc.data() as User);
+      const userRef = doc(db, 'users', authUser.uid);
+      const unsubscribe = onSnapshot(userRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setUser(docSnap.data() as User);
         } else {
           // Create a default profile for new users
           const newUserProfile: User = {
@@ -22,7 +24,7 @@ export function useUserProfile(authUser: firebase.User | null) {
             username: authUser.email?.split('@')[0] || 'new_user',
             avatarUrl: authUser.photoURL || INITIAL_USER.avatarUrl,
           };
-          db.collection('users').doc(authUser.uid).set(newUserProfile);
+          setDoc(userRef, newUserProfile);
           setUser(newUserProfile);
         }
         setIsServerDataLoaded(true);
