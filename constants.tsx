@@ -4,10 +4,10 @@ import {Footprints, Bike, PersonStanding, Activity} from 'lucide-react';
 
 export const APP_CONFIG = {
   // ✨ CONFIGURATION: Main Logo (Large) - Used in Landing Center and Login Form
-  logoUrl: "https://cdn.discordapp.com/attachments/1198199524955529287/1470809699958919291/1770738733559.png?ex=698df746&is=698ca5c6&hm=2c2249e709caf864a287b0c1145dd09525d32289f48584b4f59a964041e7efeb&", 
+  logoUrl: "https://cdn.discordapp.com/attachments/1198199524955529287/1470809699958919291/1770738733559.png?ex=699dc946&is=699c77c6&hm=771f2d86f029cc4cf8e911faf8704dead0a7f44710198104afcb784078db0ef8&", 
   
   // ✨ CONFIGURATION: Header Logo (Small) - Used in Top Left Bar
-  headerLogoUrl: "https://cdn.discordapp.com/attachments/1198199524955529287/1470810545341989091/1770738946579.png?ex=698d4f50&is=698bfdd0&hm=534c334a6a7a63aa0bd083392cf964f756f80f50228e2605e22118bafa359de1&", 
+  headerLogoUrl: "https://cdn.discordapp.com/attachments/1198199524955529287/1470810545341989091/1770738946579.png?ex=699dca10&is=699c7890&hm=70577491fce511f58b3e657602fa48ee9e044b5c73348457180fca3f6f12902b&", 
 
   appName: "Sport Line",
   primaryGradient: "bg-gradient-to-r from-red-500 to-pink-600",
