@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GoogleMap, MarkerF } from '@react-google-maps/api';
-import { Party, SportType } from '../types';
+import { Party, SportType, User } from '../types';
 import { SPORTS_LIST, KHON_KAEN_CENTER, DEFAULT_CITY } from '../constants';
 import { X, MapPin, Calendar, Clock, Users, Search, Loader2 } from 'lucide-react';
 import { db, firebase } from '../firebase';
@@ -10,8 +10,7 @@ interface CreatePartyViewProps {
   onClose: () => void;
   onCreate: (party: Party) => void;
   userLocation: { lat: number; lng: number };
-  currentUser: string;
-  currentUserUid: string;
+  currentUser: User;
   // Prop from centralized loader
   isLoaded: boolean;
 }
@@ -237,7 +236,7 @@ const SportSelectionSection: React.FC<{
 
 // --- MAIN COMPONENT ---
 
-const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, currentUser, currentUserUid, isLoaded }) => {
+const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, currentUser, isLoaded }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -253,13 +252,14 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
   const [displayLocationName, setDisplayLocationName] = useState(DEFAULT_CITY);
   const [placeId, setPlaceId] = useState<string>("");
 
-  const createGroupChat = async (partyId: string, partyTitle: string, initialMemberUid: string) => {
+  const createGroupChat = async (partyId: string, partyTitle: string, initialMemberUid: string, avatarUrl: string) => {
     if (!db) return;
     const chatRef = db.collection('chats').doc(partyId);
 
     await chatRef.set({
         isGroup: true,
         name: partyTitle,
+        avatarUrl: avatarUrl,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         members: [initialMemberUid],
         lastMessage: 'Chat created',
@@ -283,9 +283,9 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
           venueName: displayLocationName || "Pinned Location",
           placeId: placeId || "", 
           geohash: geohash, 
-          host: currentUser,
-          hostUid: currentUserUid,
-          members: [currentUser],
+          host: currentUser.username,
+          hostUid: currentUser.uid,
+          members: [currentUser.username],
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
 
@@ -304,7 +304,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
             ...partyData
         };
 
-        await createGroupChat(docRef.id, newParty.title, currentUserUid);
+        await createGroupChat(docRef.id, newParty.title, currentUser.uid, currentUser.avatarUrl);
         
         onCreate(newParty);
     } catch (error: unknown) {

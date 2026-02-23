@@ -634,8 +634,7 @@ function App() {
           onClose={() => setCurrentTab('explore')} 
           onCreate={handleCreateParty}
           userLocation={mapCenter}
-          currentUser={user.username}
-          currentUserUid={authUser?.uid || ''}
+          currentUser={user}
           isLoaded={isMapsLoaded}
         />
       )}
