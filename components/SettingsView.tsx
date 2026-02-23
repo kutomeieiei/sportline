@@ -9,9 +9,10 @@ interface SettingsViewProps {
   onUpdateUser: (user: User) => void;
   onClose: () => void;
   onLogout: () => void;
+  onOpenVenueAdmin: () => void;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout, onOpenVenueAdmin }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<User>(user);
@@ -365,6 +366,21 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
             <MenuButton icon={<Shield size={20} />} label="Privacy Policy" />
             <MenuButton icon={<Bell size={20} />} label="Notifications" />
             <MenuButton icon={<HelpCircle size={20} />} label="Support" />
+        </div>
+
+        <div className="px-6 mb-6">
+             <div className="bg-gray-100 rounded-xl p-4">
+                 <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                     <Database size={16} /> Admin Tools
+                 </h3>
+                 <button 
+                    onClick={onOpenVenueAdmin}
+                    className="w-full flex items-center justify-between p-3 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-200"
+                 >
+                    <span className="font-medium text-sm text-gray-700">Manage Sport Venues</span>
+                    <ChevronRight size={16} className="text-gray-400" />
+                 </button>
+             </div>
         </div>
 
         {/* Diagnostic Tool */}

@@ -81,3 +81,15 @@ export const seedVenues = async (): Promise<void> => {
     console.error('Error seeding venues:', error);
   }
 };
+
+export const addVenue = async (venue: Omit<Venue, 'id'>): Promise<void> => {
+  if (!db) return;
+
+  try {
+    await db.collection('venues').add(venue);
+    console.log('Successfully added new venue.');
+  } catch (error) {
+    console.error('Error adding venue:', error);
+    throw error; // Re-throw to be caught by the form handler
+  }
+};

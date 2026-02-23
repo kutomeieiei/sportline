@@ -16,7 +16,8 @@ import { User as FirebaseUser } from 'firebase/auth';
 import { calculateHaversineDistance } from './utils/geospatial';
 import { discoverUsers } from './services/discoveryService';
 import { updateLocation } from './services/locationService';
-import { getVenues } from './services/venueService';
+import { getVenues, addVenue } from './services/venueService';
+import VenueAdminView from './components/VenueAdminView';
 
 // Define libraries outside component to prevent re-render loop
 const LIBRARIES: ("places" | "geometry")[] = ["places", "geometry"];
@@ -49,6 +50,7 @@ function App() {
   const [discoveredUsers, setDiscoveredUsers] = useState<DiscoveryResult[]>([]);
   const [isLive, setIsLive] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState(false);
+  const [isVenueAdminOpen, setIsVenueAdminOpen] = useState(false);
 
   // Rate limiting for distance matrix
   const lastMatrixCall = useRef<number>(0);
@@ -483,6 +485,13 @@ function App() {
     }
   };
 
+  const handleAddVenue = async (venue: Omit<Venue, 'id'>) => {
+    await addVenue(venue);
+    // Re-fetch venues to update the list
+    const venueData = await getVenues();
+    setVenues(venueData);
+  };
+
   if (isLoadingAuth) {
      return (
         <div className="w-full h-screen flex items-center justify-center bg-white">
@@ -581,6 +590,21 @@ function App() {
           onUpdateUser={() => {}} 
           onClose={() => setCurrentTab('explore')}
           onLogout={handleLogout}
+          onOpenVenueAdmin={() => setIsVenueAdminOpen(true)}
+        />
+      )}
+
+      {isVenueAdminOpen && (
+        <VenueAdminView 
+          onClose={() => setIsVenueAdminOpen(false)}
+          onAddVenue={handleAddVenue}
+        />
+      )}
+
+      {isVenueAdminOpen && (
+        <VenueAdminView 
+          onClose={() => setIsVenueAdminOpen(false)}
+          onAddVenue={handleAddVenue}
         />
       )}
 
