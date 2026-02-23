@@ -31,6 +31,7 @@ function App() {
   const [user, setUser] = useState<User>(INITIAL_USER);
   const [parties, setParties] = useState<Party[]>([]);
   const [friends, setFriends] = useState<User[]>([]);
+  const [friendRequests, setFriendRequests] = useState<User[]>([]);
   
   // Store travel times separately to avoid re-rendering loops
   const [travelTimes, setTravelTimes] = useState<Record<string, string>>({});
@@ -132,20 +133,39 @@ function App() {
     if (!authUser || !db) return;
 
     const unsubscribeFriends = db.collection('users').doc(authUser.uid).collection('friends').onSnapshot(async (snapshot) => {
-      const friendUids = snapshot.docs.map(doc => doc.id);
-      if (friendUids.length === 0) {
+      const friendDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // Filter by status
+      // 'accepted' or undefined (legacy) -> Friends
+      // 'pending' -> Friend Requests (incoming)
+      const acceptedIds = friendDocs.filter(d => d.status === 'accepted' || !d.status).map(d => d.id);
+      const pendingIds = friendDocs.filter(d => d.status === 'pending').map(d => d.id);
+
+      // 1. Fetch Accepted Friends
+      if (acceptedIds.length > 0) {
+        const friendPromises = acceptedIds.map(uid => db.collection('users').doc(uid).get());
+        const friendDocs = await Promise.all(friendPromises);
+        const friendsData = friendDocs.map(doc => {
+          const data = doc.data();
+          return data ? { ...data, uid: doc.id } as User : null;
+        }).filter((u): u is User => u !== null);
+        setFriends(friendsData);
+      } else {
         setFriends([]);
-        return;
       }
 
-      // Fetch full user profiles for each friend
-      const friendPromises = friendUids.map(uid => db.collection('users').doc(uid).get());
-      const friendDocs = await Promise.all(friendPromises);
-      const friendsData = friendDocs.map(doc => {
-        const data = doc.data();
-        return data ? { ...data, uid: doc.id } as User : null;
-      }).filter((u): u is User => u !== null);
-      setFriends(friendsData);
+      // 2. Fetch Pending Requests
+      if (pendingIds.length > 0) {
+        const requestPromises = pendingIds.map(uid => db.collection('users').doc(uid).get());
+        const requestDocs = await Promise.all(requestPromises);
+        const requestsData = requestDocs.map(doc => {
+          const data = doc.data();
+          return data ? { ...data, uid: doc.id } as User : null;
+        }).filter((u): u is User => u !== null);
+        setFriendRequests(requestsData);
+      } else {
+        setFriendRequests([]);
+      }
     });
 
     return () => unsubscribeFriends();
@@ -378,16 +398,74 @@ function App() {
       const friendDoc = querySnapshot.docs[0];
       const friendId = friendDoc.id;
 
-      // 2. Add to current user's friend list
-      await usersRef.doc(authUser.uid).collection('friends').doc(friendId).set({});
+      // Check if already friends or request sent
+      const myFriendDoc = await usersRef.doc(authUser.uid).collection('friends').doc(friendId).get();
+      if (myFriendDoc.exists) {
+          const status = myFriendDoc.data()?.status;
+          if (status === 'accepted' || !status) { // !status for legacy compatibility
+              alert('You are already friends!');
+              return;
+          } else if (status === 'sent') {
+              alert('Friend request already sent.');
+              return;
+          } else if (status === 'pending') {
+              alert('This user has already sent you a request. Check your requests tab.');
+              return;
+          }
+      }
 
-      // 3. Add current user to friend's friend list (bidirectional)
-      await usersRef.doc(friendId).collection('friends').doc(authUser.uid).set({});
+      // 2. Add to current user's friend list as 'sent'
+      await usersRef.doc(authUser.uid).collection('friends').doc(friendId).set({
+          status: 'sent',
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
 
-      alert('Friend added!');
+      // 3. Add current user to friend's friend list as 'pending'
+      await usersRef.doc(friendId).collection('friends').doc(authUser.uid).set({
+          status: 'pending',
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      alert('Friend request sent!');
     } catch (error) {
       console.error("Error adding friend:", error);
-      alert('Failed to add friend.');
+      alert('Failed to send friend request.');
+    }
+  };
+
+  const handleAcceptFriend = async (friendId: string) => {
+    if (!authUser || !db) return;
+    try {
+        const usersRef = db.collection('users');
+        
+        // Update my status to 'accepted'
+        await usersRef.doc(authUser.uid).collection('friends').doc(friendId).update({
+            status: 'accepted',
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Update friend's status to 'accepted'
+        await usersRef.doc(friendId).collection('friends').doc(authUser.uid).update({
+            status: 'accepted',
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    } catch (error) {
+        console.error("Error accepting friend:", error);
+    }
+  };
+
+  const handleRejectFriend = async (friendId: string) => {
+    if (!authUser || !db) return;
+    try {
+        const usersRef = db.collection('users');
+        
+        // Delete my doc
+        await usersRef.doc(authUser.uid).collection('friends').doc(friendId).delete();
+
+        // Delete friend's doc (which was 'sent')
+        await usersRef.doc(friendId).collection('friends').doc(authUser.uid).delete();
+    } catch (error) {
+        console.error("Error rejecting friend:", error);
     }
   };
 
@@ -501,7 +579,10 @@ function App() {
             ) : (
                 <ChatListView 
                     friends={friends}
+                    friendRequests={friendRequests}
                     onAddFriend={handleAddFriend}
+                    onAcceptFriend={handleAcceptFriend}
+                    onRejectFriend={handleRejectFriend}
                     onSelectChat={setSelectedChatUser} 
                 />
             )}

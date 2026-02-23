@@ -16,15 +16,25 @@ export interface ChatUser {
 
 interface ChatListViewProps {
   friends: User[];
+  friendRequests: User[];
   onAddFriend: (username: string) => void;
+  onAcceptFriend: (uid: string) => void;
+  onRejectFriend: (uid: string) => void;
   onSelectChat: (user: ChatUser) => void;
 }
 
-const ChatListView: React.FC<ChatListViewProps> = ({ friends, onAddFriend, onSelectChat }) => {
+const ChatListView: React.FC<ChatListViewProps> = ({ 
+  friends, 
+  friendRequests, 
+  onAddFriend, 
+  onAcceptFriend, 
+  onRejectFriend, 
+  onSelectChat 
+}) => {
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<'friends' | 'groups'>('friends');
+  const [activeTab, setActiveTab] = useState<'friends' | 'groups' | 'requests'>('friends');
   const [addFriendUsername, setAddFriendUsername] = useState('');
 
   const handleAddFriendClick = () => {
@@ -48,6 +58,16 @@ const ChatListView: React.FC<ChatListViewProps> = ({ friends, onAddFriend, onSel
   // Mock groups for now
   const groupChats: ChatUser[] = [];
 
+  const requestChats: ChatUser[] = friendRequests
+    .filter(f => f.uid)
+    .map(f => ({
+      id: f.uid,
+      name: f.displayName,
+      avatarUrl: f.avatarUrl,
+      statusText: 'Sent you a friend request',
+      isOnline: false,
+    }));
+
   const toggleSelection = (id: string) => {
     if (selectedIds.includes(id)) {
         setSelectedIds(selectedIds.filter(i => i !== id));
@@ -60,7 +80,7 @@ const ChatListView: React.FC<ChatListViewProps> = ({ friends, onAddFriend, onSel
     // This part remains for group creation logic, but we won't show any initial groups
   };
 
-  const filteredChats = activeTab === 'friends' ? friendChats : groupChats;
+  const filteredChats = activeTab === 'friends' ? friendChats : (activeTab === 'groups' ? groupChats : requestChats);
 
   // Friends list for group creation
   const contacts = friends
@@ -178,6 +198,21 @@ const ChatListView: React.FC<ChatListViewProps> = ({ friends, onAddFriend, onSel
         >
             Groups
         </button>
+        <button 
+            onClick={() => setActiveTab('requests')}
+            className={`flex-1 py-3 text-sm font-bold text-center transition-all border-b-2 ${
+                activeTab === 'requests' 
+                ? 'border-blue-600 text-blue-600' 
+                : 'border-transparent text-gray-400 hover:text-gray-600'
+            }`}
+        >
+            Requests
+            {friendRequests.length > 0 && (
+                <span className="ml-1.5 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full align-middle">
+                    {friendRequests.length}
+                </span>
+            )}
+        </button>
       </div>
 
       {/* Add Friend Input */}
@@ -209,8 +244,8 @@ const ChatListView: React.FC<ChatListViewProps> = ({ friends, onAddFriend, onSel
             filteredChats.map((chat) => (
               <button
                 key={chat.id}
-                onClick={() => onSelectChat(chat)}
-                className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors w-full text-left active:bg-gray-100"
+                onClick={() => activeTab !== 'requests' && onSelectChat(chat)}
+                className={`flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors w-full text-left ${activeTab !== 'requests' ? 'active:bg-gray-100' : 'cursor-default'}`}
               >
                 {/* Avatar Container */}
                 <div className="relative flex-shrink-0">
@@ -219,7 +254,7 @@ const ChatListView: React.FC<ChatListViewProps> = ({ friends, onAddFriend, onSel
                   </div>
                   
                   {/* Online Status Dot */}
-                  {chat.isOnline && !chat.isGroup && (
+                  {chat.isOnline && !chat.isGroup && activeTab !== 'requests' && (
                     <div className="absolute bottom-1 right-1 w-4 h-4 bg-[#31a24c] border-2 border-white rounded-full"></div>
                   )}
                   
@@ -237,7 +272,7 @@ const ChatListView: React.FC<ChatListViewProps> = ({ friends, onAddFriend, onSel
                       <h3 className="text-[17px] font-semibold text-black truncate leading-tight">
                           {chat.name}
                       </h3>
-                      {chat.timestamp && (
+                      {chat.timestamp && activeTab !== 'requests' && (
                           <span className="text-[12px] text-gray-400 font-normal ml-2 flex-shrink-0">{chat.timestamp}</span>
                       )}
                   </div>
@@ -246,6 +281,32 @@ const ChatListView: React.FC<ChatListViewProps> = ({ friends, onAddFriend, onSel
                     <span className={`truncate ${chat.isUnread ? 'font-bold text-black' : ''}`}>{chat.statusText}</span>
                   </div>
                 </div>
+
+                {/* Action Buttons for Requests */}
+                {activeTab === 'requests' && (
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onAcceptFriend(chat.id);
+                            }}
+                            className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors shadow-sm"
+                            title="Accept"
+                        >
+                            <Check size={18} strokeWidth={3} />
+                        </button>
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onRejectFriend(chat.id);
+                            }}
+                            className="p-2 bg-gray-100 text-gray-500 rounded-full hover:bg-gray-200 transition-colors"
+                            title="Reject"
+                        >
+                            <Plus size={18} className="rotate-45" />
+                        </button>
+                    </div>
+                )}
               </button>
             ))
           ) : (
