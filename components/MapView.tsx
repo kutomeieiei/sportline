@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { Party, SportType, DiscoveryResult, Venue } from '../types';
-import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, CheckCircle, Navigation, Car, Trash2, Trophy, Footprints, Bike, PersonStanding, Dribbble } from 'lucide-react';
+import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, CheckCircle, Navigation, Car, Trash2, Trophy, Footprints, Bike, PersonStanding, Dribbble, Send } from 'lucide-react';
 import { formatDistance } from '../utils/geospatial';
 import { db } from '../firebase';
 
@@ -13,6 +13,7 @@ interface MapViewProps {
   currentUser: string;
   currentUserUid: string;
   onJoinParty: (partyId: string) => void;
+  onShareVenue: (venue: Venue) => void;
   // Props from centralized loader in App.tsx
   isLoaded: boolean;
   loadError?: Error;
@@ -133,7 +134,7 @@ const getVenueMarkerIcon = (): google.maps.Icon => {
   };
 };
 
-const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = [], center, currentUser, currentUserUid, onJoinParty, isLoaded, loadError, isLive, userLocation }) => {
+const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = [], center, currentUser, currentUserUid, onJoinParty, onShareVenue, isLoaded, loadError, isLive, userLocation }) => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
   const [selectedUser, setSelectedUser] = useState<DiscoveryResult | null>(null);
@@ -342,6 +343,15 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
                       </div>
                     </div>
                   ))}
+                </div>
+                <div className="mt-4">
+                  <button 
+                    onClick={() => onShareVenue(selectedVenue)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    <Send size={16} />
+                    Share Venue
+                  </button>
                 </div>
               </div>
             </div>

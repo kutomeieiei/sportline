@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Phone, Video, Info, Send, Image as ImageIcon, Smile } from 'lucide-react';
 import { ChatUser } from './ChatListView';
-import { User } from '../types'; // Import User type
+import { User, Venue } from '../types'; // Import User and Venue types
 import { db } from '../firebase'; // Import db
 import { firebase } from '../firebase';
 
@@ -9,6 +9,7 @@ interface ChatDetailViewProps {
   chatUser: ChatUser;
   currentUser: User;
   onBack: () => void;
+  onViewVenue: (venue: Venue) => void;
 }
 
 interface Message {
@@ -16,9 +17,15 @@ interface Message {
   text: string;
   senderId: string;
   timestamp: firebase.firestore.Timestamp | Date | string | number | null;
+  type?: 'text' | 'venue_share';
+  venue?: Venue;
 }
 
-const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, onBack }) => {
+const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, onBack, onViewVenue }) => {
+  const handleViewOnMap = (venue: Venue) => {
+    // This will be handled by App.tsx
+    onViewVenue(venue);
+  };
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -113,7 +120,19 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
                   ? 'bg-blue-600 text-white rounded-br-none' 
                   : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
               }`}>
-                {msg.text}
+                {msg.type === 'venue_share' && msg.venue ? (
+                  <div className="w-full">
+                    <p className="mb-2">{msg.text}</p>
+                    <div className="border-l-4 border-blue-500 pl-3">
+                      <img src={msg.venue.imageUrl} alt={msg.venue.name} className="w-full h-32 object-cover rounded-lg mb-2" />
+                      <h4 className="font-bold">{msg.venue.name}</h4>
+                      <p className="text-xs text-gray-500">{msg.venue.description}</p>
+                      <button onClick={() => handleViewOnMap(msg.venue!)} className="mt-2 text-xs text-blue-500 hover:underline">View on Map</button>
+                    </div>
+                  </div>
+                ) : (
+                  msg.text
+                )}
               </div>
             </div>
           );

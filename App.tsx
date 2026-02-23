@@ -18,6 +18,7 @@ import { discoverUsers } from './services/discoveryService';
 import { updateLocation } from './services/locationService';
 import { getVenues, addVenue } from './services/venueService';
 import VenueAdminView from './components/VenueAdminView';
+import UserSelectionView from './components/UserSelectionView';
 
 // Define libraries outside component to prevent re-render loop
 const LIBRARIES: ("places" | "geometry")[] = ["places", "geometry"];
@@ -51,6 +52,8 @@ function App() {
   const [isLive, setIsLive] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isVenueAdminOpen, setIsVenueAdminOpen] = useState(false);
+  const [isSharingVenue, setIsSharingVenue] = useState(false);
+  const [venueToShare, setVenueToShare] = useState<Venue | null>(null);
 
   // Rate limiting for distance matrix
   const lastMatrixCall = useRef<number>(0);
@@ -492,6 +495,35 @@ function App() {
     setVenues(venueData);
   };
 
+  const handleShareVenue = (venue: Venue) => {
+    setVenueToShare(venue);
+    setIsSharingVenue(true);
+  };
+
+  const handleSelectUserToShareWith = async (userToShareWith: DiscoveryResult) => {
+    if (!venueToShare || !authUser || !db) return;
+
+    const chatRoomId = [authUser.uid, userToShareWith.uid].sort().join('_');
+    const message = {
+      text: `Check out this venue: ${venueToShare.name}`,
+      senderId: authUser.uid,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      type: 'venue_share',
+      venue: venueToShare,
+    };
+
+    try {
+      await db.collection('chats').doc(chatRoomId).collection('messages').add(message);
+      alert(`Venue shared with ${userToShareWith.user?.display_name || 'user'}!`)
+    } catch (error) {
+      console.error("Error sharing venue:", error);
+      alert("Failed to share venue.");
+    }
+
+    setIsSharingVenue(false);
+    setVenueToShare(null);
+  };
+
   if (isLoadingAuth) {
      return (
         <div className="w-full h-screen flex items-center justify-center bg-white">
@@ -530,6 +562,7 @@ function App() {
             loadError={mapsLoadError}
             isLive={isLive}
             userLocation={userLocation}
+            onShareVenue={handleShareVenue}
         />
       </div>
 
@@ -609,6 +642,14 @@ function App() {
       )}
 
       {/* Chat Views */}
+      {isSharingVenue && (
+        <UserSelectionView 
+          users={discoveredUsers}
+          onSelectUser={handleSelectUserToShareWith}
+          onClose={() => setIsSharingVenue(false)}
+        />
+      )}
+
       {currentTab === 'chat' && (
         <div className="absolute inset-0 bottom-[72px] z-[1000] bg-white">
             {selectedChatUser ? (
