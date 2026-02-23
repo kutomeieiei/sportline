@@ -323,14 +323,31 @@ function App() {
   };
 
   const handleJoinParty = async (partyId: string) => {
-    if (!db) return;
+    if (!db || !user?.uid) return;
     try {
-        await db.collection('parties').doc(partyId).update({
-            members: firebase.firestore.FieldValue.arrayUnion(user.username),
-            playersCurrent: (parties.find(p => p.id === partyId)?.playersCurrent || 0) + 1
+        const partyRef = db.collection('parties').doc(partyId);
+        const chatRef = db.collection('chats').doc(partyId);
+
+        await db.runTransaction(async (transaction) => {
+            const partyDoc = await transaction.get(partyRef);
+            if (!partyDoc.exists) {
+                throw "Party does not exist!";
+            }
+
+            const currentPlayers = partyDoc.data()?.playersCurrent || 0;
+
+            transaction.update(partyRef, {
+                members: firebase.firestore.FieldValue.arrayUnion(user.username),
+                playersCurrent: currentPlayers + 1
+            });
+
+            transaction.update(chatRef, {
+                members: firebase.firestore.FieldValue.arrayUnion(user.uid)
+            });
         });
+
     } catch (error) {
-        console.error("Error joining party:", error);
+        console.error("Error joining party and chat:", error);
     }
   };
 
@@ -524,6 +541,12 @@ function App() {
     setVenueToShare(null);
   };
 
+  const handleViewVenue = (venue: Venue) => {
+    setMapCenter({ lat: venue.latitude, lng: venue.longitude });
+    setCurrentTab('explore');
+    setSelectedChatUser(null);
+  };
+
   if (isLoadingAuth) {
      return (
         <div className="w-full h-screen flex items-center justify-center bg-white">
@@ -657,11 +680,13 @@ function App() {
                     chatUser={selectedChatUser} 
                     currentUser={user}
                     onBack={() => setSelectedChatUser(null)} 
+                    onViewVenue={handleViewVenue}
                 />
             ) : (
                 <ChatListView 
                     friends={friends}
                     friendRequests={friendRequests}
+                    currentUser={user}
                     onAddFriend={handleAddFriend}
                     onAcceptFriend={handleAcceptFriend}
                     onRejectFriend={handleRejectFriend}

@@ -28,24 +28,51 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
   };
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [chatMembers, setChatMembers] = useState<Record<string, User>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const getChatId = (uid1: string, uid2: string) => {
-    return [uid1, uid2].sort().join('_');
-  };
+  const chatId = chatUser.isGroup ? chatUser.id : [currentUser.uid, chatUser.id].sort().join('_');
 
   // Message Listener
   useEffect(() => {
     if (!currentUser || !chatUser) return;
 
-    const chatId = getChatId(currentUser.uid, chatUser.id);
     const unsubscribe = db.collection('chats').doc(chatId).collection('messages').orderBy('timestamp', 'asc').onSnapshot(snapshot => {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
       setMessages(msgs);
     });
 
     return () => unsubscribe();
-  }, [currentUser, chatUser]);
+  }, [currentUser, chatUser, chatId]);
+
+  useEffect(() => {
+    if (!chatUser.isGroup || !db) return;
+
+    const fetchMembers = async () => {
+        const chatDoc = await db.collection('chats').doc(chatId).get();
+        if (!chatDoc.exists) return;
+
+        const memberIds = chatDoc.data()?.members || [];
+        if (memberIds.length === 0) return;
+
+        const memberPromises = memberIds.map((id: string) => 
+            db.collection('users').doc(id).get()
+        );
+
+        const memberDocs = await Promise.all(memberPromises);
+        
+        const membersData: Record<string, User> = {};
+        memberDocs.forEach(doc => {
+            if (doc.exists) {
+                membersData[doc.id] = { uid: doc.id, ...doc.data() } as User;
+            }
+        });
+        setChatMembers(membersData);
+    };
+
+    fetchMembers();
+
+  }, [chatId, chatUser.isGroup]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -62,7 +89,6 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
       return;
     }
 
-    const chatId = getChatId(currentUser.uid, chatUser.id);
     const newMessage: Omit<Message, 'id'> = {
       text: inputValue,
       senderId: currentUser.uid,
@@ -108,13 +134,18 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
         <div className="text-center text-xs text-gray-400 my-4">Today</div>
         {messages.map((msg) => {
           const isMe = msg.senderId === currentUser.uid;
+          const sender = chatMembers[msg.senderId];
           return (
             <div 
               key={msg.id} 
               className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
             >
               {!isMe && (
-                 <img src={chatUser.avatarUrl} className="w-8 h-8 rounded-full self-end mr-2 mb-1" />
+                 <img 
+                    src={sender ? sender.avatarUrl : chatUser.avatarUrl} 
+                    className="w-8 h-8 rounded-full self-end mr-2 mb-1" 
+                    title={sender ? sender.displayName : chatUser.name}
+                 />
               )}
               <div className={`max-w-[70%] px-4 py-2 rounded-2xl text-[15px] ${isMe 
                   ? 'bg-blue-600 text-white rounded-br-none' 

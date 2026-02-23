@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { db } from '../firebase'; // Import db from firebase
 import { Plus, Check, Users, Camera, UserPlus } from 'lucide-react';
 import { User } from '../types'; // Import User type
 
@@ -12,11 +13,13 @@ export interface ChatUser {
   isUnread?: boolean;
   isGroup?: boolean;
   members?: number;
+  lastMessage?: { text: string; timestamp: any };
 }
 
 interface ChatListViewProps {
   friends: User[];
   friendRequests: User[];
+  currentUser: User;
   onAddFriend: (username: string) => void;
   onAcceptFriend: (uid: string) => void;
   onRejectFriend: (uid: string) => void;
@@ -26,6 +29,7 @@ interface ChatListViewProps {
 const ChatListView: React.FC<ChatListViewProps> = ({ 
   friends, 
   friendRequests, 
+  currentUser,
   onAddFriend, 
   onAcceptFriend, 
   onRejectFriend, 
@@ -36,6 +40,32 @@ const ChatListView: React.FC<ChatListViewProps> = ({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'friends' | 'groups' | 'requests'>('friends');
   const [addFriendUsername, setAddFriendUsername] = useState('');
+  const [allChats, setAllChats] = useState<ChatUser[]>([]);
+
+  const formatTimestamp = (timestamp: any) => {
+    if (!timestamp) return '';
+    try {
+      const date = timestamp.toDate();
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+      if (today.getTime() === msgDate.getTime()) {
+        return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      }
+
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      if (yesterday.getTime() === msgDate.getTime()) {
+        return 'Yesterday';
+      }
+
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    } catch (error) {
+      console.error("Error formatting timestamp:", error);
+      return '';
+    }
+  };
 
   const handleAddFriendClick = () => {
     if (addFriendUsername.trim()) {
@@ -44,19 +74,55 @@ const ChatListView: React.FC<ChatListViewProps> = ({
     }
   };
 
-  // Convert friends to ChatUser for display
-  const friendChats: ChatUser[] = friends
-    .filter(f => f.uid)
-    .map(f => ({
-      id: f.uid,
-      name: f.displayName,
-      avatarUrl: f.avatarUrl,
-      statusText: f.isOnline ? 'Online' : 'Offline',
-      isOnline: f.isOnline,
-    }));
 
-  // Mock groups for now
-  const groupChats: ChatUser[] = [];
+
+  useEffect(() => {
+    if (!currentUser.uid || !db) return;
+
+    const unsubscribe = db.collection('chats')
+      .where('members', 'array-contains', currentUser.uid)
+      .onSnapshot(async (snapshot) => {
+        const chatPromises = snapshot.docs.map(async (doc) => {
+          const chatData = doc.data();
+          const lastMessageSnapshot = await doc.ref.collection('messages').orderBy('timestamp', 'desc').limit(1).get();
+          const lastMessage = lastMessageSnapshot.docs.length > 0 ? lastMessageSnapshot.docs[0].data() : null;
+
+          if (chatData.isGroup) {
+            return {
+              id: doc.id,
+              name: chatData.name || 'Group Chat',
+              avatarUrl: chatData.avatarUrl || 'https://i.pravatar.cc/150?u=group',
+              isGroup: true,
+              members: chatData.members.length,
+              lastMessage: lastMessage ? { text: lastMessage.text, timestamp: lastMessage.timestamp } : undefined,
+            };
+          } else {
+            const otherUserId = chatData.members.find((m: string) => m !== currentUser.uid);
+            if (!otherUserId) return null;
+
+            const userDoc = await db.collection('users').doc(otherUserId).get();
+            const userData = userDoc.data() as User;
+
+            return {
+              id: doc.id,
+              name: userData.displayName,
+              avatarUrl: userData.avatarUrl,
+              isGroup: false,
+              isOnline: userData.isOnline,
+              lastMessage: lastMessage ? { text: lastMessage.text, timestamp: lastMessage.timestamp } : undefined,
+            };
+          }
+        });
+
+        const chats = (await Promise.all(chatPromises)).filter((c): c is ChatUser => c !== null);
+        setAllChats(chats);
+      });
+
+    return () => unsubscribe();
+  }, [currentUser.uid]);
+
+  const friendChats = allChats.filter(c => !c.isGroup);
+  const groupChats = allChats.filter(c => c.isGroup);
 
   const requestChats: ChatUser[] = friendRequests
     .filter(f => f.uid)
@@ -272,13 +338,15 @@ const ChatListView: React.FC<ChatListViewProps> = ({
                       <h3 className="text-[17px] font-semibold text-black truncate leading-tight">
                           {chat.name}
                       </h3>
-                      {chat.timestamp && activeTab !== 'requests' && (
-                          <span className="text-[12px] text-gray-400 font-normal ml-2 flex-shrink-0">{chat.timestamp}</span>
+                      {chat.lastMessage?.timestamp && activeTab !== 'requests' && (
+                          <span className="text-[12px] text-gray-400 font-normal ml-2 flex-shrink-0">{formatTimestamp(chat.lastMessage.timestamp)}</span>
                       )}
                   </div>
                   
                   <div className="flex items-center gap-1 text-[15px] text-gray-500 font-light truncate leading-tight">
-                    <span className={`truncate ${chat.isUnread ? 'font-bold text-black' : ''}`}>{chat.statusText}</span>
+                    <span className={`truncate ${chat.isUnread ? 'font-bold text-black' : ''}`}>
+                      {chat.lastMessage ? chat.lastMessage.text : chat.statusText}
+                    </span>
                   </div>
                 </div>
 

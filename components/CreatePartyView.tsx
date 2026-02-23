@@ -253,6 +253,20 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
   const [displayLocationName, setDisplayLocationName] = useState(DEFAULT_CITY);
   const [placeId, setPlaceId] = useState<string>("");
 
+  const createGroupChat = async (partyId: string, partyTitle: string, initialMemberUid: string) => {
+    if (!db) return;
+    const chatRef = db.collection('chats').doc(partyId);
+
+    await chatRef.set({
+        isGroup: true,
+        name: partyTitle,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        members: [initialMemberUid],
+        lastMessage: 'Chat created',
+        lastMessageTimestamp: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+};
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -289,6 +303,8 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
             id: docRef.id,
             ...partyData
         };
+
+        await createGroupChat(docRef.id, newParty.title, currentUserUid);
         
         onCreate(newParty);
     } catch (error: unknown) {
