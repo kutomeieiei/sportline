@@ -114,6 +114,8 @@ export interface Court {
 export interface Venue {
   id: string;
   name: string;
+  description: string;
+  imageUrl: string;
   latitude: number;
   longitude: number;
   courts: Court[];

@@ -325,20 +325,24 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
             onCloseClick={() => setSelectedVenue(null)}
             options={{ pixelOffset: new google.maps.Size(0, -40) }}
           >
-            <div className="p-2 font-sans max-w-xs">
-              <h3 className="font-bold text-lg text-gray-900 mb-2">{selectedVenue.name}</h3>
-              <div className="space-y-2">
-                {selectedVenue.courts.map((court, index) => (
-                  <div key={index} className="flex items-center gap-3 p-2 bg-gray-50 rounded-md">
-                    <div className="p-2 bg-green-100 rounded-full">
-                      {getSportIcon(court.sport, 'w-5 h-5 text-green-700')}
+            <div className="p-0 font-sans max-w-[300px]">
+              <img src={selectedVenue.imageUrl} alt={selectedVenue.name} className="w-full h-32 object-cover rounded-t-lg" />
+              <div className="p-3">
+                <h3 className="font-bold text-lg text-gray-900 mb-1">{selectedVenue.name}</h3>
+                <p className="text-xs text-gray-600 mb-3">{selectedVenue.description}</p>
+                <div className="space-y-2">
+                  {selectedVenue.courts.map((court, index) => (
+                    <div key={index} className="flex items-center gap-3 p-2 bg-gray-50 rounded-md">
+                      <div className="p-2 bg-green-100 rounded-full">
+                        {getSportIcon(court.sport, 'w-5 h-5 text-green-700')}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-800">{court.name}</p>
+                        <p className="text-sm text-gray-500">{court.sport}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold text-gray-800">{court.name}</p>
-                      <p className="text-sm text-gray-500">{court.sport}</p>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </InfoWindowF>

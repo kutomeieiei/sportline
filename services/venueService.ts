@@ -31,6 +31,8 @@ export const seedVenues = async (): Promise<void> => {
   const venues: Omit<Venue, 'id'>[] = [
     {
       name: 'Khon Kaen University Sports Complex',
+      description: 'A large sports complex with facilities for various sports. Open to students and the public.',
+      imageUrl: 'https://picsum.photos/seed/kku/400/200',
       latitude: 16.4741,
       longitude: 102.8235,
       courts: [
@@ -41,6 +43,8 @@ export const seedVenues = async (): Promise<void> => {
     },
     {
       name: 'Central Plaza Khon Kaen Badminton Courts',
+      description: 'Modern indoor badminton courts located on the top floor of the shopping mall.',
+      imageUrl: 'https://picsum.photos/seed/central/400/200',
       latitude: 16.4299,
       longitude: 102.8344,
       courts: [
@@ -52,6 +56,8 @@ export const seedVenues = async (): Promise<void> => {
     },
     {
         name: 'Bueng Kaen Nakhon Park',
+        description: 'A beautiful public park with a large lake, perfect for running and outdoor activities.',
+        imageUrl: 'https://picsum.photos/seed/bueng/400/200',
         latitude: 16.4162,
         longitude: 102.8281,
         courts: [
