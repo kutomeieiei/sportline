@@ -36,6 +36,7 @@ function App() {
 
   const [currentTab, setCurrentTab] = useState<'explore' | 'create' | 'settings' | 'chat'>('explore');
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
+  const [userLocation, setUserLocation] = useState<google.maps.LatLngLiteral | null>(null);
   
   // Chat Navigation State
   const [selectedChatUser, setSelectedChatUser] = useState<ChatUser | null>(null);
@@ -128,18 +129,39 @@ function App() {
   useEffect(() => {
     if (!isAuthenticated || !authUser || !isLive) return;
 
-    const intervalId = setInterval(() => {
-      updateLocation(
-        authUser.uid,
-        mapCenter.lat,
-        mapCenter.lng,
-        'live',
-        true
-      ).catch(console.error);
-    }, 10000); // Update every 10 seconds
+    let watchId: number;
 
-    return () => clearInterval(intervalId);
-  }, [isAuthenticated, authUser, isLive, mapCenter]);
+    if (navigator.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const newPos = { lat: latitude, lng: longitude };
+          setUserLocation(newPos);
+          
+          // Update server
+          updateLocation(
+            authUser.uid,
+            latitude,
+            longitude,
+            'live',
+            true
+          ).catch(console.error);
+        },
+        (error) => {
+          console.error("Error watching position:", error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    return () => {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [isAuthenticated, authUser, isLive]);
 
   // --- 4. TIER 2: Spatial Refinement (Distance Sorting) ---
   const sortedParties = useMemo(() => {
@@ -248,9 +270,31 @@ function App() {
   };
 
   const handleRecenter = () => {
-    // Small jitter to force map refresh if needed
-    setMapCenter({ ...DEFAULT_CENTER, lat: DEFAULT_CENTER.lat + (Math.random() * 0.001) });
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const newPos = { lat: latitude, lng: longitude };
+          setMapCenter(newPos);
+          setUserLocation(newPos);
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          // Fallback to default if error, or just alert user
+          // alert("Could not get your location. Please enable location services.");
+        }
+      );
+    } else {
+      console.error("Geolocation is not supported by this browser.");
+    }
   };
+
+  // Attempt to get user location on load
+  useEffect(() => {
+    if (isMapsLoaded) {
+      handleRecenter();
+    }
+  }, [isMapsLoaded]);
   
   const handleLocationSelect = (lat: number, lng: number) => {
     setMapCenter({ lat, lng });
@@ -263,10 +307,13 @@ function App() {
     setIsLive(newStatus);
     
     // Immediate update
+    const lat = userLocation?.lat || mapCenter.lat;
+    const lng = userLocation?.lng || mapCenter.lng;
+
     await updateLocation(
       authUser.uid,
-      mapCenter.lat,
-      mapCenter.lng,
+      lat,
+      lng,
       newStatus ? 'live' : 'static',
       newStatus
     );
@@ -320,6 +367,7 @@ function App() {
             isLoaded={isMapsLoaded}
             loadError={mapsLoadError}
             isLive={isLive}
+            userLocation={userLocation}
         />
       </div>
 

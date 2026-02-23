@@ -14,6 +14,7 @@ interface MapViewProps {
   isLoaded: boolean;
   loadError?: Error;
   isLive?: boolean;
+  userLocation?: google.maps.LatLngLiteral | null;
 }
 
 const containerStyle = {
@@ -102,7 +103,7 @@ const getMyMarkerIcon = (): google.maps.Icon => {
   };
 };
 
-const MapView: React.FC<MapViewProps> = ({ parties, discoveredUsers = [], center, currentUser, onJoinParty, isLoaded, loadError, isLive }) => {
+const MapView: React.FC<MapViewProps> = ({ parties, discoveredUsers = [], center, currentUser, onJoinParty, isLoaded, loadError, isLive, userLocation }) => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
   const [selectedUser, setSelectedUser] = useState<DiscoveryResult | null>(null);
@@ -198,7 +199,7 @@ const MapView: React.FC<MapViewProps> = ({ parties, discoveredUsers = [], center
     >
       {isLive && (
         <MarkerF
-          position={center}
+          position={userLocation || center}
           icon={getMyMarkerIcon()}
           zIndex={1000}
           title="You are here (Live)"
