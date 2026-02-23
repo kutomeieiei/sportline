@@ -198,14 +198,14 @@ function App() {
       
       {/* Map Layer */}
       <div className="absolute inset-0 top-0 bottom-[72px] z-0">
-        <Map 
+        {/* <Map 
             parties={sortedParties} 
             users={constants.DUMMY_USERS} // Pass dummy users for visualization
             center={mapCenter} 
             onCameraIdle={(center) => {
               setMapCenter(center);
             }}
-        />
+        /> */}
       </div>
 
       {/* Floating UI Elements */}
