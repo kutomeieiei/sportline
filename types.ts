@@ -1,13 +1,42 @@
 export type SportType = 'All' | 'Football' | 'Basketball' | 'Badminton' | 'Tennis' | 'Running' | 'Cycling' | 'Yoga';
 
+export interface SkillMetrics {
+  endurance: number;
+  speed: number;
+  technique: number;
+  teamwork: number;
+}
+
 export interface User {
-  username: string;
-  displayName: string;
+  uid: string;
+  display_name: string;
+  profile_img_url: string;
+  preferred_sports: SportType[];
+  skill_metrics: SkillMetrics;
+  // Legacy fields for compatibility
+  username?: string;
   email?: string;
-  avatarUrl: string;
-  bio: string;
-  gender: string;
-  preferredSports: SportType[];
+  avatarUrl?: string;
+  bio?: string;
+  gender?: string;
+}
+
+export type LocationMode = 'live' | 'static';
+
+export interface ActiveLocation {
+  uid: string; // Document ID is usually the user ID
+  g: string; // Geohash
+  l: [number, number]; // [latitude, longitude]
+  mode: LocationMode;
+  vis: boolean; // Visibility toggle
+  t: any; // Timestamp (Firestore Timestamp or Date)
+}
+
+export interface DiscoveryResult {
+  uid: string;
+  precise_distance: number; // in meters or km
+  location: ActiveLocation;
+  user?: User; // Hydrated user data
 }
 
 export interface Party {

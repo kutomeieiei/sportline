@@ -8,12 +8,14 @@ import SettingsView from './components/SettingsView';
 import LoginView from './components/LoginView';
 import ChatListView, { ChatUser } from './components/ChatListView';
 import ChatDetailView from './components/ChatDetailView';
-import { Party, SportType, User } from './types';
+import { Party, SportType, User, DiscoveryResult } from './types';
 import { INITIAL_USER, DEFAULT_CENTER } from './constants';
-import { Crosshair, Loader2 } from 'lucide-react';
+import { Crosshair, Loader2, Radio, Search } from 'lucide-react';
 import { auth, db, firebase } from './firebase'; // Import firebase for compat utilities
 import { User as FirebaseUser } from 'firebase/auth';
 import { calculateHaversineDistance } from './utils/geospatial';
+import { discoverUsers } from './services/discoveryService';
+import { updateLocation } from './services/locationService';
 
 // Declare google for global access
 declare var google: any;
@@ -40,6 +42,11 @@ function App() {
   
   // Chat Navigation State
   const [selectedChatUser, setSelectedChatUser] = useState<ChatUser | null>(null);
+
+  // Discovery & Live Location State
+  const [discoveredUsers, setDiscoveredUsers] = useState<DiscoveryResult[]>([]);
+  const [isLive, setIsLive] = useState(false);
+  const [isDiscovering, setIsDiscovering] = useState(false);
 
   // Rate limiting for distance matrix
   const lastMatrixCall = useRef<number>(0);
@@ -119,6 +126,23 @@ function App() {
 
     return () => unsubscribeParties();
   }, [isAuthenticated]);
+
+  // Live Location Update Loop
+  useEffect(() => {
+    if (!isAuthenticated || !authUser || !isLive) return;
+
+    const intervalId = setInterval(() => {
+      updateLocation(
+        authUser.uid,
+        mapCenter.lat,
+        mapCenter.lng,
+        'live',
+        true
+      ).catch(console.error);
+    }, 10000); // Update every 10 seconds
+
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated, authUser, isLive, mapCenter]);
 
   // --- 4. TIER 2: Spatial Refinement (Distance Sorting) ---
   const sortedParties = useMemo(() => {
@@ -202,27 +226,6 @@ function App() {
     setIsServerDataLoaded(false);
   };
 
-  if (isLoadingAuth) {
-     return (
-        <div className="w-full h-screen flex items-center justify-center bg-white">
-            <Loader2 className="animate-spin text-blue-600" size={48} />
-        </div>
-     );
-  }
-
-  if (!isAuthenticated) {
-    return <LoginView onLogin={handleLogin} />;
-  }
-
-  if (!isServerDataLoaded) {
-    return (
-        <div className="w-full h-screen flex flex-col items-center justify-center bg-gray-50">
-            <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
-            <p className="text-gray-400 text-sm font-medium">Syncing with server...</p>
-        </div>
-     );
-  }
-
   const handleTabChange = (tab: 'explore' | 'create' | 'settings' | 'chat') => {
     setCurrentTab(tab);
     if (tab !== 'chat') {
@@ -256,6 +259,56 @@ function App() {
     setMapCenter({ lat, lng });
   };
 
+  // Handle "Go Live" Toggle
+  const handleToggleLive = async () => {
+    if (!authUser) return;
+    const newStatus = !isLive;
+    setIsLive(newStatus);
+    
+    // Immediate update
+    await updateLocation(
+      authUser.uid,
+      mapCenter.lat,
+      mapCenter.lng,
+      newStatus ? 'live' : 'static',
+      newStatus
+    );
+  };
+
+  // Handle Discovery
+  const handleDiscover = async () => {
+    setIsDiscovering(true);
+    try {
+      const results = await discoverUsers(mapCenter.lat, mapCenter.lng, 5000); // 5km radius
+      setDiscoveredUsers(results);
+    } catch (error) {
+      console.error("Discovery failed", error);
+    } finally {
+      setIsDiscovering(false);
+    }
+  };
+
+  if (isLoadingAuth) {
+     return (
+        <div className="w-full h-screen flex items-center justify-center bg-white">
+            <Loader2 className="animate-spin text-blue-600" size={48} />
+        </div>
+     );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginView onLogin={handleLogin} />;
+  }
+
+  if (!isServerDataLoaded) {
+    return (
+        <div className="w-full h-screen flex flex-col items-center justify-center bg-gray-50">
+            <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
+            <p className="text-gray-400 text-sm font-medium">Syncing with server...</p>
+        </div>
+     );
+  }
+
   return (
     <div className="relative w-full h-screen overflow-hidden bg-gray-50 flex flex-col font-sans">
       
@@ -263,6 +316,7 @@ function App() {
       <div className="absolute inset-0 top-0 bottom-[72px] z-0">
         <MapView 
             parties={sortedParties} 
+            discoveredUsers={discoveredUsers}
             center={mapCenter} 
             currentUser={user.username}
             onJoinParty={handleJoinParty}
@@ -282,6 +336,24 @@ function App() {
             onLocationSelect={handleLocationSelect}
             isLoaded={isMapsLoaded}
           />
+
+          {/* Live Toggle */}
+          <button
+            onClick={handleToggleLive}
+            className={`absolute top-24 right-4 p-3 rounded-full shadow-lg z-[1000] border transition-colors ${isLive ? 'bg-red-500 text-white border-red-600' : 'bg-white text-gray-600 border-gray-100'}`}
+            title="Toggle Live Visibility"
+          >
+            <Radio size={24} className={isLive ? 'animate-pulse' : ''} />
+          </button>
+
+          {/* Discover Button */}
+          <button 
+            onClick={handleDiscover}
+            className="absolute bottom-40 right-4 bg-white p-3 rounded-full shadow-lg text-gray-600 hover:text-blue-600 z-[1000] border border-gray-100"
+            title="Discover Nearby Users"
+          >
+            {isDiscovering ? <Loader2 size={24} className="animate-spin" /> : <Search size={24} />}
+          </button>
 
           <button 
             onClick={handleRecenter}

@@ -21,13 +21,18 @@ export const DEFAULT_CENTER = KHON_KAEN_CENTER;
 export const DEFAULT_CITY = "Khon Kaen";
 
 export const INITIAL_USER: User = {
+  uid: '',
   username: "calyxohm",
   displayName: "CalyxOhm",
   email: "calyxohm@example.com",
   avatarUrl: "https://picsum.photos/200/200",
   bio: "Just a sports fan! Love meeting new people for a game.",
   gender: "Prefer not to say",
-  preferredSports: ['Football', 'Badminton']
+  preferredSports: ['Football', 'Badminton'],
+  location_mode: 'static',
+  static_coords: { lat: DEFAULT_CENTER.lat, lng: DEFAULT_CENTER.lng },
+  is_visible: true,
+  geohash: 'w21z76',
 };
 
 // ✨ CUSTOMIZATION: Helper for consistent icon sizing
@@ -139,5 +144,50 @@ export const INITIAL_PARTIES: Party[] = [
     longitude: 102.8312,
     host: 'หมาก',
     members: ['หมาก', 'กิว']
+  }
+];
+
+export const DUMMY_USERS: User[] = [
+  {
+    uid: 'user1',
+    username: 'mike_runner',
+    displayName: 'Mike Ross',
+    avatarUrl: 'https://i.pravatar.cc/150?u=mike',
+    bio: 'Marathon runner and cycling enthusiast.',
+    gender: 'Male',
+    preferredSports: ['Running', 'Cycling'],
+    location_mode: 'live',
+    static_coords: { lat: 16.4330, lng: 102.8240 },
+    is_visible: true,
+    geohash: 'w21z76',
+    skillLevel: 'Advanced'
+  },
+  {
+    uid: 'user2',
+    username: 'sarah_yoga',
+    displayName: 'Sarah Lee',
+    avatarUrl: 'https://i.pravatar.cc/150?u=sarah',
+    bio: 'Yoga instructor looking for badminton partners.',
+    gender: 'Female',
+    preferredSports: ['Yoga', 'Badminton'],
+    location_mode: 'static',
+    static_coords: { lat: 16.4310, lng: 102.8220 },
+    is_visible: true,
+    geohash: 'w21z76',
+    skillLevel: 'Intermediate'
+  },
+  {
+    uid: 'user3',
+    username: 'tom_baller',
+    displayName: 'Tom Hardy',
+    avatarUrl: 'https://i.pravatar.cc/150?u=tom',
+    bio: 'Basketball every weekend!',
+    gender: 'Male',
+    preferredSports: ['Basketball'],
+    location_mode: 'live',
+    static_coords: { lat: 16.4350, lng: 102.8250 },
+    is_visible: true,
+    geohash: 'w21z76',
+    skillLevel: 'Beginner'
   }
 ];

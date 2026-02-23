@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, MarkerF, InfoWindowF } from '@react-google-maps/api';
-import { Party, SportType } from '../types';
-import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, ExternalLink, CheckCircle, Navigation, Car } from 'lucide-react';
+import { Party, SportType, DiscoveryResult } from '../types';
+import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, ExternalLink, CheckCircle, Navigation, Car, User as UserIcon } from 'lucide-react';
 import { formatDistance } from '../utils/geospatial';
 
 // Declare google global to avoid TS namespace errors
@@ -9,6 +9,7 @@ declare var google: any;
 
 interface MapViewProps {
   parties: Party[];
+  discoveredUsers?: DiscoveryResult[];
   center: { lat: number; lng: number };
   currentUser: string;
   onJoinParty: (partyId: string) => void;
@@ -69,9 +70,25 @@ const getMarkerIcon = (sport: SportType) => {
   };
 };
 
-const MapView: React.FC<MapViewProps> = ({ parties, center, currentUser, onJoinParty, isLoaded, loadError }) => {
+const getUserMarkerIcon = () => {
+  // SVG for a user marker (purple circle)
+  const svg = `
+    <svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="15" cy="15" r="14" fill="#8b5cf6" stroke="white" stroke-width="2"/>
+      <circle cx="15" cy="15" r="4" fill="white"/>
+    </svg>
+  `;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: { width: 30, height: 30 } as any,
+    anchor: { x: 15, y: 15 } as any
+  };
+};
+
+const MapView: React.FC<MapViewProps> = ({ parties, discoveredUsers = [], center, currentUser, onJoinParty, isLoaded, loadError }) => {
   const [map, setMap] = useState<any | null>(null);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
+  const [selectedUser, setSelectedUser] = useState<DiscoveryResult | null>(null);
 
   const onLoad = useCallback((mapInstance: any) => {
     setMap(mapInstance);
@@ -157,16 +174,63 @@ const MapView: React.FC<MapViewProps> = ({ parties, center, currentUser, onJoinP
       options={mapOptions}
       onLoad={onLoad}
       onUnmount={onUnmount}
-      onClick={() => setSelectedParty(null)}
+      onClick={() => {
+        setSelectedParty(null);
+        setSelectedUser(null);
+      }}
     >
       {parties.map((party) => (
         <MarkerF
           key={party.id}
           position={{ lat: party.latitude, lng: party.longitude }}
           icon={getMarkerIcon(party.sport)}
-          onClick={() => setSelectedParty(party)}
+          onClick={() => {
+            setSelectedParty(party);
+            setSelectedUser(null);
+          }}
         />
       ))}
+
+      {discoveredUsers.map((result) => (
+        <MarkerF
+          key={result.uid}
+          position={{ lat: result.location.l[0], lng: result.location.l[1] }}
+          icon={getUserMarkerIcon()}
+          onClick={() => {
+            setSelectedUser(result);
+            setSelectedParty(null);
+          }}
+        />
+      ))}
+
+      {selectedUser && (
+        <InfoWindowF
+          position={{ lat: selectedUser.location.l[0], lng: selectedUser.location.l[1] }}
+          onCloseClick={() => setSelectedUser(null)}
+          options={{
+             pixelOffset: new google.maps.Size(0, -30),
+             disableAutoPan: false
+          }}
+        >
+          <div className="p-2 min-w-[180px]">
+            <h3 className="font-bold text-sm mb-1 text-gray-800">
+                {selectedUser.user?.display_name || 'Unknown User'}
+            </h3>
+            <p className="text-xs text-gray-500 mb-2">
+                {selectedUser.precise_distance.toFixed(0)}m away
+            </p>
+            {selectedUser.user?.preferred_sports && (
+                <div className="flex flex-wrap gap-1">
+                    {selectedUser.user.preferred_sports.map(s => (
+                        <span key={s} className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
+                            {s}
+                        </span>
+                    ))}
+                </div>
+            )}
+          </div>
+        </InfoWindowF>
+      )}
 
       {selectedParty && (
         <InfoWindowF

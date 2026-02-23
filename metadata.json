@@ -1,6 +1,6 @@
 {
-  "name": "Sport Line",
-  "description": "A sports matchmaking application with a Google Maps-inspired interface to find partners and organize matches.",
+  "name": "Geo-Spatial Matchmaking Platform",
+  "description": "A high-concurrency matchmaking application using a CQRS-lite pattern, two-phase discovery pipeline with Geohash and Haversine formula, and real-time map interface.",
   "requestFramePermissions": [
     "geolocation"
   ]

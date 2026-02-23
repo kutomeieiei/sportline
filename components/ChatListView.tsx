@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Check, Users, Camera, X } from 'lucide-react';
+import { Plus, Check, Users, Camera } from 'lucide-react';
 
 export interface ChatUser {
   id: string;

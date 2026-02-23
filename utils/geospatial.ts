@@ -8,7 +8,7 @@ const B32_CHARS = '0123456789bcdefghjkmnpqrstuvwxyz';
  * @param longitude 
  * @param precision Length of the geohash (default 10)
  */
-export const encodeGeohash = (latitude: number, longitude: number, precision: number = 10): string => {
+export const encodeGeohash = (latitude: number, longitude: number, precision = 10): string => {
   let isEven = true;
   let latMin = -90, latMax = 90;
   let lonMin = -180, lonMax = 180;
