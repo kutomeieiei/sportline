@@ -3,18 +3,17 @@ import { Menu, Mic, X, MapPin, Loader2 } from 'lucide-react';
 import { SportType } from '../types';
 import { SPORTS_LIST, APP_CONFIG } from '../constants';
 
-
-
 interface TopBarProps {
   selectedSport: SportType;
   onSelectSport: (sport: SportType) => void;
   userAvatar: string;
   onAvatarClick: () => void;
   onLocationSelect: (lat: number, lng: number) => void;
-
+  // Prop from centralized loader
+  isLoaded: boolean;
 }
 
-const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvatar, onAvatarClick, onLocationSelect }) => {
+const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvatar, onAvatarClick, onLocationSelect, isLoaded }) => {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -24,12 +23,12 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
 
   const displayLogo = APP_CONFIG.headerLogoUrl || APP_CONFIG.logoUrl;
 
-  // Initialize Autocomplete Service
+  // Initialize Autocomplete Service when maps script is loaded
   useEffect(() => {
-    if (!autocompleteService.current && typeof google !== 'undefined' && google.maps && google.maps.places) {
+    if (isLoaded && !autocompleteService.current && typeof google !== 'undefined') {
       autocompleteService.current = new google.maps.places.AutocompleteService();
     }
-  }, []);
+  }, [isLoaded]);
 
   // Google Places Search
   useEffect(() => {
@@ -41,7 +40,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
 
       setIsLoading(true);
       try {
-        const request = {
+        const request: google.maps.places.AutocompletionRequest = {
             input: query,
         };
 
@@ -62,7 +61,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
 
     const timeoutId = setTimeout(fetchSuggestions, 500);
     return () => clearTimeout(timeoutId);
-  }, [query]);
+  }, [query, isLoaded]);
 
   // Handle outside click to close dropdown
   useEffect(() => {
@@ -84,7 +83,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
         placeId: place.place_id,
         fields: ['geometry', 'name']
     }, (result: google.maps.places.PlaceResult | null, status: google.maps.places.PlacesServiceStatus) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && result.geometry) {
+        if (status === google.maps.places.PlacesServiceStatus.OK && result && result.geometry && result.geometry.location) {
             const lat = result.geometry.location.lat();
             const lng = result.geometry.location.lng();
             

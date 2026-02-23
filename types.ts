@@ -23,13 +23,20 @@ export interface User {
 
 export type LocationMode = 'live' | 'static';
 
+export interface FirestoreTimestamp {
+  seconds: number;
+  nanoseconds: number;
+  toDate?: () => Date;
+  toMillis?: () => number;
+}
+
 export interface ActiveLocation {
   uid: string; // Document ID is usually the user ID
   g: string; // Geohash
   l: [number, number]; // [latitude, longitude]
   mode: LocationMode;
   vis: boolean; // Visibility toggle
-  t: any; // Timestamp (Firestore Timestamp or Date)
+  t: FirestoreTimestamp | Date | number | string; // Timestamp (Firestore Timestamp or Date)
 }
 
 export interface DiscoveryResult {

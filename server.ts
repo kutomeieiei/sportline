@@ -27,36 +27,28 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
-// Haversine Formula
-function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371; // Radius of the earth in km
-  const dLat = deg2rad(lat2 - lat1);
-  const dLon = deg2rad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c; // Distance in km
-  return d;
-}
-
-function deg2rad(deg: number) {
-  return deg * (Math.PI / 180);
+interface ActiveLocation {
+  id: string;
+  g: string;
+  l: [number, number];
+  mode: string;
+  vis: boolean;
+  t: any;
+  uid?: string;
 }
 
 // API Endpoint: Two-Phase Discovery Pipeline
 app.get('/api/discover', async (req, res) => {
   try {
-    const { lat, lng, radiusInM } = req.query;
+    const { lat, lng, radiusInM } = req.query as { lat: string; lng: string; radiusInM: string };
 
     if (!lat || !lng || !radiusInM) {
       return res.status(400).json({ error: 'Missing lat, lng, or radiusInM' });
     }
 
-    const centerLat = parseFloat(lat as string);
-    const centerLng = parseFloat(lng as string);
-    const radiusInMeters = parseFloat(radiusInM as string);
+    const centerLat = parseFloat(lat);
+    const centerLng = parseFloat(lng);
+    const radiusInMeters = parseFloat(radiusInM);
 
     // Phase 1: Coarse Spatial Filter (Bounding Box Search)
     // Get Geohash bounds
@@ -74,18 +66,18 @@ app.get('/api/discover', async (req, res) => {
     }
 
     const snapshots = await Promise.all(promises);
-    const matchingDocs: any[] = [];
+    const matchingDocs: ActiveLocation[] = [];
 
     for (const snap of snapshots) {
       for (const doc of snap.docs) {
-        const data = doc.data();
+        const data = doc.data() as Omit<ActiveLocation, 'id'>;
         // Filter out invisible users
         if (data.vis === false) continue;
         
         // Check TTL (60 minutes)
         if (data.t) {
             const now = new Date().getTime();
-            const updatedAt = data.t.toMillis ? data.t.toMillis() : new Date(data.t).getTime();
+            const updatedAt = (data.t as any).toMillis ? (data.t as any).toMillis() : new Date(data.t).getTime();
             if (now - updatedAt > 60 * 60 * 1000) {
                 continue; // Skip stale data
             }
@@ -102,7 +94,7 @@ app.get('/api/discover', async (req, res) => {
       const lng = docData.l[1];
       
       // Calculate precise distance
-      const distanceInKm = getDistanceFromLatLonInKm(centerLat, centerLng, lat, lng);
+      const distanceInKm = distanceBetween([centerLat, centerLng], [lat, lng]);
       const distanceInMeters = distanceInKm * 1000;
 
       if (distanceInMeters <= radiusInMeters) {

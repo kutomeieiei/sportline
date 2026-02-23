@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { User } from '../types';
 import { Loader2, ArrowLeft, Menu, Flame, AlertCircle } from 'lucide-react';
 import { APP_CONFIG } from '../constants';
-import { auth, googleProvider, db } from '../services/firebaseService';
-import { User as FirebaseUser, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, updateProfile } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, googleProvider, db } from '../firebase';
 
 interface LoginViewProps {
   onLogin: (user: User) => void;
@@ -44,14 +42,12 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const displayHeaderLogo = APP_CONFIG.headerLogoUrl || APP_CONFIG.logoUrl;
 
   // Helper to ensure user document exists in Firestore
-
-const ensureUserDocument = async (authUser: FirebaseUser, additionalData: { username?: string } = {}) => {
+  const ensureUserDocument = async (authUser: firebase.User, additionalData: { username?: string } = {}) => {
     if (!db) throw new Error("Database not initialized");
     
     let userSnap;
     try {
-        const userRef = doc(db, 'users', authUser.uid);
-        userSnap = await getDoc(userRef);
+        userSnap = await db.collection('users').doc(authUser.uid).get();
     } catch (err) {
         console.warn("Could not fetch user profile (likely offline). Using Auth profile fallback.", err);
         // Fallback: Return a temporary user object based on Auth data
@@ -66,27 +62,23 @@ const ensureUserDocument = async (authUser: FirebaseUser, additionalData: { user
         } as User;
     }
 
-    if (!userSnap.exists()) {
+    if (!userSnap.exists) {
       const newUser: User = {
-        uid: authUser.uid,
         username: additionalData.username || authUser.email?.split('@')[0] || 'user',
         displayName: authUser.displayName || additionalData.username || 'Sports Fan',
         email: authUser.email || "", // Save email
         avatarUrl: authUser.photoURL || `https://ui-avatars.com/api/?name=${authUser.displayName || 'User'}&background=random`,
         bio: "Ready to play!",
         gender: "Prefer not to say",
-        preferredSports: [],
-        location_mode: 'static',
-        static_coords: { lat: 16.4322, lng: 102.8236 },
-        is_visible: true,
-        geohash: 'w21z76'
+        preferredSports: []
       };
       
       try {
-        await setDoc(doc(db, 'users', authUser.uid), newUser);
-      } catch (writeErr) {
+        await db.collection('users').doc(authUser.uid).set(newUser);
+      } catch (writeErr: unknown) {
         console.error("Failed to create user profile in DB:", writeErr);
-        if (writeErr.code === 'permission-denied') {
+        const err = writeErr as { code?: string };
+        if (err.code === 'permission-denied') {
              alert("⚠️ Account created, but Profile saving failed.\n\nDatabase Permission Denied. Check Firebase Console > Firestore Database > Rules.");
         }
       }
@@ -95,7 +87,7 @@ const ensureUserDocument = async (authUser: FirebaseUser, additionalData: { user
         // User exists: Update latest email and avatar from Google Auth if available
         // This ensures the "Gmail saving" requirement is robust
         const userData = userSnap.data() as User;
-        const updates: { [key: string]: string | string[] } = {};
+        const updates: Record<string, unknown> = {};
         
         if (authUser.email && userData.email !== authUser.email) {
             updates.email = authUser.email;
@@ -111,7 +103,7 @@ const ensureUserDocument = async (authUser: FirebaseUser, additionalData: { user
 
         if (Object.keys(updates).length > 0) {
             try {
-                await setDoc(doc(db, 'users', authUser.uid), updates, { merge: true });
+                await db.collection('users').doc(authUser.uid).set(updates, { merge: true });
             } catch {
                 // Ignore write errors for updates
             }
@@ -120,33 +112,35 @@ const ensureUserDocument = async (authUser: FirebaseUser, additionalData: { user
     }
   };
 
-  const formatError = (err: { code?: string; message: string }) => {
+  const formatError = (err: unknown) => {
     console.error("Auth Error Object:", err);
-    if (err.code === 'auth/unauthorized-domain') {
+    const error = err as { code?: string; message?: string };
+
+    if (error.code === 'auth/unauthorized-domain') {
       return "Domain not allowed. Go to Firebase Console -> Authentication -> Settings -> Authorized Domains and add this domain.";
     }
-    if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/user-cancelled') {
+    if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/user-cancelled') {
       return "Login cancelled. If you did not close the popup, you likely need to add this domain/IP (e.g., 127.0.0.1) to Firebase Console > Authentication > Settings > Authorized Domains.";
     }
-    if (err.code === 'auth/email-already-in-use') {
+    if (error.code === 'auth/email-already-in-use') {
       return "This email is already registered. Please log in.";
     }
-    if (err.code === 'auth/invalid-credential') {
+    if (error.code === 'auth/invalid-credential') {
       return "Invalid email or password.";
     }
-    if (err.code === 'auth/popup-blocked') {
+    if (error.code === 'auth/popup-blocked') {
         return "Popup blocked. Please allow popups for this site.";
     }
-    if (err.code === 'auth/operation-not-allowed') {
+    if (error.code === 'auth/operation-not-allowed') {
         return "Google Sign-In is not enabled. Go to Firebase Console > Authentication > Sign-in method and enable Google.";
     }
-    if (err.message && err.message.includes('offline')) {
+    if (error.message && error.message.includes('offline')) {
         return "You are offline. Please check your internet connection.";
     }
-    return err.message ? err.message.replace('Firebase: ', '') : "An unknown error occurred.";
+    return error.message ? error.message.replace('Firebase: ', '') : "An unknown error occurred.";
   };
 
-  const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -158,17 +152,19 @@ const ensureUserDocument = async (authUser: FirebaseUser, additionalData: { user
     }
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const userProfile = await ensureUserDocument(userCredential.user);
-      onLogin(userProfile);
-    } catch (err) {
-      setError(formatError(err as { code?: string; message: string }));
+      const userCredential = await auth.signInWithEmailAndPassword(email, password);
+      if (userCredential.user) {
+          const userProfile = await ensureUserDocument(userCredential.user);
+          onLogin(userProfile);
+      }
+    } catch (err: unknown) {
+      setError(formatError(err));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSignupSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
@@ -180,18 +176,18 @@ const ensureUserDocument = async (authUser: FirebaseUser, additionalData: { user
     }
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
       // Update Auth Profile
-      if (userCredential.user) {
-          await updateProfile(userCredential.user, {
-            displayName: username
-          });
-      }
+      await userCredential.user?.updateProfile({
+        displayName: username
+      });
       
-      const userProfile = await ensureUserDocument(userCredential.user, { username });
-      onLogin(userProfile);
-    } catch (err) {
-      setError(formatError(err as { code?: string; message: string }));
+      if (userCredential.user) {
+        const userProfile = await ensureUserDocument(userCredential.user, { username });
+        onLogin(userProfile);
+      }
+    } catch (err: unknown) {
+      setError(formatError(err));
     } finally {
       setIsLoading(false);
     }
@@ -208,11 +204,13 @@ const ensureUserDocument = async (authUser: FirebaseUser, additionalData: { user
     }
 
     try {
-        const result = await signInWithPopup(auth, googleProvider);
-        const userProfile = await ensureUserDocument(result.user);
-        onLogin(userProfile);
-    } catch (err) {
-        setError(formatError(err as { code?: string; message: string }));
+        const result = await auth.signInWithPopup(googleProvider);
+        if (result.user) {
+            const userProfile = await ensureUserDocument(result.user);
+            onLogin(userProfile);
+        }
+    } catch (err: unknown) {
+        setError(formatError(err));
         setIsLoading(false);
     }
   };

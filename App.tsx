@@ -17,9 +17,6 @@ import { calculateHaversineDistance } from './utils/geospatial';
 import { discoverUsers } from './services/discoveryService';
 import { updateLocation } from './services/locationService';
 
-// Declare google for global access
-declare var google: any;
-
 // Define libraries outside component to prevent re-render loop
 const LIBRARIES: ("places" | "geometry")[] = ["places", "geometry"];
 
@@ -52,7 +49,7 @@ function App() {
   const lastMatrixCall = useRef<number>(0);
 
   // --- GOOGLE MAPS LOADER (Centralized) ---
-  const rawApiKey = ((import.meta as any).env && (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY) || '';
+  const rawApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
   const apiKey = rawApiKey.replace(/['"]/g, '').trim();
 
   const { isLoaded: isMapsLoaded, loadError: mapsLoadError } = useJsApiLoader({
@@ -146,7 +143,7 @@ function App() {
 
   // --- 4. TIER 2: Spatial Refinement (Distance Sorting) ---
   const sortedParties = useMemo(() => {
-    let filtered = selectedSport === 'All' 
+    const filtered = selectedSport === 'All' 
         ? parties 
         : parties.filter(p => p.sport === selectedSport);
     
@@ -192,12 +189,12 @@ function App() {
         destinations: destinations,
         travelMode: google.maps.TravelMode.DRIVING,
         unitSystem: google.maps.UnitSystem.METRIC,
-    }, (response: any, status: any) => {
+    }, (response: google.maps.DistanceMatrixResponse, status: google.maps.DistanceMatrixStatus) => {
         if (status === 'OK' && response.rows[0].elements) {
             const results = response.rows[0].elements;
             const newTimes: Record<string, string> = {};
             
-            results.forEach((element: any, index: number) => {
+            results.forEach((element: google.maps.DistanceMatrixResponseElement, index: number) => {
                 if (element.status === 'OK' && element.duration) {
                     const partyId = topCandidates[index].id;
                     newTimes[partyId] = element.duration.text;
@@ -209,7 +206,7 @@ function App() {
         }
     });
 
-  }, [sortedParties, mapCenter, isMapsLoaded]);
+  }, [sortedParties, mapCenter, isMapsLoaded, travelTimes]);
 
   const handleLogin = (loggedInUser: User) => {
     setUser(loggedInUser);

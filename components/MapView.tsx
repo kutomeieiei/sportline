@@ -1,11 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { Party, SportType, DiscoveryResult } from '../types';
-import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, ExternalLink, CheckCircle, Navigation, Car, User as UserIcon } from 'lucide-react';
+import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, CheckCircle, Navigation, Car } from 'lucide-react';
 import { formatDistance } from '../utils/geospatial';
-
-// Declare google global to avoid TS namespace errors
-declare var google: any;
 
 interface MapViewProps {
   parties: Party[];
@@ -24,7 +21,7 @@ const containerStyle = {
 };
 
 // Map styles to remove default POIs for a cleaner look
-const mapOptions: any = {
+const mapOptions: google.maps.MapOptions = {
   disableDefaultUI: true, // Hides standard Google Maps controls
   zoomControl: false,
   mapTypeControl: false,
@@ -41,7 +38,7 @@ const mapOptions: any = {
 };
 
 // Helper to generate SVG Data URI for markers based on sport color
-const getMarkerIcon = (sport: SportType) => {
+const getMarkerIcon = (sport: SportType): google.maps.Icon => {
   const colorMap: Record<string, string> = {
     Football: '#22c55e', // green-500
     Basketball: '#f97316', // orange-500
@@ -65,12 +62,12 @@ const getMarkerIcon = (sport: SportType) => {
 
   return {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
-    scaledSize: { width: 40, height: 40 } as any,
-    anchor: { x: 20, y: 40 } as any
+    scaledSize: new google.maps.Size(40, 40),
+    anchor: new google.maps.Point(20, 40)
   };
 };
 
-const getUserMarkerIcon = () => {
+const getUserMarkerIcon = (): google.maps.Icon => {
   // SVG for a user marker (purple circle)
   const svg = `
     <svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg">
@@ -80,17 +77,17 @@ const getUserMarkerIcon = () => {
   `;
   return {
     url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
-    scaledSize: { width: 30, height: 30 } as any,
-    anchor: { x: 15, y: 15 } as any
+    scaledSize: new google.maps.Size(30, 30),
+    anchor: new google.maps.Point(15, 15)
   };
 };
 
 const MapView: React.FC<MapViewProps> = ({ parties, discoveredUsers = [], center, currentUser, onJoinParty, isLoaded, loadError }) => {
-  const [map, setMap] = useState<any | null>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
   const [selectedUser, setSelectedUser] = useState<DiscoveryResult | null>(null);
 
-  const onLoad = useCallback((mapInstance: any) => {
+  const onLoad = useCallback((mapInstance: google.maps.Map) => {
     setMap(mapInstance);
   }, []);
 
@@ -321,4 +318,5 @@ const MapView: React.FC<MapViewProps> = ({ parties, discoveredUsers = [], center
   );
 };
 
-export default React.memo(MapView);
+const MemoizedMapView = React.memo(MapView);
+export default MemoizedMapView;

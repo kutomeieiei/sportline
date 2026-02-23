@@ -2,9 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
 import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, Mail, Database, CheckCircle, AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
-import { db, auth } from '../services/firebaseService';
-import { signOut } from 'firebase/auth';
-import { doc, setDoc, getDoc, addDoc, collection, serverTimestamp, terminate, clearIndexedDbPersistence } from 'firebase/firestore';
+import { db, auth, firebase } from '../firebase';
 
 interface SettingsViewProps {
   user: User;
@@ -82,21 +80,22 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       );
       
       await Promise.race([
-        setDoc(doc(db, 'users', currentUser.uid), userDataToSave, { merge: true }),
+        db.collection('users').doc(currentUser.uid).set(userDataToSave, { merge: true }),
         timeoutPromise
       ]);
       
       console.log("Profile updated successfully");
       setIsEditing(false);
 
-    } catch (error) {
-      const err = error as { code?: string; message: string };
-      console.error("Save failed:", err);
+    } catch (error: unknown) {
+      console.error("Save failed:", error);
       let errorMessage = "Failed to save profile.";
       
+      const err = error as { code?: string; message?: string };
+
       if (err.code === 'permission-denied') {
         errorMessage = "Permission denied. Check Firestore Security Rules.";
-      } else if (err.message.includes("TIMEOUT")) {
+      } else if (err.message && err.message.includes("TIMEOUT")) {
         errorMessage = "Connection Timed Out. Please check your internet.";
       } else if (err.code === 'unavailable') {
         errorMessage = "Network error. Please check your internet connection.";
@@ -125,12 +124,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
 
         // Step 1: Test READ (usually faster)
         // We read a non-existent doc just to see if we can reach the server
-        const readPromise = getDoc(doc(db, 'connection_test', 'ping'));
+        const readPromise = db.collection('connection_test').doc('ping').get();
         await Promise.race([readPromise, timeoutPromise]);
 
         // Step 2: Test WRITE
-        const writePromise = addDoc(collection(db, 'connection_test'), {
-            timestamp: serverTimestamp(),
+        const writePromise = db.collection('connection_test').add({
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
             uid: auth.currentUser.uid,
             test: true,
             platform: navigator.userAgent
@@ -140,19 +139,20 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
 
         setTestStatus('success');
         setTestMessage('Success! Read & Write operational.');
-    } catch (error) {
-        const err = error as { code?: string; message: string };
-        console.error("Connection Test Failed:", err);
+    } catch (error: unknown) {
+        console.error("Connection Test Failed:", error);
         setTestStatus('error');
         
-        if (err.message.includes("TIMEOUT")) {
+        const err = error as { code?: string; message?: string };
+
+        if (err.message && err.message.includes("TIMEOUT")) {
             setTestMessage("TIMEOUT: Firewall blocking connection. Try 'Reset Cache'.");
         } else if (err.code === 'permission-denied') {
             setTestMessage('PERMISSION DENIED: Update Firestore Rules in Console.');
-        } else if (err.code === 'unavailable' || err.message.includes("offline")) {
+        } else if (err.code === 'unavailable' || (err.message && err.message.includes("offline"))) {
             setTestMessage('OFFLINE: Check your internet connection.');
         } else {
-            setTestMessage(`ERROR: ${err.message}`);
+            setTestMessage(`ERROR: ${err.message || 'Unknown error'}`);
         }
     }
   };
@@ -162,12 +162,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       
       try {
           // Terminate connection and clear persistence
-          await terminate(db);
-          await clearIndexedDbPersistence(db);
+          await db.terminate();
+          await db.clearPersistence();
           window.location.reload();
-      } catch (e) {
-          const err = e as { message: string };
-          alert("Error resetting cache: " + err.message);
+      } catch (e: unknown) {
+          const err = e as { message?: string };
+          alert("Error resetting cache: " + (err.message || 'Unknown error'));
           window.location.reload(); // Reload anyway
       }
   };
