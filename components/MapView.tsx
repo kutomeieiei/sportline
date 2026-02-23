@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { Party, SportType, DiscoveryResult, Venue } from '../types';
-import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, CheckCircle, Navigation, Car, Trash2, ShieldCheck, Trophy, Footprints, Bike, PersonStanding } from 'lucide-react';
+import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, CheckCircle, Navigation, Car, Trash2, Trophy, Footprints, Bike, PersonStanding, Dribbble } from 'lucide-react';
 import { formatDistance } from '../utils/geospatial';
 import { db } from '../firebase';
 
@@ -22,8 +22,8 @@ interface MapViewProps {
 
 const getSportIcon = (sport: SportType, className: string) => {
     switch (sport) {
-        case 'Football': return <Trophy className={className} />;
-        case 'Basketball': return <ShieldCheck className={className} />;
+        case 'Football': return <Footprints className={className} />;
+        case 'Basketball': return <Dribbble className={className} />;
         case 'Badminton': return <Trophy className={className} />;
         case 'Tennis': return <Trophy className={className} />;
         case 'Running': return <Footprints className={className} />;
