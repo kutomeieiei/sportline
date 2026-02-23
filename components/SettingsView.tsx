@@ -39,14 +39,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
     const reader = new FileReader();
     reader.onload = (event) => {
       const result = event.target?.result as string;
-      setFormData(prev => ({ ...prev, avatarUrl: result }));
+      setFormData(prev => ({ ...prev, profile_img_url: result }));
     };
     reader.readAsDataURL(file);
   };
 
   const handleSave = async () => {
     // 1. Validation
-    if (!formData.displayName?.trim()) {
+    if (!formData.display_name?.trim()) {
       alert("Display Name is required");
       return;
     }
@@ -65,13 +65,13 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
 
       // 2. Prepare Data (Clean undefined values)
       const userDataToSave = {
-        displayName: formData.displayName || "",
+        display_name: formData.display_name || "",
         username: formData.username || "",
         email: formData.email || "", 
         bio: formData.bio || "",
         gender: formData.gender || "Prefer not to say",
-        preferredSports: formData.preferredSports || [],
-        avatarUrl: formData.avatarUrl || ""
+        preferred_sports: formData.preferred_sports || [],
+        profile_img_url: formData.profile_img_url || ""
       };
 
       // 3. Firestore Write
@@ -86,6 +86,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       
       console.log("Profile updated successfully");
       setIsEditing(false);
+      onUpdateUser(formData); // Update local state
 
     } catch (error: unknown) {
       console.error("Save failed:", error);
@@ -174,11 +175,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
 
   const toggleSport = (sport: SportType) => {
     setFormData(prev => {
-      const current = prev.preferredSports || [];
+      const current = prev.preferred_sports || [];
       if (current.includes(sport)) {
-        return { ...prev, preferredSports: current.filter(s => s !== sport) };
+        return { ...prev, preferred_sports: current.filter(s => s !== sport) };
       } else {
-        return { ...prev, preferredSports: [...current, sport] };
+        return { ...prev, preferred_sports: [...current, sport] };
       }
     });
   };
@@ -213,7 +214,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
               onClick={() => fileInputRef.current?.click()}
             >
               <img 
-                src={formData.avatarUrl || 'https://via.placeholder.com/150'} 
+                src={formData.profile_img_url || 'https://via.placeholder.com/150'} 
                 alt="Avatar" 
                 className="w-full h-full object-cover"
               />
@@ -242,8 +243,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
               <label className="block text-sm font-bold text-gray-700 mb-1">Display Name</label>
               <input 
                 type="text"
-                value={formData.displayName}
-                onChange={e => setFormData({...formData, displayName: e.target.value})}
+                value={formData.display_name}
+                onChange={e => setFormData({...formData, display_name: e.target.value})}
                 className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl font-medium outline-none focus:bg-white focus:border-blue-500 transition-all"
                 placeholder="Your Name"
               />
@@ -303,7 +304,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
               <label className="block text-sm font-bold text-gray-700 mb-2">Sports Interests</label>
               <div className="flex flex-wrap gap-2">
                 {SPORTS_LIST.filter(s => s.type !== 'All').map(sport => {
-                  const isSelected = formData.preferredSports?.includes(sport.type);
+                  const isSelected = formData.preferred_sports?.includes(sport.type);
                   return (
                     <button
                       key={sport.type}
@@ -340,9 +341,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onClose, onLogout }) 
       <div className="flex-1 overflow-y-auto">
         <div className="bg-white p-8 mb-6 shadow-sm flex flex-col items-center text-center">
             <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg mb-4 bg-gray-100">
-                <img src={user.avatarUrl || 'https://via.placeholder.com/150'} alt="Profile" className="w-full h-full object-cover" />
+                <img src={user.profile_img_url || 'https://via.placeholder.com/150'} alt="Profile" className="w-full h-full object-cover" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">{user.displayName}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{user.display_name}</h1>
             <p className="text-gray-500">@{user.username}</p>
             {user.email && (
                  <div className="flex items-center gap-1.5 mt-1 text-gray-400 text-sm">

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, Check, Users, Camera } from 'lucide-react';
+import { Plus, Check, Users, Camera, UserPlus } from 'lucide-react';
+import { User } from '../types'; // Import User type
 
 export interface ChatUser {
   id: string;
@@ -13,69 +14,37 @@ export interface ChatUser {
   members?: number;
 }
 
-// Generic mock data
-const INITIAL_CHATS: ChatUser[] = [
-  {
-    id: '1',
-    name: 'โมด',
-    avatarUrl: 'https://scontent-bkk1-1.xx.fbcdn.net/v/t1.15752-9/610523088_1619014532633177_8332212428718522073_n.jpg?stp=dst-jpg_s640x640_tt6&_nc_cat=101&ccb=1-7&_nc_sid=0024fc&_nc_ohc=Mj1Lm4dCu70Q7kNvwE2M218&_nc_oc=AdkLG72AhbZTEB00F9e3ht8lHTntl2XiCBrM1EJHxWROBw3-XMzakafC0npOidbKCQQ&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-bkk1-1.xx&oh=03_Q7cD4gEb2v1wROMPqUt7hXXJ_sFpUmlp-6HAuX9TpwgG0B2M-w&oe=69B411A9',
-    statusText: 'Sent 7 minutes ago',
-    timestamp: '7 min',
-    isOnline: false,
-  },
-  {
-    id: '2',
-    name: 'พชร',
-    avatarUrl: 'https://scontent-bkk1-1.xx.fbcdn.net/v/t1.15752-9/628247701_4109628906016596_7626032654308115488_n.jpg?_nc_cat=110&ccb=1-7&_nc_sid=0024fc&_nc_ohc=V5EMX9rkMZsQ7kNvwFE6XXV&_nc_oc=Adky2DyLElFUHjTDHSYZ5F-oIrOgf71AF-9Rz4BwEGK7-6fWt8ZEwIxh5SPy3WdETFQ&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-bkk1-1.xx&oh=03_Q7cD4gFQeevW7whCatEulS0I3mMtzsawE7LSw7RBmnrCSp_CVQ&oe=69B42982',
-    statusText: 'Active Now',
-    isOnline: true,
-  },
-  {
-    id: '3',
-    name: 'นิว',
-    avatarUrl: 'https://scontent-bkk1-2.xx.fbcdn.net/v/t1.15752-9/629703316_1643989240293782_4565751344480766455_n.jpg?_nc_cat=104&ccb=1-7&_nc_sid=0024fc&_nc_ohc=mLaUrKUvqHwQ7kNvwGHJjaO&_nc_oc=AdmvmRWIHAUk-g_u9hE9056IzKZ2TTANN6zp76MOHwruaqwpHycJ7zGqOvtDxTzOi9M&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-bkk1-2.xx&oh=03_Q7cD4gHBKGAMmShKixBkE0ZiwV-hbQ0TYQROwhwmvOuUb_P4Cw&oe=69B417ED',
-    statusText: 'Active Now',
-    isOnline: true,
-  },
-  {
-    id: '4',
-    name: 'หมาก',
-    avatarUrl: 'https://scontent-bkk1-1.xx.fbcdn.net/v/t1.15752-9/629958776_1676143067074428_7742444959651936333_n.jpg?_nc_cat=101&ccb=1-7&_nc_sid=0024fc&_nc_ohc=4CIX1H_2mCEQ7kNvwG5twT9&_nc_oc=Adk1NU_7LGiMpFVZGjkbOd99SIWatV_xzzc5_rsekU35QdNcDsJBZ354393biqwS8xo&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-bkk1-1.xx&oh=03_Q7cD4gH9EYV_5Po2r9JyK79lm3bW-XdA9HQL81cq10xDbVb_zw&oe=69B41ACC',
-    statusText: 'Active 44 minutes ago',
-    timestamp: '44 min',
-    isOnline: false,
-  },
-  {
-    id: '5',
-    name: 'ไนซ์',
-    avatarUrl: 'https://scontent-bkk1-1.xx.fbcdn.net/v/t1.15752-9/629275977_1458479609004296_366514880576972332_n.jpg?stp=dst-jpg_s640x640_tt6&_nc_cat=101&ccb=1-7&_nc_sid=0024fc&_nc_ohc=z3DgPrO478wQ7kNvwFRVpMK&_nc_oc=Adk4C2da2pbtgpxafQ1hnyMxuO-Q1QaWyh0KO0TqhoP13lV7X-a42t0v5qePD6CocOQ&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-bkk1-1.xx&oh=03_Q7cD4gHSZh0j4qoecnMSbLxyw7g_jEaRZ3wvb6SvUFQl-d4FGg&oe=69B42CB5',
-    statusText: 'Active 47 minutes ago',
-    timestamp: '47 min',
-    isOnline: false,
-  },
-  {
-    id: '6',
-    name: 'กิว',
-    avatarUrl: 'https://scontent-bkk1-2.xx.fbcdn.net/v/t1.15752-9/628049021_1439434794284321_2954792574300492560_n.jpg?_nc_cat=103&ccb=1-7&_nc_sid=0024fc&_nc_ohc=VRUIb1Un4tMQ7kNvwGMQpmj&_nc_oc=AdnuNXNTFoXLexwd5J4Fwc9z584cKWZj_wOUs_8JZYMwTav-WKqRa_xRZ8bUVlci35o&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-bkk1-2.xx&oh=03_Q7cD4gEyXw9UG9LtBxHAaTdECfpmdNDTCSTmHZOneAYQG6qCRQ&oe=69B42477',
-    statusText: 'Active 7 minutes ago',
-    timestamp: '7 min',
-    isOnline: false,
-  }
-];
-
 interface ChatListViewProps {
+  friends: User[];
+  onAddFriend: (username: string) => void;
   onSelectChat: (user: ChatUser) => void;
 }
 
-const ChatListView: React.FC<ChatListViewProps> = ({ onSelectChat }) => {
-  const [chats, setChats] = useState<ChatUser[]>(INITIAL_CHATS);
+const ChatListView: React.FC<ChatListViewProps> = ({ friends, onAddFriend, onSelectChat }) => {
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'friends' | 'groups'>('friends');
+  const [addFriendUsername, setAddFriendUsername] = useState('');
 
-  // Friends list (mocking contacts from existing non-group chats)
-  const contacts = INITIAL_CHATS.filter(c => !c.isGroup);
+  const handleAddFriendClick = () => {
+    if (addFriendUsername.trim()) {
+      onAddFriend(addFriendUsername.trim());
+      setAddFriendUsername('');
+    }
+  };
+
+  // Convert friends to ChatUser for display
+  const friendChats: ChatUser[] = friends.map(f => ({
+    id: f.uid,
+    name: f.displayName,
+    avatarUrl: f.avatarUrl,
+    statusText: f.isOnline ? 'Online' : 'Offline',
+    isOnline: f.isOnline,
+  }));
+
+  // Mock groups for now
+  const groupChats: ChatUser[] = [];
 
   const toggleSelection = (id: string) => {
     if (selectedIds.includes(id)) {
@@ -86,31 +55,17 @@ const ChatListView: React.FC<ChatListViewProps> = ({ onSelectChat }) => {
   };
 
   const handleCreateGroup = () => {
-    if (!groupName.trim() || selectedIds.length === 0) return;
-    
-    const newGroup: ChatUser = {
-        id: Date.now().toString(),
-        name: groupName,
-        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(groupName)}&background=random&color=fff`,
-        statusText: `Group created with ${selectedIds.length} members`,
-        timestamp: 'Just now',
-        isGroup: true,
-        members: selectedIds.length + 1, // +1 for self
-        isOnline: true
-    };
-
-    setChats([newGroup, ...chats]);
-    setIsCreatingGroup(false);
-    setGroupName('');
-    setSelectedIds([]);
-    setActiveTab('groups'); // Auto switch to groups tab
+    // This part remains for group creation logic, but we won't show any initial groups
   };
 
-  // Filter chats based on active tab
-  const filteredChats = chats.filter(chat => {
-    if (activeTab === 'groups') return chat.isGroup;
-    return !chat.isGroup;
-  });
+  const filteredChats = activeTab === 'friends' ? friendChats : groupChats;
+
+  // Friends list for group creation
+  const contacts = friends.map(f => ({ 
+    id: f.uid, 
+    name: f.displayName, 
+    avatarUrl: f.avatarUrl 
+  })) as ChatUser[];
 
   if (isCreatingGroup) {
     return (
@@ -220,6 +175,29 @@ const ChatListView: React.FC<ChatListViewProps> = ({ onSelectChat }) => {
             Groups
         </button>
       </div>
+
+      {/* Add Friend Input */}
+      {activeTab === 'friends' && (
+        <div className="p-4 bg-white border-b border-gray-100 sticky top-[108px] z-10">
+            <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 border border-gray-200">
+                <input 
+                    type="text"
+                    placeholder="Add friend by username"
+                    className="flex-1 bg-transparent px-3 py-2 text-sm outline-none"
+                    value={addFriendUsername}
+                    onChange={(e) => setAddFriendUsername(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddFriendClick()}
+                />
+                <button 
+                    onClick={handleAddFriendClick}
+                    className="p-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 transition-colors"
+                    disabled={!addFriendUsername.trim()}
+                >
+                    <UserPlus size={18} />
+                </button>
+            </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto">
         <div className="flex flex-col pb-24">

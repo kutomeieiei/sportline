@@ -22,13 +22,16 @@ export const DEFAULT_CENTER = KHON_KAEN_CENTER;
 export const DEFAULT_CITY = "Khon Kaen";
 
 export const INITIAL_USER: User = {
+  uid: 'guest',
+  display_name: "CalyxOhm",
+  profile_img_url: "https://picsum.photos/200/200",
+  preferred_sports: ['Football', 'Badminton'],
+  skill_metrics: { endurance: 50, speed: 50, technique: 50, teamwork: 50 },
   username: "calyxohm",
-  displayName: "CalyxOhm",
   email: "calyxohm@example.com",
-  avatarUrl: "https://picsum.photos/200/200",
   bio: "Just a sports fan! Love meeting new people for a game.",
   gender: "Prefer not to say",
-  preferredSports: ['Football', 'Badminton']
+  friends: []
 };
 
 // ✨ CUSTOMIZATION: Helper for consistent icon sizing

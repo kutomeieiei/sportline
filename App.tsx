@@ -30,6 +30,7 @@ function App() {
   const [selectedSport, setSelectedSport] = useState<SportType>('All');
   const [user, setUser] = useState<User>(INITIAL_USER);
   const [parties, setParties] = useState<Party[]>([]);
+  const [friends, setFriends] = useState<User[]>([]);
   
   // Store travel times separately to avoid re-rendering loops
   const [travelTimes, setTravelTimes] = useState<Record<string, string>>({});
@@ -124,6 +125,27 @@ function App() {
 
     return () => unsubscribeParties();
   }, [isAuthenticated]);
+
+  // --- Real-time Friends Listener ---
+  useEffect(() => {
+    if (!authUser || !db) return;
+
+    const unsubscribeFriends = db.collection('users').doc(authUser.uid).collection('friends').onSnapshot(async (snapshot) => {
+      const friendUids = snapshot.docs.map(doc => doc.id);
+      if (friendUids.length === 0) {
+        setFriends([]);
+        return;
+      }
+
+      // Fetch full user profiles for each friend
+      const friendPromises = friendUids.map(uid => db.collection('users').doc(uid).get());
+      const friendDocs = await Promise.all(friendPromises);
+      const friendsData = friendDocs.map(doc => doc.data() as User).filter(Boolean);
+      setFriends(friendsData);
+    });
+
+    return () => unsubscribeFriends();
+  }, [authUser]);
 
   // Live Location Update Loop
   useEffect(() => {
@@ -332,6 +354,39 @@ function App() {
     }
   };
 
+  const handleAddFriend = async (friendUsername: string) => {
+    if (!authUser || !db) return;
+    if (friendUsername === user.username) {
+      alert("You can't add yourself as a friend.");
+      return;
+    }
+
+    try {
+      // 1. Find the user by username
+      const usersRef = db.collection('users');
+      const querySnapshot = await usersRef.where('username', '==', friendUsername).limit(1).get();
+
+      if (querySnapshot.empty) {
+        alert('User not found.');
+        return;
+      }
+
+      const friendDoc = querySnapshot.docs[0];
+      const friendId = friendDoc.id;
+
+      // 2. Add to current user's friend list
+      await usersRef.doc(authUser.uid).collection('friends').doc(friendId).set({});
+
+      // 3. Add current user to friend's friend list (bidirectional)
+      await usersRef.doc(friendId).collection('friends').doc(authUser.uid).set({});
+
+      alert('Friend added!');
+    } catch (error) {
+      console.error("Error adding friend:", error);
+      alert('Failed to add friend.');
+    }
+  };
+
   if (isLoadingAuth) {
      return (
         <div className="w-full h-screen flex items-center justify-center bg-white">
@@ -436,10 +491,13 @@ function App() {
             {selectedChatUser ? (
                 <ChatDetailView 
                     chatUser={selectedChatUser} 
+                    currentUser={user}
                     onBack={() => setSelectedChatUser(null)} 
                 />
             ) : (
                 <ChatListView 
+                    friends={friends}
+                    onAddFriend={handleAddFriend}
                     onSelectChat={setSelectedChatUser} 
                 />
             )}
@@ -447,7 +505,7 @@ function App() {
       )}
 
       {/* Bottom Navigation */}
-      <BottomNav currentTab={currentTab} onChangeTab={handleTabChange} />
+      {!selectedChatUser && <BottomNav currentTab={currentTab} onChangeTab={handleTabChange} />}
 
     </div>
   );

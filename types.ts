@@ -19,6 +19,32 @@ export interface User {
   avatarUrl?: string;
   bio?: string;
   gender?: string;
+  friends?: string[]; // Array of UIDs
+}
+
+export interface FriendRequest {
+  id: string;
+  from: string; // UID
+  to: string; // UID
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: any; // Firestore Timestamp
+  fromUser?: User; // Hydrated user data
+}
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  text: string;
+  createdAt: any; // Firestore Timestamp
+}
+
+export interface ChatConversation {
+  id: string;
+  participants: string[]; // Array of UIDs
+  lastMessage?: string;
+  lastMessageTimestamp?: any;
+  updatedAt: any;
+  participantUsers?: User[]; // Hydrated user data
 }
 
 export type LocationMode = 'live' | 'static';

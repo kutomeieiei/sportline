@@ -1,27 +1,44 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Phone, Video, Info, Send, Image as ImageIcon, Smile } from 'lucide-react';
 import { ChatUser } from './ChatListView';
+import { User } from '../types'; // Import User type
+import { db } from '../firebase'; // Import db
+import { firebase } from '../firebase';
 
 interface ChatDetailViewProps {
   chatUser: ChatUser;
+  currentUser: User;
   onBack: () => void;
 }
 
 interface Message {
   id: string;
   text: string;
-  sender: 'me' | 'them';
-  timestamp: string;
+  senderId: string;
+  timestamp: any;
 }
 
-const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, onBack }) => {
+const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, onBack }) => {
   const [inputValue, setInputValue] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    { id: '1', text: 'Hey! Are you free for a match today?', sender: 'them', timestamp: '10:30 AM' },
-    { id: '2', text: 'Yeah, I was thinking about playing badminton.', sender: 'me', timestamp: '10:32 AM' },
-    { id: '3', text: 'Great! Where do you usually play?', sender: 'them', timestamp: '10:33 AM' },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const getChatId = (uid1: string, uid2: string) => {
+    return [uid1, uid2].sort().join('_');
+  };
+
+  // Message Listener
+  useEffect(() => {
+    if (!currentUser || !chatUser) return;
+
+    const chatId = getChatId(currentUser.uid, chatUser.id);
+    const unsubscribe = db.collection('chats').doc(chatId).collection('messages').orderBy('timestamp', 'asc').onSnapshot(snapshot => {
+      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+      setMessages(msgs);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser, chatUser]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -31,18 +48,18 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, onBack }) => 
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || !currentUser) return;
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
+    const chatId = getChatId(currentUser.uid, chatUser.id);
+    const newMessage: Omit<Message, 'id'> = {
       text: inputValue,
-      sender: 'me',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      senderId: currentUser.uid,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
     };
 
-    setMessages([...messages, newMessage]);
+    await db.collection('chats').doc(chatId).collection('messages').add(newMessage);
     setInputValue('');
   };
 
@@ -79,23 +96,25 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, onBack }) => 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4">
         <div className="text-center text-xs text-gray-400 my-4">Today</div>
-        {messages.map((msg) => (
-          <div 
-            key={msg.id} 
-            className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}
-          >
-            {msg.sender === 'them' && (
-               <img src={chatUser.avatarUrl} className="w-8 h-8 rounded-full self-end mr-2 mb-1" />
-            )}
-            <div className={`max-w-[70%] px-4 py-2 rounded-2xl text-[15px] ${
-              msg.sender === 'me' 
-                ? 'bg-blue-600 text-white rounded-br-none' 
-                : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
-            }`}>
-              {msg.text}
+        {messages.map((msg) => {
+          const isMe = msg.senderId === currentUser.uid;
+          return (
+            <div 
+              key={msg.id} 
+              className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+            >
+              {!isMe && (
+                 <img src={chatUser.avatarUrl} className="w-8 h-8 rounded-full self-end mr-2 mb-1" />
+              )}
+              <div className={`max-w-[70%] px-4 py-2 rounded-2xl text-[15px] ${isMe 
+                  ? 'bg-blue-600 text-white rounded-br-none' 
+                  : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
+              }`}>
+                {msg.text}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 
