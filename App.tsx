@@ -319,6 +319,7 @@ function App() {
             onJoinParty={handleJoinParty}
             isLoaded={isMapsLoaded}
             loadError={mapsLoadError}
+            isLive={isLive}
         />
       </div>
 
