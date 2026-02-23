@@ -33,7 +33,7 @@ interface ActiveLocation {
   l: [number, number];
   mode: string;
   vis: boolean;
-  t: any;
+  t: { toMillis?: () => number } | number | string | Date;
   uid?: string;
 }
 
@@ -77,7 +77,11 @@ app.get('/api/discover', async (req, res) => {
         // Check TTL (60 minutes)
         if (data.t) {
             const now = new Date().getTime();
-            const updatedAt = (data.t as any).toMillis ? (data.t as any).toMillis() : new Date(data.t).getTime();
+            const t = data.t;
+            const updatedAt = (typeof t === 'object' && 'toMillis' in t && typeof t.toMillis === 'function') 
+                ? t.toMillis() 
+                : new Date(t as string | number | Date).getTime();
+                
             if (now - updatedAt > 60 * 60 * 1000) {
                 continue; // Skip stale data
             }

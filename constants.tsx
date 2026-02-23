@@ -1,9 +1,7 @@
-/* eslint-disable react-refresh/only-export-components */
 import { Party, User, SportType } from './types';
 import React from 'react';
 import {Footprints, Bike, PersonStanding, Activity} from 'lucide-react';
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const APP_CONFIG = {
   // ✨ CONFIGURATION: Main Logo (Large) - Used in Landing Center and Login Form
   logoUrl: "https://cdn.discordapp.com/attachments/1198199524955529287/1470809699958919291/1770738733559.png?ex=698df746&is=698ca5c6&hm=2c2249e709caf864a287b0c1145dd09525d32289f48584b4f59a964041e7efeb&", 
@@ -22,16 +20,14 @@ export const DEFAULT_CENTER = KHON_KAEN_CENTER;
 export const DEFAULT_CITY = "Khon Kaen";
 
 export const INITIAL_USER: User = {
-  uid: 'guest',
-  display_name: "CalyxOhm",
-  profile_img_url: "https://picsum.photos/200/200",
-  preferred_sports: ['Football', 'Badminton'],
-  skill_metrics: { endurance: 50, speed: 50, technique: 50, teamwork: 50 },
+  uid: "guest_user",
   username: "calyxohm",
+  displayName: "CalyxOhm",
   email: "calyxohm@example.com",
+  avatarUrl: "https://picsum.photos/200/200",
   bio: "Just a sports fan! Love meeting new people for a game.",
   gender: "Prefer not to say",
-  friends: []
+  preferredSports: ['Football', 'Badminton']
 };
 
 // ✨ CUSTOMIZATION: Helper for consistent icon sizing

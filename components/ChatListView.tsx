@@ -35,13 +35,15 @@ const ChatListView: React.FC<ChatListViewProps> = ({ friends, onAddFriend, onSel
   };
 
   // Convert friends to ChatUser for display
-  const friendChats: ChatUser[] = friends.map(f => ({
-    id: f.uid,
-    name: f.displayName,
-    avatarUrl: f.avatarUrl,
-    statusText: f.isOnline ? 'Online' : 'Offline',
-    isOnline: f.isOnline,
-  }));
+  const friendChats: ChatUser[] = friends
+    .filter(f => f.uid)
+    .map(f => ({
+      id: f.uid,
+      name: f.displayName,
+      avatarUrl: f.avatarUrl,
+      statusText: f.isOnline ? 'Online' : 'Offline',
+      isOnline: f.isOnline,
+    }));
 
   // Mock groups for now
   const groupChats: ChatUser[] = [];
@@ -61,11 +63,13 @@ const ChatListView: React.FC<ChatListViewProps> = ({ friends, onAddFriend, onSel
   const filteredChats = activeTab === 'friends' ? friendChats : groupChats;
 
   // Friends list for group creation
-  const contacts = friends.map(f => ({ 
-    id: f.uid, 
-    name: f.displayName, 
-    avatarUrl: f.avatarUrl 
-  })) as ChatUser[];
+  const contacts = friends
+    .filter(f => f.uid)
+    .map(f => ({ 
+      id: f.uid, 
+      name: f.displayName, 
+      avatarUrl: f.avatarUrl 
+    })) as ChatUser[];
 
   if (isCreatingGroup) {
     return (

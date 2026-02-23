@@ -15,7 +15,7 @@ interface Message {
   id: string;
   text: string;
   senderId: string;
-  timestamp: any;
+  timestamp: firebase.firestore.Timestamp | Date | string | number | null;
 }
 
 const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, onBack }) => {
@@ -50,7 +50,10 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue.trim() || !currentUser) return;
+    if (!inputValue.trim() || !currentUser || !currentUser.uid || !chatUser.id) {
+      console.error("Missing user ID or chat ID");
+      return;
+    }
 
     const chatId = getChatId(currentUser.uid, chatUser.id);
     const newMessage: Omit<Message, 'id'> = {

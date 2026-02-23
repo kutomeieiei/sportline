@@ -90,10 +90,11 @@ function App() {
         const unsubscribeUser = db.collection('users').doc(authUser.uid).onSnapshot((docSnap) => {
             if (docSnap.exists) {
                 const userData = docSnap.data() as User;
-                setUser(userData);
+                setUser({ ...userData, uid: authUser.uid });
             } else {
                 setUser({
                     ...INITIAL_USER,
+                    uid: authUser.uid,
                     displayName: authUser.displayName || 'User',
                     username: authUser.email?.split('@')[0] || 'user',
                     avatarUrl: authUser.photoURL || INITIAL_USER.avatarUrl
@@ -140,7 +141,10 @@ function App() {
       // Fetch full user profiles for each friend
       const friendPromises = friendUids.map(uid => db.collection('users').doc(uid).get());
       const friendDocs = await Promise.all(friendPromises);
-      const friendsData = friendDocs.map(doc => doc.data() as User).filter(Boolean);
+      const friendsData = friendDocs.map(doc => {
+        const data = doc.data();
+        return data ? { ...data, uid: doc.id } as User : null;
+      }).filter((u): u is User => u !== null);
       setFriends(friendsData);
     });
 
