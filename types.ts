@@ -1,12 +1,6 @@
 export type SportType = 'All' | 'Football' | 'Basketball' | 'Badminton' | 'Tennis' | 'Running' | 'Cycling' | 'Yoga';
 
-export interface GeoPoint {
-  lat: number;
-  lng: number;
-}
-
 export interface User {
-  uid: string; // Primary Key
   username: string;
   displayName: string;
   email?: string;
@@ -14,12 +8,6 @@ export interface User {
   bio: string;
   gender: string;
   preferredSports: SportType[];
-
-  // Geospatial and Visibility
-  location_mode: 'live' | 'static';
-  static_coords: GeoPoint;
-  is_visible: boolean;
-  geohash: string;
 }
 
 export interface Party {

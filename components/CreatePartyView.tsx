@@ -3,18 +3,19 @@ import { GoogleMap, MarkerF } from '@react-google-maps/api';
 import { Party, SportType } from '../types';
 import { SPORTS_LIST, KHON_KAEN_CENTER, DEFAULT_CITY } from '../constants';
 import { X, MapPin, Calendar, Clock, Users, Search, Loader2 } from 'lucide-react';
-import { db } from '../services/firebaseService';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db, firebase } from '../firebase';
 import { encodeGeohash } from '../utils/geospatial';
 
-
+// Declare google global to avoid TS namespace errors
+declare var google: any;
 
 interface CreatePartyViewProps {
   onClose: () => void;
   onCreate: (party: Party) => void;
   userLocation: { lat: number; lng: number };
   currentUser: string;
-
+  // Prop from centralized loader
+  isLoaded: boolean;
 }
 
 // Map configuration
@@ -34,28 +35,27 @@ const mapOptions = {
 
 // --- SUB-COMPONENTS ---
 
-interface LocationSectionProps {
+const LocationSection: React.FC<{
   selectedLocation: { lat: number; lng: number };
   setSelectedLocation: (loc: { lat: number; lng: number }) => void;
   displayLocationName: string;
   setDisplayLocationName: (name: string) => void;
   setPlaceId: (id: string) => void;
-}
-
-const LocationSection: React.FC<LocationSectionProps> = ({ selectedLocation, setSelectedLocation, displayLocationName, setDisplayLocationName, setPlaceId }) => {
+  isLoaded: boolean;
+}> = ({ selectedLocation, setSelectedLocation, displayLocationName, setDisplayLocationName, setPlaceId, isLoaded }) => {
   const [locationQuery, setLocationQuery] = useState('');
-    const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
-  const placesService = useRef<google.maps.places.PlacesService | null>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
+  const autocompleteService = useRef<any>(null);
+  const placesService = useRef<any>(null);
+  const mapRef = useRef<any>(null);
 
   // Initialize Autocomplete Service
   useEffect(() => {
-    if (!autocompleteService.current && typeof google !== 'undefined' && google.maps && google.maps.places) {
+    if (isLoaded && !autocompleteService.current && typeof google !== 'undefined') {
       autocompleteService.current = new google.maps.places.AutocompleteService();
     }
-  }, []);
+  }, [isLoaded]);
 
   // Handle Text Search (Google Places Autocomplete)
   useEffect(() => {
@@ -73,7 +73,7 @@ const LocationSection: React.FC<LocationSectionProps> = ({ selectedLocation, set
             radius: 5000, // Bias to 5km radius
         };
 
-                autocompleteService.current.getPlacePredictions(request, (predictions: google.maps.places.AutocompletePrediction[] | null, status: google.maps.places.PlacesServiceStatus) => {
+        autocompleteService.current.getPlacePredictions(request, (predictions: any[], status: any) => {
             if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
                 setSuggestions(predictions);
             } else {
@@ -89,9 +89,9 @@ const LocationSection: React.FC<LocationSectionProps> = ({ selectedLocation, set
 
     const timeoutId = setTimeout(fetchSuggestions, 500);
     return () => clearTimeout(timeoutId);
-  }, [locationQuery, selectedLocation]);
+  }, [locationQuery, selectedLocation, isLoaded]);
 
-    const handleSelectSuggestion = (prediction: google.maps.places.AutocompletePrediction) => {
+  const handleSelectSuggestion = (prediction: any) => {
     setDisplayLocationName(prediction.structured_formatting.main_text);
     setPlaceId(prediction.place_id);
     setLocationQuery('');
@@ -107,7 +107,7 @@ const LocationSection: React.FC<LocationSectionProps> = ({ selectedLocation, set
         placesService.current.getDetails({
             placeId: prediction.place_id,
             fields: ['geometry', 'name']
-                }, (place: google.maps.places.PlaceResult | null, status: google.maps.places.PlacesServiceStatus) => {
+        }, (place: any, status: any) => {
             if (status === google.maps.places.PlacesServiceStatus.OK && place.geometry && place.geometry.location) {
                 setSelectedLocation({
                     lat: place.geometry.location.lat(),
@@ -118,7 +118,7 @@ const LocationSection: React.FC<LocationSectionProps> = ({ selectedLocation, set
     }
   };
 
-    const handleMapClick = useCallback((e: google.maps.MapMouseEvent) => {
+  const handleMapClick = useCallback((e: any) => {
     if (e.latLng) {
       setSelectedLocation({ lat: e.latLng.lat(), lng: e.latLng.lng() });
       setDisplayLocationName("Custom Pinned Location");
@@ -132,6 +132,7 @@ const LocationSection: React.FC<LocationSectionProps> = ({ selectedLocation, set
       
       {/* Map Display */}
       <div className="relative border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        {isLoaded ? (
           <GoogleMap
             mapContainerStyle={mapContainerStyle}
             center={selectedLocation}
@@ -145,6 +146,11 @@ const LocationSection: React.FC<LocationSectionProps> = ({ selectedLocation, set
           >
             <MarkerF position={selectedLocation} />
           </GoogleMap>
+        ) : (
+          <div style={mapContainerStyle} className="bg-gray-100 flex items-center justify-center">
+            <Loader2 className="animate-spin text-gray-400" />
+          </div>
+        )}
       </div>
 
       {/* Selected Location Card */}
@@ -233,7 +239,7 @@ const SportSelectionSection: React.FC<{
 
 // --- MAIN COMPONENT ---
 
-const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, currentUser }) => {
+const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, currentUser, isLoaded }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -267,7 +273,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
           geohash: geohash, 
           host: currentUser,
           members: [currentUser],
-          createdAt: serverTimestamp()
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
 
         // Create a promise that rejects after 10 seconds
@@ -276,27 +282,25 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
         );
 
         const docRef = await Promise.race([
-            addDoc(collection(db, 'parties'), partyData),
+            db.collection('parties').add(partyData),
             timeoutPromise
         ]) as any; // Type assertion needed due to race
         
         const newParty: Party = {
             id: docRef.id,
-            ...partyData,
-            createdAt: new Date().toISOString() // Optimistic update
-        } as any;
-
-        onCreate(newParty);
-    } catch (error) {
-        const err = error as { code?: string; message: string };
-        console.error("Error creating party: ", err);
+            ...partyData
+        };
         
-        if (err.message && err.message.includes("TIMEOUT")) {
+        onCreate(newParty);
+    } catch (error: any) {
+        console.error("Error creating party: ", error);
+        
+        if (error.message && error.message.includes("TIMEOUT")) {
              alert("⚠️ Request Timed Out.\n\nThe server is not responding. Please check your internet connection and try again.");
-        } else if (err.code === 'permission-denied') {
+        } else if (error.code === 'permission-denied') {
             alert("⚠️ Database Permission Denied.\n\nThe app cannot save your party because the database is locked.\n\nPlease go to Firebase Console > Firestore Database > Rules and change 'allow write: if false;' to 'allow write: if request.auth != null;'.");
         } else {
-            alert(`Failed to create party. Error: ${err.message || "Unknown error"}`);
+            alert(`Failed to create party. Error: ${error.message || "Unknown error"}`);
         }
     } finally {
         setIsSubmitting(false);
@@ -321,7 +325,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
             displayLocationName={displayLocationName}
             setDisplayLocationName={setDisplayLocationName}
             setPlaceId={setPlaceId}
-
+            isLoaded={isLoaded}
           />
 
           <SportSelectionSection 
