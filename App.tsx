@@ -234,11 +234,12 @@ function App() {
         ? parties 
         : parties.filter(p => p.sport === selectedSport);
     
-    // Calculate distance for each party relative to current map center
+    const calculationCenter = userLocation || mapCenter;
+    // Calculate distance for each party relative to the user's live location or map center
     const withDistance = filtered.map(party => {
         const dist = calculateHaversineDistance(
-            mapCenter.lat, 
-            mapCenter.lng, 
+            calculationCenter.lat, 
+            calculationCenter.lng, 
             party.latitude, 
             party.longitude
         );
@@ -249,7 +250,7 @@ function App() {
 
     // Sort by distance (ASC)
     return withDistance.sort((a, b) => a.distance - b.distance);
-  }, [parties, selectedSport, mapCenter, travelTimes]);
+  }, [parties, selectedSport, mapCenter, travelTimes, userLocation]);
 
   // --- 5. TIER 3: Distance Matrix (Travel Time) Logic ---
   useEffect(() => {
