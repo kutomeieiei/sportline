@@ -8,7 +8,7 @@ import SettingsView from './components/SettingsView';
 import LoginView from './components/LoginView';
 import ChatListView, { ChatUser } from './components/ChatListView';
 import ChatDetailView from './components/ChatDetailView';
-import { Party, SportType, User, DiscoveryResult } from './types';
+import { Party, SportType, User, DiscoveryResult, Venue } from './types';
 import { INITIAL_USER, DEFAULT_CENTER } from './constants';
 import { Crosshair, Loader2, Radio, Search } from 'lucide-react';
 import { auth, db, firebase } from './firebase'; // Import firebase for compat utilities
@@ -16,6 +16,7 @@ import { User as FirebaseUser } from 'firebase/auth';
 import { calculateHaversineDistance } from './utils/geospatial';
 import { discoverUsers } from './services/discoveryService';
 import { updateLocation } from './services/locationService';
+import { getVenues } from './services/venueService';
 
 // Define libraries outside component to prevent re-render loop
 const LIBRARIES: ("places" | "geometry")[] = ["places", "geometry"];
@@ -32,6 +33,7 @@ function App() {
   const [parties, setParties] = useState<Party[]>([]);
   const [friends, setFriends] = useState<User[]>([]);
   const [friendRequests, setFriendRequests] = useState<User[]>([]);
+  const [venues, setVenues] = useState<Venue[]>([]);
   
   // Store travel times separately to avoid re-rendering loops
   const [travelTimes, setTravelTimes] = useState<Record<string, string>>({});
@@ -170,6 +172,18 @@ function App() {
 
     return () => unsubscribeFriends();
   }, [authUser]);
+
+  // --- Fetch Venues (One-time) ---
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const fetchVenues = async () => {
+        const venueData = await getVenues();
+        setVenues(venueData);
+    };
+
+    fetchVenues();
+  }, [isAuthenticated]);
 
   // Live Location Update Loop
   useEffect(() => {
@@ -497,9 +511,11 @@ function App() {
       <div className="absolute inset-0 top-0 bottom-[72px] z-0">
         <MapView 
             parties={sortedParties} 
+            venues={venues}
             discoveredUsers={discoveredUsers}
             center={mapCenter} 
             currentUser={user.username}
+            currentUserUid={authUser?.uid || ''}
             onJoinParty={handleJoinParty}
             isLoaded={isMapsLoaded}
             loadError={mapsLoadError}

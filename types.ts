@@ -105,3 +105,16 @@ export interface LocationState {
   lat: number;
   lng: number;
 }
+
+export interface Court {
+  name: string;
+  sport: SportType;
+}
+
+export interface Venue {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  courts: Court[];
+}

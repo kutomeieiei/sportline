@@ -1,12 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, MarkerF, InfoWindowF } from '@react-google-maps/api';
-import { Party, SportType, DiscoveryResult } from '../types';
-import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, CheckCircle, Navigation, Car, Trash2 } from 'lucide-react';
+import { Party, SportType, DiscoveryResult, Venue } from '../types';
+import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, CheckCircle, Navigation, Car, Trash2, ShieldCheck, Trophy, Footprints, Bike, PersonStanding } from 'lucide-react';
 import { formatDistance } from '../utils/geospatial';
 import { db } from '../firebase';
 
 interface MapViewProps {
   parties: Party[];
+  venues: Venue[];
   discoveredUsers?: DiscoveryResult[];
   center: { lat: number; lng: number };
   currentUser: string;
@@ -18,6 +19,19 @@ interface MapViewProps {
   isLive?: boolean;
   userLocation?: google.maps.LatLngLiteral | null;
 }
+
+const getSportIcon = (sport: SportType, className: string) => {
+    switch (sport) {
+        case 'Football': return <Trophy className={className} />;
+        case 'Basketball': return <ShieldCheck className={className} />;
+        case 'Badminton': return <Trophy className={className} />;
+        case 'Tennis': return <Trophy className={className} />;
+        case 'Running': return <Footprints className={className} />;
+        case 'Cycling': return <Bike className={className} />;
+        case 'Yoga': return <PersonStanding className={className} />;
+        default: return <Trophy className={className} />;
+    }
+};
 
 const containerStyle = {
   width: '100%',
@@ -105,10 +119,25 @@ const getMyMarkerIcon = (): google.maps.Icon => {
   };
 };
 
-const MapView: React.FC<MapViewProps> = ({ parties, discoveredUsers = [], center, currentUser, currentUserUid, onJoinParty, isLoaded, loadError, isLive, userLocation }) => {
+const getVenueMarkerIcon = (): google.maps.Icon => {
+  const svg = `
+    <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20 0C11.16 0 4 7.16 4 16c0 9.5 13.5 22.5 15.2 24.1.4.4 1.1.4 1.6 0C22.5 38.5 36 25.5 36 16c0-8.84-7.16-16-16-16z" fill="#16a34a" stroke="white" stroke-width="1.5"/>
+      <path d="M14 15h12v2H14zM14 19h12v2H14zM14 23h12v2H14z" fill="white"/>
+    </svg>
+  `;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: new google.maps.Size(40, 40),
+    anchor: new google.maps.Point(20, 40)
+  };
+};
+
+const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = [], center, currentUser, currentUserUid, onJoinParty, isLoaded, loadError, isLive, userLocation }) => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
   const [selectedUser, setSelectedUser] = useState<DiscoveryResult | null>(null);
+  const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
 
   const handleDeleteParty = async (partyId: string) => {
     if (!db) return;
@@ -233,17 +262,32 @@ const MapView: React.FC<MapViewProps> = ({ parties, discoveredUsers = [], center
         />
       ))}
 
-      {discoveredUsers.map((result) => (
-        <MarkerF
-          key={result.uid}
-          position={{ lat: result.location.l[0], lng: result.location.l[1] }}
-          icon={getUserMarkerIcon()}
-          onClick={() => {
-            setSelectedUser(result);
-            setSelectedParty(null);
-          }}
-        />
-      ))}
+        {/* Discovered User Markers */}
+        {discoveredUsers.map((result) => (
+          <MarkerF
+            key={result.uid}
+            position={{ lat: result.location.l[0], lng: result.location.l[1] }}
+            icon={getUserMarkerIcon()}
+            onClick={() => {
+              setSelectedUser(result);
+              setSelectedParty(null);
+            }}
+          />
+        ))}
+
+        {/* Venue Markers */}
+        {venues.map(venue => (
+          <MarkerF
+            key={venue.id}
+            position={{ lat: venue.latitude, lng: venue.longitude }}
+            icon={getVenueMarkerIcon()}
+            onClick={() => {
+              setSelectedParty(null);
+              setSelectedUser(null);
+              setSelectedVenue(venue);
+            }}
+          />
+        ))}
 
       {selectedUser && (
         <InfoWindowF
@@ -273,6 +317,32 @@ const MapView: React.FC<MapViewProps> = ({ parties, discoveredUsers = [], center
           </div>
         </InfoWindowF>
       )}
+
+        {/* Venue InfoWindow */}
+        {selectedVenue && (
+          <InfoWindowF
+            position={{ lat: selectedVenue.latitude, lng: selectedVenue.longitude }}
+            onCloseClick={() => setSelectedVenue(null)}
+            options={{ pixelOffset: new google.maps.Size(0, -40) }}
+          >
+            <div className="p-2 font-sans max-w-xs">
+              <h3 className="font-bold text-lg text-gray-900 mb-2">{selectedVenue.name}</h3>
+              <div className="space-y-2">
+                {selectedVenue.courts.map((court, index) => (
+                  <div key={index} className="flex items-center gap-3 p-2 bg-gray-50 rounded-md">
+                    <div className="p-2 bg-green-100 rounded-full">
+                      {getSportIcon(court.sport, 'w-5 h-5 text-green-700')}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-800">{court.name}</p>
+                      <p className="text-sm text-gray-500">{court.sport}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </InfoWindowF>
+        )}
 
       {selectedParty && (
         <InfoWindowF
