@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { User } from '../types';
 import { GoogleMap, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { Party, SportType, DiscoveryResult, Venue } from '../types';
 import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, CheckCircle, Navigation, Car, Trash2, Trophy, Footprints, Bike, PersonStanding, Dribbble, Send } from 'lucide-react';
@@ -139,6 +140,7 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
   const [selectedUser, setSelectedUser] = useState<DiscoveryResult | null>(null);
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
+  const [partyMembers, setPartyMembers] = useState<User[]>([]);
 
   const handleDeleteParty = async (partyId: string) => {
     if (!db) return;
@@ -166,6 +168,40 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
       map.panTo(center);
     }
   }, [center, map]);
+
+  useEffect(() => {
+    if (selectedParty && db) {
+      const fetchMembers = async () => {
+        if (selectedParty.members.length === 0) {
+          setPartyMembers([]);
+          return;
+        }
+
+        try {
+          const memberPromises = selectedParty.members.map(username => 
+            db.collection('users').where('username', '==', username).limit(1).get()
+          );
+          const memberSnapshots = await Promise.all(memberPromises);
+          const membersData = memberSnapshots.map(snapshot => {
+            if (!snapshot.empty) {
+              const doc = snapshot.docs[0];
+              return { uid: doc.id, ...doc.data() } as User;
+            }
+            return null;
+          }).filter((u): u is User => u !== null);
+
+          setPartyMembers(membersData);
+        } catch (error) {
+          console.error("Error fetching party members:", error);
+          setPartyMembers([]);
+        }
+      };
+
+      fetchMembers();
+    } else {
+      setPartyMembers([]);
+    }
+  }, [selectedParty]);
 
   if (loadError) {
     return (
@@ -204,8 +240,13 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
   }
 
   const getButtonState = (party: Party) => {
+    const isAlreadyInAParty = parties.some(p => p.members.includes(currentUser));
     const isJoined = party.members.includes(currentUser);
     const isFull = party.playersCurrent >= party.playersMax;
+
+    if (isAlreadyInAParty && !isJoined) {
+        return { text: "In another party", disabled: true, className: "bg-gray-300 text-gray-500 cursor-not-allowed" };
+    }
 
     if (isJoined) {
         return { text: "Joined", disabled: true, className: "bg-green-600 text-white cursor-default" };
@@ -417,6 +458,23 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
                 </span>
                 </div>
             </div>
+
+            {partyMembers.length > 0 && (
+              <div className="mt-3 pt-2 border-t border-gray-200">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">In Party</h4>
+                  <div className="flex items-center space-x-2">
+                      {partyMembers.map(member => (
+                          <img 
+                              key={member.uid}
+                              src={member.avatarUrl}
+                              alt={member.displayName}
+                              title={member.displayName}
+                              className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"
+                          />
+                      ))}
+                  </div>
+              </div>
+            )}
 
             <div className="flex gap-2 mt-3">
                 <button 
