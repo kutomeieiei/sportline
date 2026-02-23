@@ -13,8 +13,7 @@ import {
   acceptFriendRequest, 
   rejectFriendRequest 
 } from '../services/friendService';
-import { Send, UserPlus, MessageSquare, X, Check, Search, ArrowLeft } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Send, UserPlus, MessageSquare, X, Check, ArrowLeft } from 'lucide-react';
 
 interface ChatViewProps {
   currentUser: User;
@@ -113,8 +112,9 @@ const ChatView: React.FC<ChatViewProps> = ({ currentUser, onClose, onChatOpen })
       await sendFriendRequest(currentUser.uid, addFriendUsername);
       setAddFriendSuccess(`Request sent to ${addFriendUsername}`);
       setAddFriendUsername('');
-    } catch (error: any) {
-      setAddFriendError(error.message || "Failed to send request");
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      setAddFriendError(err.message || "Failed to send request");
     }
   };
 

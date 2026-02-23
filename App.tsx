@@ -554,6 +554,7 @@ function App() {
           onCreate={handleCreateParty}
           userLocation={mapCenter}
           currentUser={user.username}
+          currentUserUid={authUser?.uid || ''}
           isLoaded={isMapsLoaded}
         />
       )}

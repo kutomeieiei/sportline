@@ -11,6 +11,7 @@ interface CreatePartyViewProps {
   onCreate: (party: Party) => void;
   userLocation: { lat: number; lng: number };
   currentUser: string;
+  currentUserUid: string;
   // Prop from centralized loader
   isLoaded: boolean;
 }
@@ -236,7 +237,7 @@ const SportSelectionSection: React.FC<{
 
 // --- MAIN COMPONENT ---
 
-const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, currentUser, isLoaded }) => {
+const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, currentUser, currentUserUid, isLoaded }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -269,6 +270,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
           placeId: placeId || "", 
           geohash: geohash, 
           host: currentUser,
+          hostUid: currentUserUid,
           members: [currentUser],
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };

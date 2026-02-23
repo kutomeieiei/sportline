@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Parties Collection: Only host can delete
+    match /parties/{partyId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.hostUid;
+    }
+
+    // Active Locations Collection: Only owner can delete
+    match /active_locations/{locationId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.uid;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+    
+    // Default fallback (should be tightened in production)
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

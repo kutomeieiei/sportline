@@ -27,7 +27,7 @@ export interface FriendRequest {
   from: string; // UID
   to: string; // UID
   status: 'pending' | 'accepted' | 'rejected';
-  createdAt: any; // Firestore Timestamp
+  createdAt: FirestoreTimestamp | Date | string | number; // Firestore Timestamp
   fromUser?: User; // Hydrated user data
 }
 
@@ -35,15 +35,15 @@ export interface ChatMessage {
   id: string;
   senderId: string;
   text: string;
-  createdAt: any; // Firestore Timestamp
+  createdAt: FirestoreTimestamp | Date | string | number; // Firestore Timestamp
 }
 
 export interface ChatConversation {
   id: string;
   participants: string[]; // Array of UIDs
   lastMessage?: string;
-  lastMessageTimestamp?: any;
-  updatedAt: any;
+  lastMessageTimestamp?: FirestoreTimestamp | Date | string | number;
+  updatedAt: FirestoreTimestamp | Date | string | number;
   participantUsers?: User[]; // Hydrated user data
 }
 
@@ -97,6 +97,7 @@ export interface Party {
   travelTime?: string;
 
   host: string;
+  hostUid: string;
   members: string[];
 }
 

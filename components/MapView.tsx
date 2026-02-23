@@ -1,14 +1,16 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, MarkerF, InfoWindowF } from '@react-google-maps/api';
 import { Party, SportType, DiscoveryResult } from '../types';
-import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, CheckCircle, Navigation, Car } from 'lucide-react';
+import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, CheckCircle, Navigation, Car, Trash2 } from 'lucide-react';
 import { formatDistance } from '../utils/geospatial';
+import { db } from '../firebase';
 
 interface MapViewProps {
   parties: Party[];
   discoveredUsers?: DiscoveryResult[];
   center: { lat: number; lng: number };
   currentUser: string;
+  currentUserUid: string;
   onJoinParty: (partyId: string) => void;
   // Props from centralized loader in App.tsx
   isLoaded: boolean;
@@ -103,10 +105,23 @@ const getMyMarkerIcon = (): google.maps.Icon => {
   };
 };
 
-const MapView: React.FC<MapViewProps> = ({ parties, discoveredUsers = [], center, currentUser, onJoinParty, isLoaded, loadError, isLive, userLocation }) => {
+const MapView: React.FC<MapViewProps> = ({ parties, discoveredUsers = [], center, currentUser, currentUserUid, onJoinParty, isLoaded, loadError, isLive, userLocation }) => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
   const [selectedUser, setSelectedUser] = useState<DiscoveryResult | null>(null);
+
+  const handleDeleteParty = async (partyId: string) => {
+    if (!db) return;
+    if (!window.confirm("Are you sure you want to delete this party? This action cannot be undone.")) return;
+
+    try {
+        await db.collection('parties').doc(partyId).delete();
+        setSelectedParty(null);
+    } catch (error) {
+        console.error("Error deleting party:", error);
+        alert("Failed to delete party. You may not have permission.");
+    }
+  };
 
   const onLoad = useCallback((mapInstance: google.maps.Map) => {
     setMap(mapInstance);
@@ -327,6 +342,17 @@ const MapView: React.FC<MapViewProps> = ({ parties, discoveredUsers = [], center
                 >
                     <Navigation size={16} />
                 </button>
+
+                {selectedParty.hostUid === currentUserUid && (
+                    <button 
+                        onClick={() => handleDeleteParty(selectedParty.id)}
+                        className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                        title="Delete Party"
+                    >
+                        <Trash2 size={16} />
+                    </button>
+                )}
+
                 {(() => {
                     const btn = getButtonState(selectedParty);
                     return (
