@@ -372,29 +372,52 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
              disableAutoPan: false
           }}
         >
-          <div className="p-2 min-w-[180px]">
-            <h3 className="font-bold text-sm mb-1 text-gray-800">
-                {selectedUser.user?.display_name || selectedUser.user?.displayName || 'Unknown User'}
-            </h3>
-            <p className="text-xs text-gray-500 mb-2">
-                {selectedUser.precise_distance.toFixed(0)}m away
-            </p>
-            {selectedUser.user?.preferred_sports && (
-                <div className="flex flex-wrap gap-1 mb-3">
+          <div className="p-3 min-w-[220px] max-w-[260px] flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <img 
+                src={selectedUser.user?.profile_img_url || selectedUser.user?.avatarUrl || 'https://via.placeholder.com/150'} 
+                alt="Profile" 
+                className="w-12 h-12 rounded-full object-cover border border-gray-200"
+                referrerPolicy="no-referrer"
+              />
+              <div>
+                <h3 className="font-bold text-base text-gray-900 leading-tight">
+                    {selectedUser.user?.display_name || selectedUser.user?.displayName || 'Unknown User'}
+                </h3>
+                <p className="text-xs text-gray-500">
+                    {selectedUser.precise_distance.toFixed(0)}m away
+                </p>
+              </div>
+            </div>
+
+            {(selectedUser.user?.gender || selectedUser.user?.bio) && (
+              <div className="bg-gray-50 p-2 rounded-lg text-sm">
+                {selectedUser.user?.gender && (
+                  <p className="text-gray-700 mb-1"><span className="font-semibold">Gender:</span> {selectedUser.user.gender}</p>
+                )}
+                {selectedUser.user?.bio && (
+                  <p className="text-gray-600 italic text-xs line-clamp-3">"{selectedUser.user.bio}"</p>
+                )}
+              </div>
+            )}
+
+            {selectedUser.user?.preferred_sports && selectedUser.user.preferred_sports.length > 0 && (
+                <div className="flex flex-wrap gap-1">
                     {selectedUser.user.preferred_sports.map(s => (
-                        <span key={s} className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
+                        <span key={s} className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded-full font-medium">
                             {s}
                         </span>
                     ))}
                 </div>
             )}
+            
             {selectedUser.user?.username && selectedUser.user.username !== currentUser && (
                 <button
                     onClick={() => {
                         onAddFriend(selectedUser.user!.username!);
                         setSelectedUser(null);
                     }}
-                    className="w-full py-1.5 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700 transition-colors"
+                    className="w-full mt-1 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
                 >
                     Add Friend
                 </button>
