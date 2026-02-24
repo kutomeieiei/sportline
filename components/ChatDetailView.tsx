@@ -147,9 +147,12 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
                     title={sender ? sender.displayName : chatUser.name}
                  />
               )}
-              <div className={`max-w-[70%] px-4 py-2 rounded-2xl text-[15px] ${isMe 
-                  ? 'bg-blue-600 text-white rounded-br-none' 
-                  : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
+              <div className={`max-w-[70%] px-4 py-2 rounded-2xl text-[15px] ${
+                  msg.type === 'venue_share'
+                  ? `bg-white text-gray-800 border border-gray-200 ${isMe ? 'rounded-br-none' : 'rounded-bl-none'}`
+                  : (isMe 
+                      ? 'bg-blue-600 text-white rounded-br-none' 
+                      : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none')
               }`}>
                 {msg.type === 'venue_share' && msg.venue ? (
                   <div className="w-full">
