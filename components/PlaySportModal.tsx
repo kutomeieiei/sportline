@@ -28,23 +28,23 @@ const PlaySportModal: React.FC<PlaySportModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[3000] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[3000] flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <div className="bg-white rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-900">Play Sport</h2>
-          <button onClick={onClose} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
-            <X size={20} className="text-gray-600" />
+        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <h2 className="text-xl font-bold text-gray-900 tracking-tight">Play Sport</h2>
+          <button onClick={onClose} className="p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors">
+            <X size={20} className="text-gray-500" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex p-2 bg-gray-50 border-b border-gray-100">
+        <div className="flex p-2 bg-gray-50/50 border-b border-gray-100">
           <button
             onClick={() => setActiveTab('share')}
-            className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${
+            className={`flex-1 py-3 text-sm font-bold rounded-2xl transition-all duration-300 ${
               activeTab === 'share'
-                ? 'bg-white text-blue-600 shadow-sm'
+                ? 'bg-white text-gray-900 shadow-sm border border-gray-100'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -52,9 +52,9 @@ const PlaySportModal: React.FC<PlaySportModalProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('find')}
-            className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${
+            className={`flex-1 py-3 text-sm font-bold rounded-2xl transition-all duration-300 ${
               activeTab === 'find'
-                ? 'bg-white text-blue-600 shadow-sm'
+                ? 'bg-white text-gray-900 shadow-sm border border-gray-100'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -67,10 +67,10 @@ const PlaySportModal: React.FC<PlaySportModalProps> = ({
           {activeTab === 'share' ? (
             <div className="space-y-6">
               <div className="text-center">
-                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <MapPin size={32} className="text-blue-500" />
+                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-100">
+                  <MapPin size={28} className="text-gray-700" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-1">Broadcast Your Location</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-1 tracking-tight">Broadcast Your Location</h3>
                 <p className="text-sm text-gray-500">Let others nearby know you're ready to play.</p>
               </div>
 
@@ -81,16 +81,16 @@ const PlaySportModal: React.FC<PlaySportModalProps> = ({
                     <button
                       key={sport.type}
                       onClick={() => setSelectedShareSport(sport.type)}
-                      className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all ${
+                      className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-300 ${
                         selectedShareSport === sport.type
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-100 bg-white hover:border-gray-200'
+                          ? 'border-gray-900 bg-gray-900 text-white shadow-md scale-[1.02]'
+                          : 'border-gray-100 bg-white hover:border-gray-300 hover:bg-gray-50 text-gray-600'
                       }`}
                     >
-                      <div className={`mb-2 ${selectedShareSport === sport.type ? 'text-blue-500' : 'text-gray-500'}`}>
+                      <div className={`mb-2 ${selectedShareSport === sport.type ? 'text-white' : 'text-gray-500'}`}>
                         {sport.icon}
                       </div>
-                      <span className={`text-[10px] font-bold text-center ${selectedShareSport === sport.type ? 'text-blue-700' : 'text-gray-600'}`}>
+                      <span className={`text-[10px] font-bold text-center ${selectedShareSport === sport.type ? 'text-white' : 'text-gray-600'}`}>
                         {sport.label}
                       </span>
                     </button>
@@ -102,10 +102,10 @@ const PlaySportModal: React.FC<PlaySportModalProps> = ({
                 onClick={() => {
                   onToggleBroadcast(selectedShareSport);
                 }}
-                className={`w-full py-4 rounded-2xl font-bold text-white transition-all shadow-lg ${
+                className={`w-full py-4 rounded-2xl font-bold text-white transition-all duration-300 shadow-lg ${
                   isBroadcasting 
-                    ? 'bg-red-500 hover:bg-red-600 shadow-red-500/30' 
-                    : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/30'
+                    ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20' 
+                    : 'bg-gray-900 hover:bg-black shadow-gray-900/20'
                 }`}
               >
                 {isBroadcasting ? 'Stop Broadcasting' : 'Start Broadcasting'}
@@ -114,10 +114,10 @@ const PlaySportModal: React.FC<PlaySportModalProps> = ({
           ) : (
             <div className="space-y-6">
               <div className="text-center">
-                <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search size={32} className="text-green-500" />
+                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-100">
+                  <Search size={28} className="text-gray-700" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-1">Find Players Nearby</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-1 tracking-tight">Find Players Nearby</h3>
                 <p className="text-sm text-gray-500">Discover people who are broadcasting their location.</p>
               </div>
 
@@ -128,10 +128,10 @@ const PlaySportModal: React.FC<PlaySportModalProps> = ({
                     <button
                       key={sport.type}
                       onClick={() => setSelectedFindSport(sport.type)}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-full border-2 whitespace-nowrap transition-all flex-shrink-0 ${
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all duration-300 flex-shrink-0 ${
                         selectedFindSport === sport.type
-                          ? 'border-green-500 bg-green-50 text-green-700'
-                          : 'border-gray-100 bg-white text-gray-600 hover:border-gray-200'
+                          ? 'border-gray-900 bg-gray-900 text-white shadow-md'
+                          : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                       }`}
                     >
                       {sport.icon}
@@ -144,7 +144,7 @@ const PlaySportModal: React.FC<PlaySportModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <label className="block text-sm font-semibold text-gray-700">Number of Players</label>
-                  <span className="text-sm font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg">{playerCount}</span>
+                  <span className="text-sm font-bold text-gray-900 bg-gray-100 px-3 py-1 rounded-full">{playerCount}</span>
                 </div>
                 <input
                   type="range"
@@ -152,7 +152,7 @@ const PlaySportModal: React.FC<PlaySportModalProps> = ({
                   max="10"
                   value={playerCount}
                   onChange={(e) => setPlayerCount(parseInt(e.target.value))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-500"
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-900"
                 />
                 <div className="flex justify-between text-xs text-gray-400 mt-2 font-medium">
                   <span>1</span>
@@ -165,7 +165,7 @@ const PlaySportModal: React.FC<PlaySportModalProps> = ({
                   onFindPlayers(selectedFindSport, playerCount);
                   onClose();
                 }}
-                className="w-full py-4 rounded-2xl font-bold text-white bg-green-600 hover:bg-green-700 transition-all shadow-lg shadow-green-600/30 flex items-center justify-center gap-2"
+                className="w-full py-4 rounded-2xl font-bold text-white bg-gray-900 hover:bg-black transition-all duration-300 shadow-lg shadow-gray-900/20 flex items-center justify-center gap-2"
               >
                 <Search size={20} />
                 Search Now

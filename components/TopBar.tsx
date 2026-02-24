@@ -105,7 +105,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
     <div className="absolute top-0 left-0 right-0 z-[1000] flex flex-col pointer-events-none" ref={wrapperRef}>
       {/* Search Bar Container */}
       <div className="w-full px-4 pt-4 pointer-events-auto relative">
-        <div className={`bg-white shadow-lg flex items-center p-3 gap-3 border border-gray-100 transition-all duration-200 ${isOpen && suggestions.length > 0 ? 'rounded-t-2xl rounded-b-none' : 'rounded-full'}`}>
+        <div className={`bg-white/90 backdrop-blur-md shadow-sm flex items-center p-3 gap-3 border border-white/20 transition-all duration-300 ease-in-out ${isOpen && suggestions.length > 0 ? 'rounded-t-3xl rounded-b-none' : 'rounded-full hover:shadow-md hover:bg-white'}`}>
           
           <Menu className="text-gray-500 cursor-pointer min-w-[24px]" size={24} />
           
@@ -143,7 +143,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
 
         {/* Autocomplete Dropdown */}
         {isOpen && suggestions.length > 0 && (
-          <div className="absolute left-4 right-4 bg-white shadow-xl border-t border-gray-100 rounded-b-2xl overflow-hidden flex flex-col pointer-events-auto max-h-60 overflow-y-auto">
+          <div className="absolute left-4 right-4 bg-white/95 backdrop-blur-md shadow-lg border-t border-gray-100 rounded-b-3xl overflow-hidden flex flex-col pointer-events-auto max-h-60 overflow-y-auto transition-all duration-300 ease-in-out">
             {suggestions.map((place) => (
               <button
                 key={place.place_id}
@@ -171,7 +171,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
       </div>
 
       {/* Filter Chips Container */}
-      <div className={`w-full pl-4 mt-3 overflow-x-auto no-scrollbar pointer-events-auto pb-2 transition-opacity duration-200 ${isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+      <div className={`w-full pl-4 mt-3 overflow-x-auto no-scrollbar pointer-events-auto pb-2 transition-all duration-300 ease-in-out ${isOpen ? 'opacity-0 -translate-y-2 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
         <div className="flex gap-2 pr-4 min-w-max">
           {SPORTS_LIST.map((sport) => {
             const isSelected = selectedSport === sport.type;
@@ -180,10 +180,10 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
                 key={sport.type}
                 onClick={() => onSelectSport(sport.type)}
                 className={`
-                  flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors shadow-sm border
+                  flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ease-in-out shadow-sm border
                   ${isSelected 
-                    ? 'bg-blue-600 text-white border-blue-600' 
-                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}
+                    ? 'bg-gray-900 text-white border-gray-900 scale-105' 
+                    : 'bg-white/80 backdrop-blur-sm text-gray-700 border-white/20 hover:bg-white hover:scale-105'}
                 `}
               >
                 {sport.icon}

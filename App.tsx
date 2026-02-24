@@ -674,18 +674,18 @@ function App() {
           {/* Recenter Button */}
           <button 
             onClick={handleRecenter}
-            className="absolute bottom-44 left-4 bg-white p-3 rounded-full shadow-lg text-gray-600 hover:text-blue-600 z-[1000] border border-gray-100"
+            className="absolute bottom-44 left-4 bg-white/90 backdrop-blur-md p-3.5 rounded-2xl shadow-lg text-gray-700 hover:text-gray-900 hover:bg-white hover:scale-105 transition-all duration-300 z-[1000] border border-white/20"
             title="Recenter Map"
           >
-            <Crosshair size={24} />
+            <Crosshair size={22} />
           </button>
 
           {/* Play Sport Button */}
           <button
             onClick={() => setIsPlaySportModalOpen(true)}
-            className="absolute bottom-24 left-4 bg-blue-600 text-white px-6 py-4 rounded-full shadow-xl shadow-blue-600/30 font-bold text-lg hover:bg-blue-700 hover:scale-105 transition-all z-[1000] flex items-center gap-2"
+            className="absolute bottom-24 left-4 bg-gray-900 text-white px-6 py-4 rounded-2xl shadow-xl shadow-gray-900/20 font-bold text-lg hover:bg-black hover:scale-105 transition-all duration-300 z-[1000] flex items-center gap-3"
           >
-            <Activity size={24} />
+            <Activity size={22} />
             Play Sport
           </button>
 
@@ -693,7 +693,7 @@ function App() {
           {isLiveSearchEnabled && (
             <button
               onClick={handleStopLiveSearch}
-              className="absolute bottom-24 right-4 bg-red-600 text-white px-4 py-3 rounded-full shadow-xl shadow-red-600/30 font-bold text-sm hover:bg-red-700 hover:scale-105 transition-all z-[1000] flex items-center gap-2"
+              className="absolute bottom-24 right-4 bg-red-500 text-white px-5 py-4 rounded-2xl shadow-xl shadow-red-500/20 font-bold text-sm hover:bg-red-600 hover:scale-105 transition-all duration-300 z-[1000] flex items-center gap-2"
             >
               <X size={18} />
               Stop Search
