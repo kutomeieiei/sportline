@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { User } from '../types';
-import { GoogleMap, MarkerF, InfoWindowF } from '@react-google-maps/api';
+import { GoogleMap, MarkerF, InfoWindowF, OverlayViewF, OverlayView } from '@react-google-maps/api';
 import { Party, SportType, DiscoveryResult, Venue, SportConfig } from '../types';
 import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, CheckCircle, Navigation, Car, Trash2, Trophy, Footprints, Bike, PersonStanding, Dribbble, Send } from 'lucide-react';
 import { formatDistance } from '../utils/geospatial';
@@ -321,15 +321,32 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
 
         {/* Discovered User Markers */}
         {discoveredUsers.map((result) => (
-          <MarkerF
+          <OverlayViewF
             key={result.uid}
             position={{ lat: result.location.l[0], lng: result.location.l[1] }}
-            icon={getUserMarkerIcon()}
-            onClick={() => {
-              setSelectedUser(result);
-              setSelectedParty(null);
-            }}
-          />
+            mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+          >
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedUser(result);
+                setSelectedParty(null);
+              }}
+              className="relative flex items-center justify-center cursor-pointer transform -translate-x-1/2 -translate-y-full hover:scale-110 transition-transform z-10"
+              style={{ width: '40px', height: '40px' }}
+            >
+              <svg className="absolute inset-0 w-full h-full drop-shadow-md" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20 0C11.16 0 4 7.16 4 16c0 9.5 13.5 22.5 15.2 24.1.4.4 1.1.4 1.6 0C22.5 38.5 36 25.5 36 16c0-8.84-7.16-16-16-16z" fill="#3b82f6" stroke="white" strokeWidth="1.5"/>
+              </svg>
+              <img 
+                src={result.user?.profile_img_url || 'https://via.placeholder.com/150'} 
+                alt={result.user?.display_name || 'User'}
+                className="absolute w-6 h-6 rounded-full object-cover border border-white"
+                style={{ top: '4px' }}
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          </OverlayViewF>
         ))}
 
         {/* Venue Markers */}

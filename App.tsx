@@ -432,7 +432,9 @@ function App() {
     setIsDiscovering(true);
     try {
       const results = await discoverUsers(mapCenter.lat, mapCenter.lng, 5000, sport, count); // 5km radius
-      setDiscoveredUsers(results);
+      // Filter out the current user
+      const filteredResults = results.filter(r => r.uid !== authUser?.uid);
+      setDiscoveredUsers(filteredResults);
     } catch (error) {
       console.error("Discovery failed", error);
     } finally {
