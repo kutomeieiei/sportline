@@ -252,6 +252,19 @@ function App() {
     return withDistance.sort((a, b) => a.distance - b.distance);
   }, [parties, selectedSport, mapCenter, travelTimes, userLocation]);
 
+  const venuesWithDistance = useMemo(() => {
+    const calculationCenter = userLocation || mapCenter;
+    return venues.map(venue => ({
+      ...venue,
+      distance: calculateHaversineDistance(
+        calculationCenter.lat,
+        calculationCenter.lng,
+        venue.latitude,
+        venue.longitude
+      )
+    }));
+  }, [venues, userLocation, mapCenter]);
+
   // --- 5. TIER 3: Distance Matrix (Travel Time) Logic ---
   useEffect(() => {
     // Only fetch if google maps is loaded and we have parties
@@ -576,7 +589,7 @@ function App() {
       <div className="absolute inset-0 top-0 bottom-[72px] z-0">
         <MapView 
             parties={sortedParties} 
-            venues={venues}
+            venues={venuesWithDistance}
             discoveredUsers={discoveredUsers}
             center={mapCenter} 
             currentUser={user.username}

@@ -257,18 +257,20 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
     return { text: "Join Party", disabled: false, className: "bg-blue-600 text-white hover:bg-blue-700" };
   };
 
-  const handleNavigate = (party: Party) => {
+  const handleNavigate = (item: Party | Venue) => {
     const baseUrl = "https://www.google.com/maps/dir/?api=1";
     let destinationParam = "";
     
-    if (party.placeId) {
-        destinationParam = `&destination_place_id=${party.placeId}&destination=${encodeURIComponent(party.venueName || "Destination")}`;
+    if ('placeId' in item && item.placeId) {
+        destinationParam = `&destination_place_id=${item.placeId}&destination=${encodeURIComponent(item.venueName || item.name || "Destination")}`;
     } else {
-        destinationParam = `&destination=${party.latitude},${party.longitude}`;
+        destinationParam = `&destination=${item.latitude},${item.longitude}`;
     }
 
     window.open(`${baseUrl}${destinationParam}&travelmode=driving`, '_blank');
   };
+
+
 
   return (
     <GoogleMap
@@ -370,7 +372,15 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
             <div className="p-0 font-sans max-w-[300px]">
               <img src={selectedVenue.imageUrl} alt={selectedVenue.name} className="w-full h-32 object-cover rounded-t-lg" />
               <div className="p-3">
-                <h3 className="font-bold text-lg text-gray-900 mb-1">{selectedVenue.name}</h3>
+                <div className="flex justify-between items-start">
+                  <h3 className="font-bold text-lg text-gray-900 mb-1 pr-2">{selectedVenue.name}</h3>
+                  {selectedVenue.distance !== undefined && (
+                      <div className="flex-shrink-0 flex items-center gap-1 text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full" title="Straight-line distance">
+                          <Navigation size={10} />
+                          {formatDistance(selectedVenue.distance)}
+                      </div>
+                  )}
+                </div>
                 <p className="text-xs text-gray-600 mb-3">{selectedVenue.description}</p>
                 <div className="space-y-2">
                   {selectedVenue.courts.map((court, index) => (
@@ -385,13 +395,20 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
                     </div>
                   ))}
                 </div>
-                <div className="mt-4">
+                <div className="mt-4 flex flex-col gap-2">
                   <button 
                     onClick={() => onShareVenue(selectedVenue)}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   >
                     <Send size={16} />
                     Share Venue
+                  </button>
+                  <button 
+                    onClick={() => handleNavigate(selectedVenue)} 
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  >
+                    <Navigation size={16} />
+                    Navigate
                   </button>
                 </div>
               </div>
