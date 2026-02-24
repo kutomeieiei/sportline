@@ -40,7 +40,7 @@ interface ActiveLocation {
 // API Endpoint: Two-Phase Discovery Pipeline
 app.get('/api/discover', async (req, res) => {
   try {
-    const { lat, lng, radiusInM } = req.query as { lat: string; lng: string; radiusInM: string };
+    const { lat, lng, radiusInM, sport, limit } = req.query as { lat: string; lng: string; radiusInM: string; sport?: string; limit?: string };
 
     if (!lat || !lng || !radiusInM) {
       return res.status(400).json({ error: 'Missing lat, lng, or radiusInM' });
@@ -49,6 +49,7 @@ app.get('/api/discover', async (req, res) => {
     const centerLat = parseFloat(lat);
     const centerLng = parseFloat(lng);
     const radiusInMeters = parseFloat(radiusInM);
+    const maxResults = limit ? parseInt(limit, 10) : undefined;
 
     // Phase 1: Coarse Spatial Filter (Bounding Box Search)
     // Get Geohash bounds
@@ -66,13 +67,16 @@ app.get('/api/discover', async (req, res) => {
     }
 
     const snapshots = await Promise.all(promises);
-    const matchingDocs: ActiveLocation[] = [];
+    const matchingDocs: any[] = [];
 
     for (const snap of snapshots) {
       for (const doc of snap.docs) {
-        const data = doc.data() as Omit<ActiveLocation, 'id'>;
+        const data = doc.data();
         // Filter out invisible users
         if (data.vis === false) continue;
+        
+        // Filter by sport if provided
+        if (sport && sport !== 'All' && data.sport !== sport) continue;
         
         // Check TTL (60 minutes)
         if (data.t) {
@@ -92,7 +96,7 @@ app.get('/api/discover', async (req, res) => {
     }
 
     // Phase 2: Fine-Grained Haversine Refinement
-    const results = [];
+    let results = [];
     for (const docData of matchingDocs) {
       const lat = docData.l[0];
       const lng = docData.l[1];
@@ -102,13 +106,6 @@ app.get('/api/discover', async (req, res) => {
       const distanceInMeters = distanceInKm * 1000;
 
       if (distanceInMeters <= radiusInMeters) {
-        // Fetch user profile (Identity Store)
-        // In a real high-concurrency scenario, this might be cached or fetched in batch
-        // For this implementation, we fetch individually or assume client fetches it
-        // The requirement says "Return a sorted array of uid and precise_distance"
-        // It also implies we might want to return some user data if possible, but the core request is uid and distance.
-        // Let's try to fetch user data to be helpful, but keep it efficient.
-        
         let userData = null;
         try {
             const userSnap = await getDoc(doc(db, 'users', docData.uid || docData.id));
@@ -130,6 +127,11 @@ app.get('/api/discover', async (req, res) => {
 
     // Sort by distance
     results.sort((a, b) => a.precise_distance - b.precise_distance);
+
+    // Apply limit if provided
+    if (maxResults && maxResults > 0) {
+      results = results.slice(0, maxResults);
+    }
 
     res.json({ results });
 

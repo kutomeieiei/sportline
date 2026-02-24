@@ -8,18 +8,25 @@ export const updateLocation = async (
   lat: number,
   lng: number,
   mode: LocationMode,
-  vis: boolean
+  vis: boolean,
+  sport?: string
 ) => {
   const hash = geohashForLocation([lat, lng]);
 
   const locationRef = doc(db, 'active_locations', uid);
 
-  await setDoc(locationRef, {
+  const data: any = {
     uid,
     g: hash,
     l: [lat, lng], // Store as array for geofire compatibility or GeoPoint if preferred
     mode,
     vis,
     t: serverTimestamp(), // Server-side timestamp for TTL
-  }, { merge: true });
+  };
+
+  if (sport !== undefined) {
+    data.sport = sport;
+  }
+
+  await setDoc(locationRef, data, { merge: true });
 };

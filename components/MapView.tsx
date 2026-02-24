@@ -15,6 +15,7 @@ interface MapViewProps {
   currentUserUid: string;
   onJoinParty: (partyId: string) => void;
   onShareVenue: (venue: Venue) => void;
+  onAddFriend: (username: string) => void;
   // Props from centralized loader in App.tsx
   isLoaded: boolean;
   loadError?: Error;
@@ -135,7 +136,7 @@ const getVenueMarkerIcon = (): google.maps.Icon => {
   };
 };
 
-const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = [], center, currentUser, currentUserUid, onJoinParty, onShareVenue, isLoaded, loadError, isLive, userLocation }) => {
+const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = [], center, currentUser, currentUserUid, onJoinParty, onShareVenue, onAddFriend, isLoaded, loadError, isLive, userLocation }) => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
   const [selectedUser, setSelectedUser] = useState<DiscoveryResult | null>(null);
@@ -344,19 +345,30 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
         >
           <div className="p-2 min-w-[180px]">
             <h3 className="font-bold text-sm mb-1 text-gray-800">
-                {selectedUser.user?.display_name || 'Unknown User'}
+                {selectedUser.user?.display_name || selectedUser.user?.displayName || 'Unknown User'}
             </h3>
             <p className="text-xs text-gray-500 mb-2">
                 {selectedUser.precise_distance.toFixed(0)}m away
             </p>
             {selectedUser.user?.preferred_sports && (
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 mb-3">
                     {selectedUser.user.preferred_sports.map(s => (
                         <span key={s} className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
                             {s}
                         </span>
                     ))}
                 </div>
+            )}
+            {selectedUser.user?.username && selectedUser.user.username !== currentUser && (
+                <button
+                    onClick={() => {
+                        onAddFriend(selectedUser.user!.username!);
+                        setSelectedUser(null);
+                    }}
+                    className="w-full py-1.5 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700 transition-colors"
+                >
+                    Add Friend
+                </button>
             )}
           </div>
         </InfoWindowF>

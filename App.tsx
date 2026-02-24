@@ -18,6 +18,7 @@ import { discoverUsers } from './services/discoveryService';
 import { updateLocation } from './services/locationService';
 import { getVenues, addVenue } from './services/venueService';
 import VenueAdminView from './components/VenueAdminView';
+import PlaySportModal from './components/PlaySportModal';
 import UserSelectionView from './components/UserSelectionView';
 
 // Define libraries outside component to prevent re-render loop
@@ -54,6 +55,8 @@ function App() {
   const [isVenueAdminOpen, setIsVenueAdminOpen] = useState(false);
   const [isSharingVenue, setIsSharingVenue] = useState(false);
   const [venueToShare, setVenueToShare] = useState<Venue | null>(null);
+  const [isPlaySportModalOpen, setIsPlaySportModalOpen] = useState(false);
+  const [broadcastingSport, setBroadcastingSport] = useState<SportType | undefined>(undefined);
 
   // Rate limiting for distance matrix
   const lastMatrixCall = useRef<number>(0);
@@ -396,11 +399,12 @@ function App() {
     setMapCenter({ lat, lng });
   };
 
-  // Handle "Go Live" Toggle
-  const handleToggleLive = async () => {
+  // Handle "Go Live" Toggle (Now via PlaySportModal)
+  const handleToggleBroadcast = async (sport: SportType) => {
     if (!authUser) return;
     const newStatus = !isLive;
     setIsLive(newStatus);
+    setBroadcastingSport(newStatus ? sport : undefined);
     
     // Immediate update
     const lat = userLocation?.lat || mapCenter.lat;
@@ -411,15 +415,16 @@ function App() {
       lat,
       lng,
       newStatus ? 'live' : 'static',
-      newStatus
+      newStatus,
+      newStatus ? sport : undefined
     );
   };
 
-  // Handle Discovery
-  const handleDiscover = async () => {
+  // Handle Discovery (Now via PlaySportModal)
+  const handleFindPlayers = async (sport: SportType, count: number) => {
     setIsDiscovering(true);
     try {
-      const results = await discoverUsers(mapCenter.lat, mapCenter.lng, 5000); // 5km radius
+      const results = await discoverUsers(mapCenter.lat, mapCenter.lng, 5000, sport, count); // 5km radius
       setDiscoveredUsers(results);
     } catch (error) {
       console.error("Discovery failed", error);
@@ -606,6 +611,7 @@ function App() {
             isLive={isLive}
             userLocation={userLocation}
             onShareVenue={handleShareVenue}
+            onAddFriend={handleAddFriend}
         />
       </div>
 
@@ -621,30 +627,32 @@ function App() {
             isLoaded={isMapsLoaded}
           />
 
-          {/* Live Toggle */}
-          <button
-            onClick={handleToggleLive}
-            className={`absolute top-24 right-4 p-3 rounded-full shadow-lg z-[1000] border transition-colors ${isLive ? 'bg-red-500 text-white border-red-600' : 'bg-white text-gray-600 border-gray-100'}`}
-            title="Toggle Live Visibility"
-          >
-            <Radio size={24} className={isLive ? 'animate-pulse' : ''} />
-          </button>
-
-          {/* Discover Button */}
-          <button 
-            onClick={handleDiscover}
-            className="absolute bottom-40 right-4 bg-white p-3 rounded-full shadow-lg text-gray-600 hover:text-blue-600 z-[1000] border border-gray-100"
-            title="Discover Nearby Users"
-          >
-            {isDiscovering ? <Loader2 size={24} className="animate-spin" /> : <Search size={24} />}
-          </button>
-
+          {/* Recenter Button */}
           <button 
             onClick={handleRecenter}
-            className="absolute bottom-24 right-4 bg-white p-3 rounded-full shadow-lg text-gray-600 hover:text-blue-600 z-[1000] border border-gray-100"
+            className="absolute bottom-44 right-4 bg-white p-3 rounded-full shadow-lg text-gray-600 hover:text-blue-600 z-[1000] border border-gray-100"
+            title="Recenter Map"
           >
             <Crosshair size={24} />
           </button>
+
+          {/* Play Sport Button */}
+          <button
+            onClick={() => setIsPlaySportModalOpen(true)}
+            className="absolute bottom-24 right-4 bg-blue-600 text-white px-6 py-4 rounded-full shadow-xl shadow-blue-600/30 font-bold text-lg hover:bg-blue-700 hover:scale-105 transition-all z-[1000] flex items-center gap-2"
+          >
+            <Activity size={24} />
+            Play Sport
+          </button>
+          
+          <PlaySportModal
+            isOpen={isPlaySportModalOpen}
+            onClose={() => setIsPlaySportModalOpen(false)}
+            isBroadcasting={isLive}
+            onToggleBroadcast={handleToggleBroadcast}
+            onFindPlayers={handleFindPlayers}
+            currentSport={broadcastingSport}
+          />
         </>
       )}
 

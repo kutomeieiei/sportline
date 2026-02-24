@@ -65,6 +65,7 @@ export interface ActiveLocation {
   mode: LocationMode;
   vis: boolean; // Visibility toggle
   t: FirestoreTimestamp | Date | number | string; // Timestamp (Firestore Timestamp or Date)
+  sport?: SportType; // The sport they are broadcasting
 }
 
 export interface DiscoveryResult {

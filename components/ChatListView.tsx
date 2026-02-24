@@ -158,8 +158,39 @@ const ChatListView: React.FC<ChatListViewProps> = ({
     }
   };
 
-  const handleCreateGroup = () => {
-    // This part remains for group creation logic, but we won't show any initial groups
+  const handleCreateGroup = async () => {
+    if (!groupName.trim() || selectedIds.length === 0 || !currentUser.uid) return;
+
+    try {
+      const newGroupData = {
+        name: groupName.trim(),
+        isGroup: true,
+        members: [...selectedIds, currentUser.uid],
+        createdAt: new Date(),
+        avatarUrl: 'https://i.pravatar.cc/150?u=group'
+      };
+
+      const docRef = await db.collection('chats').add(newGroupData);
+      
+      // Add an initial message
+      await docRef.collection('messages').add({
+        text: `${currentUser.displayName || currentUser.display_name || 'Someone'} created the group.`,
+        senderId: currentUser.uid,
+        timestamp: new Date(),
+        type: 'system'
+      });
+
+      setIsCreatingGroup(false);
+      setGroupName('');
+      setSelectedIds([]);
+      setActiveTab('groups');
+      
+      // Optionally select the new chat immediately
+      // onSelectChat({ id: docRef.id, name: newGroupData.name, avatarUrl: newGroupData.avatarUrl, isGroup: true });
+    } catch (error) {
+      console.error("Error creating group:", error);
+      alert("Failed to create group.");
+    }
   };
 
   const filteredChats = activeTab === 'friends' ? friendsList : (activeTab === 'groups' ? groupChats : requestChats);

@@ -3,10 +3,19 @@ import { DiscoveryResult } from '../types';
 export const discoverUsers = async (
   lat: number,
   lng: number,
-  radiusInM: number
+  radiusInM: number,
+  sport?: string,
+  limit?: number
 ): Promise<DiscoveryResult[]> => {
   try {
-    const response = await fetch(`/api/discover?lat=${lat}&lng=${lng}&radiusInM=${radiusInM}`);
+    let url = `/api/discover?lat=${lat}&lng=${lng}&radiusInM=${radiusInM}`;
+    if (sport && sport !== 'All') {
+      url += `&sport=${encodeURIComponent(sport)}`;
+    }
+    if (limit) {
+      url += `&limit=${limit}`;
+    }
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error('Failed to fetch discovery results');
     }
