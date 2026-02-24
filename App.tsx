@@ -531,10 +531,9 @@ function App() {
     setIsSharingVenue(true);
   };
 
-  const handleSelectUserToShareWith = async (userToShareWith: DiscoveryResult) => {
+  const handleShareWithFriends = async (selectedFriendIds: string[]) => {
     if (!venueToShare || !authUser || !db) return;
 
-    const chatRoomId = [authUser.uid, userToShareWith.uid].sort().join('_');
     const message = {
       text: `Check out this venue: ${venueToShare.name}`,
       senderId: authUser.uid,
@@ -544,10 +543,17 @@ function App() {
     };
 
     try {
-      await db.collection('chats').doc(chatRoomId).collection('messages').add(message);
-      alert(`Venue shared with ${userToShareWith.user?.display_name || 'user'}!`)
+      const batch = db.batch();
+      selectedFriendIds.forEach(friendId => {
+        const chatRoomId = [authUser.uid, friendId].sort().join('_');
+        const messageRef = db.collection('chats').doc(chatRoomId).collection('messages').doc();
+        batch.set(messageRef, message);
+      });
+
+      await batch.commit();
+      alert(`Venue shared with ${selectedFriendIds.length} ${selectedFriendIds.length === 1 ? 'friend' : 'friends'}!`)
     } catch (error) {
-      console.error("Error sharing venue:", error);
+      console.error("Error sharing venue with friends:", error);
       alert("Failed to share venue.");
     }
 
@@ -680,8 +686,8 @@ function App() {
       {/* Chat Views */}
       {isSharingVenue && (
         <UserSelectionView 
-          users={discoveredUsers}
-          onSelectUser={handleSelectUserToShareWith}
+          friends={friends}
+          onShare={handleShareWithFriends}
           onClose={() => setIsSharingVenue(false)}
         />
       )}
