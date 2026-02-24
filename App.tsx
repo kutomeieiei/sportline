@@ -630,7 +630,7 @@ function App() {
           {/* Recenter Button */}
           <button 
             onClick={handleRecenter}
-            className="absolute bottom-44 right-4 bg-white p-3 rounded-full shadow-lg text-gray-600 hover:text-blue-600 z-[1000] border border-gray-100"
+            className="absolute bottom-44 left-4 bg-white p-3 rounded-full shadow-lg text-gray-600 hover:text-blue-600 z-[1000] border border-gray-100"
             title="Recenter Map"
           >
             <Crosshair size={24} />
@@ -639,7 +639,7 @@ function App() {
           {/* Play Sport Button */}
           <button
             onClick={() => setIsPlaySportModalOpen(true)}
-            className="absolute bottom-24 right-4 bg-blue-600 text-white px-6 py-4 rounded-full shadow-xl shadow-blue-600/30 font-bold text-lg hover:bg-blue-700 hover:scale-105 transition-all z-[1000] flex items-center gap-2"
+            className="absolute bottom-24 left-4 bg-blue-600 text-white px-6 py-4 rounded-full shadow-xl shadow-blue-600/30 font-bold text-lg hover:bg-blue-700 hover:scale-105 transition-all z-[1000] flex items-center gap-2"
           >
             <Activity size={24} />
             Play Sport
