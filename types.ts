@@ -20,6 +20,8 @@ export interface User {
   bio?: string;
   gender?: string;
   friends?: string[]; // Array of UIDs
+  displayName?: string;
+  isOnline?: boolean;
 }
 
 export interface FriendRequest {

@@ -104,7 +104,7 @@ const ChatListView: React.FC<ChatListViewProps> = ({
             const userData = userDoc.data() as User;
 
             return {
-              id: doc.id,
+              id: otherUserId,
               name: userData.displayName,
               avatarUrl: userData.avatarUrl,
               isGroup: false,
@@ -124,12 +124,28 @@ const ChatListView: React.FC<ChatListViewProps> = ({
   const friendChats = allChats.filter(c => !c.isGroup);
   const groupChats = allChats.filter(c => c.isGroup);
 
+  const friendChatsMap = new Map(friendChats.map(c => [c.id, c]));
+
+  const friendsList: ChatUser[] = friends
+    .filter(f => f.uid)
+    .map(f => {
+      const chatInfo = friendChatsMap.get(f.uid);
+      return {
+        id: f.uid,
+        name: f.displayName || f.display_name || 'Unknown',
+        avatarUrl: f.avatarUrl || f.profile_img_url || 'https://i.pravatar.cc/150',
+        isOnline: f.isOnline,
+        lastMessage: chatInfo?.lastMessage,
+        isGroup: false,
+      };
+    });
+
   const requestChats: ChatUser[] = friendRequests
     .filter(f => f.uid)
     .map(f => ({
       id: f.uid,
-      name: f.displayName,
-      avatarUrl: f.avatarUrl,
+      name: f.displayName || f.display_name || 'Unknown',
+      avatarUrl: f.avatarUrl || f.profile_img_url || 'https://i.pravatar.cc/150',
       statusText: 'Sent you a friend request',
       isOnline: false,
     }));
@@ -146,15 +162,15 @@ const ChatListView: React.FC<ChatListViewProps> = ({
     // This part remains for group creation logic, but we won't show any initial groups
   };
 
-  const filteredChats = activeTab === 'friends' ? friendChats : (activeTab === 'groups' ? groupChats : requestChats);
+  const filteredChats = activeTab === 'friends' ? friendsList : (activeTab === 'groups' ? groupChats : requestChats);
 
   // Friends list for group creation
   const contacts = friends
     .filter(f => f.uid)
     .map(f => ({ 
       id: f.uid, 
-      name: f.displayName, 
-      avatarUrl: f.avatarUrl 
+      name: f.displayName || f.display_name || 'Unknown', 
+      avatarUrl: f.avatarUrl || f.profile_img_url || 'https://i.pravatar.cc/150' 
     })) as ChatUser[];
 
   if (isCreatingGroup) {

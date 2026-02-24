@@ -150,8 +150,12 @@ function App() {
 
       // 1. Fetch Accepted Friends
       if (acceptedIds.length > 0) {
-        const friendsQuery = await db.collection('users').where(firebase.firestore.FieldPath.documentId(), 'in', acceptedIds).get();
-        const friendsData = friendsQuery.docs.map(doc => ({ ...doc.data(), uid: doc.id }) as User);
+        const friendPromises = acceptedIds.map(uid => db.collection('users').doc(uid).get());
+        const friendDocs = await Promise.all(friendPromises);
+        const friendsData = friendDocs.map(doc => {
+          const data = doc.data();
+          return data ? { ...data, uid: doc.id } as User : null;
+        }).filter((u): u is User => u !== null);
         setFriends(friendsData);
       } else {
         setFriends([]);
@@ -159,8 +163,12 @@ function App() {
 
       // 2. Fetch Pending Requests
       if (pendingIds.length > 0) {
-        const requestsQuery = await db.collection('users').where(firebase.firestore.FieldPath.documentId(), 'in', pendingIds).get();
-        const requestsData = requestsQuery.docs.map(doc => ({ ...doc.data(), uid: doc.id }) as User);
+        const requestPromises = pendingIds.map(uid => db.collection('users').doc(uid).get());
+        const requestDocs = await Promise.all(requestPromises);
+        const requestsData = requestDocs.map(doc => {
+          const data = doc.data();
+          return data ? { ...data, uid: doc.id } as User : null;
+        }).filter((u): u is User => u !== null);
         setFriendRequests(requestsData);
       } else {
         setFriendRequests([]);
