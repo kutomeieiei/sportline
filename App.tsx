@@ -10,7 +10,7 @@ import ChatListView, { ChatUser } from './components/ChatListView';
 import ChatDetailView from './components/ChatDetailView';
 import { Party, SportType, User, DiscoveryResult, Venue } from './types';
 import { INITIAL_USER, DEFAULT_CENTER } from './constants';
-import { Crosshair, Loader2, Radio, Search } from 'lucide-react';
+import { Crosshair, Loader2, Radio, Search, Activity } from 'lucide-react';
 import { auth, db, firebase } from './firebase'; // Import firebase for compat utilities
 import { User as FirebaseUser } from 'firebase/auth';
 import { calculateHaversineDistance } from './utils/geospatial';
