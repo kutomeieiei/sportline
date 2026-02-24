@@ -10,7 +10,7 @@ import ChatListView, { ChatUser } from './components/ChatListView';
 import ChatDetailView from './components/ChatDetailView';
 import { Party, SportType, User, DiscoveryResult, Venue } from './types';
 import { INITIAL_USER, DEFAULT_CENTER } from './constants';
-import { Crosshair, Loader2, Radio, Search, Activity } from 'lucide-react';
+import { Crosshair, Loader2, Radio, Search, Activity, X } from 'lucide-react';
 import { auth, db, firebase } from './firebase'; // Import firebase for compat utilities
 import { User as FirebaseUser } from 'firebase/auth';
 import { calculateHaversineDistance } from './utils/geospatial';
@@ -55,6 +55,9 @@ function App() {
   const [discoveredUsers, setDiscoveredUsers] = useState<DiscoveryResult[]>([]);
   const [isLive, setIsLive] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState(false);
+  const [isLiveSearchEnabled, setIsLiveSearchEnabled] = useState(false);
+  const [liveSearchSport, setLiveSearchSport] = useState<SportType>('All');
+  const [liveSearchCount, setLiveSearchCount] = useState<number>(4);
   const [isVenueAdminOpen, setIsVenueAdminOpen] = useState(false);
   const [isSportAdminOpen, setIsSportAdminOpen] = useState(false);
   const [isSharingVenue, setIsSharingVenue] = useState(false);
@@ -237,6 +240,29 @@ function App() {
       if (watchId) navigator.geolocation.clearWatch(watchId);
     };
   }, [isAuthenticated, authUser, isLive]);
+
+  // Live Search Loop
+  useEffect(() => {
+    if (!isAuthenticated || !authUser || !isLiveSearchEnabled) return;
+
+    const performSearch = async () => {
+      try {
+        const results = await discoverUsers(mapCenter.lat, mapCenter.lng, 5000, liveSearchSport, liveSearchCount);
+        const filteredResults = results.filter(r => r.uid !== authUser.uid);
+        setDiscoveredUsers(filteredResults);
+      } catch (error) {
+        console.error("Live discovery failed", error);
+      }
+    };
+
+    // Initial search
+    performSearch();
+
+    // Poll every 10 seconds
+    const intervalId = setInterval(performSearch, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated, authUser, isLiveSearchEnabled, mapCenter, liveSearchSport, liveSearchCount]);
 
   // --- 4. TIER 2: Spatial Refinement (Distance Sorting) ---
   const sortedParties = useMemo(() => {
@@ -429,6 +455,9 @@ function App() {
 
   // Handle Discovery (Now via PlaySportModal)
   const handleFindPlayers = async (sport: SportType, count: number) => {
+    setLiveSearchSport(sport);
+    setLiveSearchCount(count);
+    setIsLiveSearchEnabled(true);
     setIsDiscovering(true);
     try {
       const results = await discoverUsers(mapCenter.lat, mapCenter.lng, 5000, sport, count); // 5km radius
@@ -440,6 +469,11 @@ function App() {
     } finally {
       setIsDiscovering(false);
     }
+  };
+
+  const handleStopLiveSearch = () => {
+    setIsLiveSearchEnabled(false);
+    setDiscoveredUsers([]);
   };
 
   const handleAddFriend = async (friendUsername: string) => {
@@ -654,6 +688,17 @@ function App() {
             <Activity size={24} />
             Play Sport
           </button>
+
+          {/* Stop Live Search Button */}
+          {isLiveSearchEnabled && (
+            <button
+              onClick={handleStopLiveSearch}
+              className="absolute bottom-24 right-4 bg-red-600 text-white px-4 py-3 rounded-full shadow-xl shadow-red-600/30 font-bold text-sm hover:bg-red-700 hover:scale-105 transition-all z-[1000] flex items-center gap-2"
+            >
+              <X size={18} />
+              Stop Search
+            </button>
+          )}
           
           <PlaySportModal
             isOpen={isPlaySportModalOpen}
