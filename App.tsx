@@ -20,6 +20,9 @@ import { getVenues, addVenue } from './services/venueService';
 import VenueAdminView from './components/VenueAdminView';
 import PlaySportModal from './components/PlaySportModal';
 import UserSelectionView from './components/UserSelectionView';
+import SportAdminView from './components/SportAdminView';
+import { getSportConfigs } from './services/sportService';
+import { SportConfig } from './types';
 
 // Define libraries outside component to prevent re-render loop
 const LIBRARIES: ("places" | "geometry")[] = ["places", "geometry"];
@@ -53,10 +56,12 @@ function App() {
   const [isLive, setIsLive] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isVenueAdminOpen, setIsVenueAdminOpen] = useState(false);
+  const [isSportAdminOpen, setIsSportAdminOpen] = useState(false);
   const [isSharingVenue, setIsSharingVenue] = useState(false);
   const [venueToShare, setVenueToShare] = useState<Venue | null>(null);
   const [isPlaySportModalOpen, setIsPlaySportModalOpen] = useState(false);
   const [broadcastingSport, setBroadcastingSport] = useState<SportType | undefined>(undefined);
+  const [sportConfigs, setSportConfigs] = useState<SportConfig[]>([]);
 
   // Rate limiting for distance matrix
   const lastMatrixCall = useRef<number>(0);
@@ -181,16 +186,18 @@ function App() {
     return () => unsubscribeFriends();
   }, [authUser]);
 
-  // --- Fetch Venues (One-time) ---
+  // --- Fetch Venues & Sports (One-time) ---
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const fetchVenues = async () => {
+    const fetchInitialData = async () => {
         const venueData = await getVenues();
         setVenues(venueData);
+        const sportData = await getSportConfigs();
+        setSportConfigs(sportData);
     };
 
-    fetchVenues();
+    fetchInitialData();
   }, [isAuthenticated]);
 
   // Live Location Update Loop
@@ -612,6 +619,7 @@ function App() {
             userLocation={userLocation}
             onShareVenue={handleShareVenue}
             onAddFriend={handleAddFriend}
+            sportConfigs={sportConfigs}
         />
       </div>
 
@@ -674,6 +682,7 @@ function App() {
           onClose={() => setCurrentTab('explore')}
           onLogout={handleLogout}
           onOpenVenueAdmin={() => setIsVenueAdminOpen(true)}
+          onOpenSportAdmin={() => setIsSportAdminOpen(true)}
         />
       )}
 
@@ -684,10 +693,13 @@ function App() {
         />
       )}
 
-      {isVenueAdminOpen && (
-        <VenueAdminView 
-          onClose={() => setIsVenueAdminOpen(false)}
-          onAddVenue={handleAddVenue}
+      {isSportAdminOpen && (
+        <SportAdminView 
+          onClose={() => setIsSportAdminOpen(false)}
+          onUpdate={async () => {
+            const sportData = await getSportConfigs();
+            setSportConfigs(sportData);
+          }}
         />
       )}
 

@@ -1,5 +1,13 @@
 export type SportType = 'All' | 'Football' | 'Basketball' | 'Badminton' | 'Tennis' | 'Running' | 'Cycling' | 'Yoga';
 
+export interface SportConfig {
+  id: string; // usually same as type
+  type: SportType;
+  label: string;
+  iconUrl?: string; // For UI icons
+  markerUrl?: string; // For Map markers
+}
+
 export interface SkillMetrics {
   endurance: number;
   speed: number;

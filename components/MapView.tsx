@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { User } from '../types';
 import { GoogleMap, MarkerF, InfoWindowF } from '@react-google-maps/api';
-import { Party, SportType, DiscoveryResult, Venue } from '../types';
+import { Party, SportType, DiscoveryResult, Venue, SportConfig } from '../types';
 import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, CheckCircle, Navigation, Car, Trash2, Trophy, Footprints, Bike, PersonStanding, Dribbble, Send } from 'lucide-react';
 import { formatDistance } from '../utils/geospatial';
 import { db } from '../firebase';
@@ -21,6 +21,7 @@ interface MapViewProps {
   loadError?: Error;
   isLive?: boolean;
   userLocation?: google.maps.LatLngLiteral | null;
+  sportConfigs?: SportConfig[];
 }
 
 const getSportIcon = (sport: SportType, className: string) => {
@@ -59,7 +60,18 @@ const mapOptions: google.maps.MapOptions = {
 };
 
 // Helper to generate SVG Data URI for markers based on sport color
-const getMarkerIcon = (sport: SportType): google.maps.Icon => {
+const getMarkerIcon = (sport: SportType, sportConfigs?: SportConfig[]): google.maps.Icon => {
+  const config = sportConfigs?.find(c => c.id === sport);
+  
+  if (config && config.markerUrl) {
+    return {
+      url: config.markerUrl,
+      scaledSize: new google.maps.Size(40, 40),
+      anchor: new google.maps.Point(20, 40)
+    };
+  }
+
+  // Fallback to old SVG if no custom marker is set
   const colorMap: Record<string, string> = {
     Football: '#22c55e', // green-500
     Basketball: '#f97316', // orange-500
@@ -136,7 +148,7 @@ const getVenueMarkerIcon = (): google.maps.Icon => {
   };
 };
 
-const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = [], center, currentUser, currentUserUid, onJoinParty, onShareVenue, onAddFriend, isLoaded, loadError, isLive, userLocation }) => {
+const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = [], center, currentUser, currentUserUid, onJoinParty, onShareVenue, onAddFriend, isLoaded, loadError, isLive, userLocation, sportConfigs }) => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
   const [selectedUser, setSelectedUser] = useState<DiscoveryResult | null>(null);
@@ -299,7 +311,7 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
         <MarkerF
           key={party.id}
           position={{ lat: party.latitude, lng: party.longitude }}
-          icon={getMarkerIcon(party.sport)}
+          icon={getMarkerIcon(party.sport, sportConfigs)}
           onClick={() => {
             setSelectedParty(party);
             setSelectedUser(null);
