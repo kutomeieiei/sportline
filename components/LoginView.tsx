@@ -225,16 +225,43 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   // --- LANDING SCREEN (First View) ---
   if (viewMode === 'landing') {
     return (
-      <div className="relative w-full h-full min-h-screen overflow-hidden flex flex-col font-sans bg-white">
+      <div className="relative w-full h-full min-h-screen overflow-hidden flex flex-col font-sans bg-black">
         
+        {/* Background Video */}
+        <video 
+          autoPlay 
+          loop 
+          muted 
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover opacity-60 z-0"
+        >
+          {/* 
+            HOW TO USE YOUR OWN VIDEO:
+            
+            Option 1: Local File (Recommended for best performance)
+            1. Create a folder named "public" in the root of your project if it doesn't exist.
+            2. Place your video file (e.g., "my-background.mp4") inside the "public" folder.
+            3. Change the src below to: src="/my-background.mp4"
+            
+            Option 2: Direct URL (Like Firebase Storage, AWS S3, or Pixabay)
+            1. Upload your video to a hosting service that provides direct .mp4 links.
+            2. Paste the direct link below.
+            
+            NOTE ON GOOGLE DRIVE: 
+            Google Drive links (like drive.google.com/file/d/...) DO NOT WORK directly in <video> tags 
+            because Google blocks direct streaming. You must use Option 1 or a proper video host.
+          */}
+          <source src="https://pixabay.com/videos/download/video-336704_source.mp4" type="video/mp4" />
+        </video>
+
         {/* Top Bar */}
         <div className="relative z-10 px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
                 {displayHeaderLogo && (
-                    <img src={displayHeaderLogo} alt="Logo" className="h-8 object-contain" />
+                    <img src={displayHeaderLogo} alt="Logo" className="h-8 object-contain brightness-0 invert" />
                 )}
             </div>
-            <button className="text-gray-900 hover:bg-gray-100 p-2 rounded-full transition-colors">
+            <button className="text-white hover:bg-white/20 p-2 rounded-full transition-colors backdrop-blur-sm">
                 <Menu size={28} />
             </button>
         </div>
@@ -246,14 +273,14 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                    <img 
                       src={APP_CONFIG.logoUrl} 
                       alt={APP_CONFIG.appName} 
-                      className="w-80 md:w-96 h-auto object-contain drop-shadow-xl mb-6"
+                      className="w-80 md:w-96 h-auto object-contain drop-shadow-2xl mb-6"
                    />
                 ) : (
                    <>
                      <div className={`w-32 h-32 rounded-[2rem] flex items-center justify-center shadow-2xl mb-6 transform -rotate-6 ${APP_CONFIG.primaryGradient}`}>
                           <Flame className="text-white fill-white" size={64} />
                      </div>
-                     <h1 className="text-5xl font-black text-gray-900 tracking-tighter uppercase drop-shadow-sm">
+                     <h1 className="text-5xl font-black text-white tracking-tighter uppercase drop-shadow-lg">
                          Sport<span className="text-red-500">Line</span>
                      </h1>
                    </>
@@ -265,14 +292,14 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         <div className="relative z-10 px-6 pb-12 w-full max-w-md mx-auto space-y-4">
             <button 
                 onClick={() => { setViewMode('signup'); resetForm(); }}
-                className={`w-full py-3.5 rounded-full text-white font-bold text-lg tracking-wide shadow-lg transform active:scale-95 transition-transform ${APP_CONFIG.primaryGradient}`}
+                className={`w-full py-3.5 rounded-full text-white font-bold text-lg tracking-wide shadow-[0_0_20px_rgba(0,0,0,0.3)] transform active:scale-95 transition-transform ${APP_CONFIG.primaryGradient}`}
             >
                 Create Account
             </button>
 
             <button 
                 onClick={() => { setViewMode('login'); resetForm(); }}
-                className="w-full py-3.5 rounded-full bg-transparent border-2 border-gray-200 text-gray-700 font-bold text-lg tracking-wide hover:bg-gray-50 transform active:scale-95 transition-all"
+                className="w-full py-3.5 rounded-full bg-white/10 backdrop-blur-md border border-white/30 text-white font-bold text-lg tracking-wide hover:bg-white/20 transform active:scale-95 transition-all shadow-[0_0_20px_rgba(0,0,0,0.1)]"
             >
                 Log In
             </button>
