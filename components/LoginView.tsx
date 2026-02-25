@@ -268,41 +268,41 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
         {/* Middle Content */}
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
-            <div className="flex flex-col items-center animate-in zoom-in duration-500">
+            <div className="bg-white/90 backdrop-blur-md p-8 rounded-[2rem] shadow-2xl w-full max-w-md flex flex-col items-center animate-in zoom-in duration-500 border border-white/20">
                 {APP_CONFIG.logoUrl ? (
                    <img 
                       src={APP_CONFIG.logoUrl} 
                       alt={APP_CONFIG.appName} 
-                      className="w-80 md:w-96 h-auto object-contain drop-shadow-2xl mb-6"
+                      className="w-64 md:w-80 h-auto object-contain drop-shadow-xl mb-8"
                    />
                 ) : (
                    <>
-                     <div className={`w-32 h-32 rounded-[2rem] flex items-center justify-center shadow-2xl mb-6 transform -rotate-6 ${APP_CONFIG.primaryGradient}`}>
-                          <Flame className="text-white fill-white" size={64} />
+                     <div className={`w-24 h-24 rounded-2xl flex items-center justify-center shadow-xl mb-6 transform -rotate-6 ${APP_CONFIG.primaryGradient}`}>
+                          <Flame className="text-white fill-white" size={48} />
                      </div>
-                     <h1 className="text-5xl font-black text-white tracking-tighter uppercase drop-shadow-lg">
+                     <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase drop-shadow-sm mb-8">
                          Sport<span className="text-red-500">Line</span>
                      </h1>
                    </>
                 )}
+
+                {/* Actions inside the box */}
+                <div className="w-full space-y-4">
+                    <button 
+                        onClick={() => { setViewMode('signup'); resetForm(); }}
+                        className={`w-full py-3.5 rounded-full text-white font-bold text-lg tracking-wide shadow-lg transform active:scale-95 transition-transform ${APP_CONFIG.primaryGradient}`}
+                    >
+                        Create Account
+                    </button>
+
+                    <button 
+                        onClick={() => { setViewMode('login'); resetForm(); }}
+                        className="w-full py-3.5 rounded-full bg-transparent border-2 border-gray-200 text-gray-700 font-bold text-lg tracking-wide hover:bg-gray-50 transform active:scale-95 transition-all"
+                    >
+                        Log In
+                    </button>
+                </div>
             </div>
-        </div>
-
-        {/* Bottom Actions */}
-        <div className="relative z-10 px-6 pb-12 w-full max-w-md mx-auto space-y-4">
-            <button 
-                onClick={() => { setViewMode('signup'); resetForm(); }}
-                className={`w-full py-3.5 rounded-full text-white font-bold text-lg tracking-wide shadow-[0_0_20px_rgba(0,0,0,0.3)] transform active:scale-95 transition-transform ${APP_CONFIG.primaryGradient}`}
-            >
-                Create Account
-            </button>
-
-            <button 
-                onClick={() => { setViewMode('login'); resetForm(); }}
-                className="w-full py-3.5 rounded-full bg-white/10 backdrop-blur-md border border-white/30 text-white font-bold text-lg tracking-wide hover:bg-white/20 transform active:scale-95 transition-all shadow-[0_0_20px_rgba(0,0,0,0.1)]"
-            >
-                Log In
-            </button>
         </div>
       </div>
     );
