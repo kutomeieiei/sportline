@@ -10,7 +10,7 @@ import ChatListView, { ChatUser } from './components/ChatListView';
 import ChatDetailView from './components/ChatDetailView';
 import { Party, SportType, User, DiscoveryResult, Venue } from './types';
 import { INITIAL_USER, DEFAULT_CENTER } from './constants';
-import { Crosshair, Loader2, Radio, Search, Activity, X } from 'lucide-react';
+import { Crosshair, Loader2, Radio, Search, Activity, X, Users } from 'lucide-react';
 import { auth, db, firebase } from './firebase'; // Import firebase for compat utilities
 import { User as FirebaseUser } from 'firebase/auth';
 import { calculateHaversineDistance } from './utils/geospatial';
@@ -21,6 +21,7 @@ import VenueAdminView from './components/VenueAdminView';
 import PlaySportModal from './components/PlaySportModal';
 import UserSelectionView from './components/UserSelectionView';
 import SportAdminView from './components/SportAdminView';
+import DiscoveredUsersSidebar from './components/DiscoveredUsersSidebar';
 import { getSportConfigs } from './services/sportService';
 import { SportConfig } from './types';
 
@@ -56,6 +57,7 @@ function App() {
   const [isLive, setIsLive] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [isLiveSearchEnabled, setIsLiveSearchEnabled] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [liveSearchSport, setLiveSearchSport] = useState<SportType>('All');
   const [liveSearchCount, setLiveSearchCount] = useState<number>(4);
   const [isVenueAdminOpen, setIsVenueAdminOpen] = useState(false);
@@ -458,6 +460,7 @@ function App() {
     setLiveSearchSport(sport);
     setLiveSearchCount(count);
     setIsLiveSearchEnabled(true);
+    setIsSidebarOpen(true);
     setIsDiscovering(true);
     try {
       const results = await discoverUsers(mapCenter.lat, mapCenter.lng, 5000, sport, count); // 5km radius
@@ -473,6 +476,7 @@ function App() {
 
   const handleStopLiveSearch = () => {
     setIsLiveSearchEnabled(false);
+    setIsSidebarOpen(false);
     setDiscoveredUsers([]);
   };
 
@@ -691,13 +695,22 @@ function App() {
 
           {/* Stop Live Search Button */}
           {isLiveSearchEnabled && (
-            <button
-              onClick={handleStopLiveSearch}
-              className="absolute bottom-24 right-4 bg-red-500 text-white px-5 py-4 rounded-2xl shadow-xl shadow-red-500/20 font-bold text-sm hover:bg-red-600 hover:scale-105 transition-all duration-300 z-[1000] flex items-center gap-2"
-            >
-              <X size={18} />
-              Stop Search
-            </button>
+            <div className="absolute bottom-24 right-4 flex flex-col gap-3 z-[1000]">
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="bg-white/90 backdrop-blur-md text-blue-600 px-5 py-4 rounded-2xl shadow-xl shadow-blue-600/10 font-bold text-sm hover:bg-white hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2 border border-blue-100"
+              >
+                <Users size={18} />
+                View Players ({discoveredUsers.length})
+              </button>
+              <button
+                onClick={handleStopLiveSearch}
+                className="bg-red-500 text-white px-5 py-4 rounded-2xl shadow-xl shadow-red-500/20 font-bold text-sm hover:bg-red-600 hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2"
+              >
+                <X size={18} />
+                Stop Search
+              </button>
+            </div>
           )}
           
           <PlaySportModal
@@ -707,6 +720,12 @@ function App() {
             onToggleBroadcast={handleToggleBroadcast}
             onFindPlayers={handleFindPlayers}
             currentSport={broadcastingSport}
+          />
+
+          <DiscoveredUsersSidebar
+            isOpen={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
+            discoveredUsers={discoveredUsers}
           />
         </>
       )}
