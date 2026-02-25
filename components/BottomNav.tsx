@@ -12,9 +12,9 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onChangeTab }) => {
       
       <button 
         onClick={() => onChangeTab('explore')}
-        className={`flex flex-col items-center gap-1 pb-3 flex-1 transition-all duration-300 ease-in-out ${currentTab === 'explore' ? 'text-gray-900 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
+        className={`flex flex-col items-center gap-1 pb-3 flex-1 transition-all duration-300 ease-in-out ${currentTab === 'explore' ? 'text-blue-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
       >
-        <div className={`p-1.5 rounded-2xl transition-all duration-300 ${currentTab === 'explore' ? 'bg-gray-100' : ''}`}>
+        <div className={`p-1.5 rounded-2xl transition-all duration-300 ${currentTab === 'explore' ? 'bg-blue-50' : ''}`}>
             <Map size={24} strokeWidth={currentTab === 'explore' ? 2.5 : 2} />
         </div>
         <span className="text-[10px] font-semibold tracking-wide">Explore</span>
@@ -22,9 +22,9 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onChangeTab }) => {
 
       <button 
         onClick={() => onChangeTab('chat')}
-        className={`flex flex-col items-center gap-1 pb-3 flex-1 transition-all duration-300 ease-in-out ${currentTab === 'chat' ? 'text-gray-900 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
+        className={`flex flex-col items-center gap-1 pb-3 flex-1 transition-all duration-300 ease-in-out ${currentTab === 'chat' ? 'text-blue-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
       >
-        <div className={`p-1.5 rounded-2xl transition-all duration-300 ${currentTab === 'chat' ? 'bg-gray-100' : ''}`}>
+        <div className={`p-1.5 rounded-2xl transition-all duration-300 ${currentTab === 'chat' ? 'bg-blue-50' : ''}`}>
             <MessageCircle size={24} strokeWidth={currentTab === 'chat' ? 2.5 : 2} />
         </div>
         <span className="text-[10px] font-semibold tracking-wide">Chat</span>
@@ -32,9 +32,9 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onChangeTab }) => {
 
       <button 
         onClick={() => onChangeTab('create')}
-        className={`flex flex-col items-center gap-1 pb-3 flex-1 transition-all duration-300 ease-in-out ${currentTab === 'create' ? 'text-gray-900 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
+        className={`flex flex-col items-center gap-1 pb-3 flex-1 transition-all duration-300 ease-in-out ${currentTab === 'create' ? 'text-blue-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
       >
-         <div className={`p-1.5 rounded-2xl transition-all duration-300 ${currentTab === 'create' ? 'bg-gray-100' : ''}`}>
+         <div className={`p-1.5 rounded-2xl transition-all duration-300 ${currentTab === 'create' ? 'bg-blue-50' : ''}`}>
             <PlusCircle size={24} strokeWidth={currentTab === 'create' ? 2.5 : 2} />
          </div>
         <span className="text-[10px] font-semibold tracking-wide">Create</span>
@@ -42,9 +42,9 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onChangeTab }) => {
 
       <button 
         onClick={() => onChangeTab('settings')}
-        className={`flex flex-col items-center gap-1 pb-3 flex-1 transition-all duration-300 ease-in-out ${currentTab === 'settings' ? 'text-gray-900 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
+        className={`flex flex-col items-center gap-1 pb-3 flex-1 transition-all duration-300 ease-in-out ${currentTab === 'settings' ? 'text-blue-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
       >
-        <div className={`p-1.5 rounded-2xl transition-all duration-300 ${currentTab === 'settings' ? 'bg-gray-100' : ''}`}>
+        <div className={`p-1.5 rounded-2xl transition-all duration-300 ${currentTab === 'settings' ? 'bg-blue-50' : ''}`}>
             <Settings size={24} strokeWidth={currentTab === 'settings' ? 2.5 : 2} />
         </div>
         <span className="text-[10px] font-semibold tracking-wide">Settings</span>

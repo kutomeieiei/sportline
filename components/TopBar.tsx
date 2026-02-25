@@ -182,7 +182,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
                 className={`
                   flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ease-in-out shadow-sm border
                   ${isSelected 
-                    ? 'bg-gray-900 text-white border-gray-900 scale-105' 
+                    ? 'bg-blue-600 text-white border-blue-600 scale-105' 
                     : 'bg-white/80 backdrop-blur-sm text-gray-700 border-white/20 hover:bg-white hover:scale-105'}
                 `}
               >

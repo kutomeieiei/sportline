@@ -151,11 +151,11 @@ const LocationSection: React.FC<{
       </div>
 
       {/* Selected Location Card */}
-      <div className="bg-gray-50 p-3 rounded-xl flex items-center gap-3 border border-gray-200">
-        <MapPin className="text-gray-700 shrink-0" size={20} />
+      <div className="bg-blue-50 p-3 rounded-xl flex items-center gap-3 border border-blue-100">
+        <MapPin className="text-blue-600 shrink-0" size={20} />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-gray-900 truncate">{displayLocationName}</p>
-          <p className="text-xs text-gray-500 truncate">
+          <p className="text-sm font-bold text-blue-900 truncate">{displayLocationName}</p>
+          <p className="text-xs text-blue-600 truncate">
             {selectedLocation.lat.toFixed(4)}, {selectedLocation.lng.toFixed(4)}
           </p>
         </div>
@@ -166,7 +166,7 @@ const LocationSection: React.FC<{
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
         <input 
           type="text" 
-          className="w-full pl-10 p-3 border border-gray-200 rounded-xl outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900 transition-all text-sm bg-gray-50 focus:bg-white"
+          className="w-full pl-10 p-3 border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm bg-gray-50 focus:bg-white"
           placeholder="Search verified venues (Google Maps)..."
           value={locationQuery}
           onChange={(e) => setLocationQuery(e.target.value)}
@@ -222,7 +222,7 @@ const SportSelectionSection: React.FC<{
             onClick={() => setSelectedSport(sport.type)}
             className={`p-3 rounded-xl border text-sm font-medium flex items-center justify-center gap-2 transition-all duration-300
               ${selectedSport === sport.type 
-                ? 'border-gray-900 bg-gray-900 text-white shadow-md scale-[1.02]' 
+                ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm scale-[1.02]' 
                 : 'border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'}`}
           >
             {sport.icon}
@@ -355,7 +355,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
               <input 
                 required
                 type="text" 
-                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-gray-900 focus:ring-1 focus:ring-gray-900 transition-all font-medium"
+                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium"
                 placeholder="e.g. Khon Kaen Weekly Match"
                 value={formData.title}
                 onChange={(e) => setFormData({...formData, title: e.target.value})}
@@ -366,7 +366,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
               <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
               <textarea 
                 rows={3}
-                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-gray-900 focus:ring-1 focus:ring-gray-900 transition-all resize-none font-medium"
+                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none font-medium"
                 placeholder="Details, rules, or requirements..."
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
@@ -381,7 +381,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
                   <input 
                     required
                     type="date" 
-                    className="w-full pl-10 p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-gray-900 focus:ring-1 focus:ring-gray-900 transition-all"
+                    className="w-full pl-10 p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                     value={formData.date}
                     onChange={(e) => setFormData({...formData, date: e.target.value})}
                   />
@@ -396,7 +396,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
                     <input 
                       required
                       type="time" 
-                      className="w-full pl-10 p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-gray-900 focus:ring-1 focus:ring-gray-900 transition-all"
+                      className="w-full pl-10 p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                       value={formData.startTime}
                       onChange={(e) => setFormData({...formData, startTime: e.target.value})}
                     />
@@ -409,7 +409,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
                     <input 
                       required
                       type="time" 
-                      className="w-full pl-10 p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-gray-900 focus:ring-1 focus:ring-gray-900 transition-all"
+                      className="w-full pl-10 p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                       value={formData.endTime}
                       onChange={(e) => setFormData({...formData, endTime: e.target.value})}
                     />
@@ -425,7 +425,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
                     type="number" 
                     min="2"
                     max="50"
-                    className="w-full pl-10 p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-gray-900 focus:ring-1 focus:ring-gray-900 transition-all"
+                    className="w-full pl-10 p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                     value={formData.playersMax}
                     onChange={(e) => setFormData({...formData, playersMax: parseInt(e.target.value)})}
                   />
@@ -442,7 +442,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
           type="submit" 
           form="create-party-form"
           disabled={isSubmitting}
-          className="w-full bg-gray-900 text-white font-bold text-lg py-4 rounded-2xl shadow-xl hover:bg-black active:scale-[0.98] transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+          className="w-full bg-blue-600 text-white font-bold text-lg py-4 rounded-2xl shadow-xl hover:bg-blue-700 active:scale-[0.98] transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
         >
           {isSubmitting ? <Loader2 className="animate-spin" /> : 'Create Party'}
         </button>
