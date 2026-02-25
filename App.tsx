@@ -675,15 +675,6 @@ function App() {
             isLoaded={isMapsLoaded}
           />
 
-          {/* Recenter Button */}
-          <button 
-            onClick={handleRecenter}
-            className="absolute bottom-44 left-4 bg-white/90 backdrop-blur-md p-3.5 rounded-2xl shadow-lg text-gray-700 hover:text-blue-600 hover:bg-white hover:scale-105 transition-all duration-300 z-[1000] border border-white/20"
-            title="Recenter Map"
-          >
-            <Crosshair size={22} />
-          </button>
-
           {/* Play Sport Button */}
           <button
             onClick={() => setIsPlaySportModalOpen(true)}

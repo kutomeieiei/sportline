@@ -107,8 +107,6 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
       <div className="w-full px-4 pt-4 pointer-events-auto relative">
         <div className={`bg-white/90 backdrop-blur-md shadow-sm flex items-center p-3 gap-3 border border-white/20 transition-all duration-300 ease-in-out ${isOpen && suggestions.length > 0 ? 'rounded-t-3xl rounded-b-none' : 'rounded-full hover:shadow-md hover:bg-white'}`}>
           
-          <Menu className="text-gray-500 cursor-pointer min-w-[24px]" size={24} />
-          
           {displayLogo && (
             <div className="h-8 w-auto flex items-center border-r border-gray-200 pr-3 mr-1">
                 <img src={displayLogo} alt="App Logo" className="h-full object-contain" />
