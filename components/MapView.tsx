@@ -64,8 +64,17 @@ const getMarkerIcon = (sport: SportType, sportConfigs?: SportConfig[]): google.m
   const config = sportConfigs?.find(c => c.id === sport);
   
   if (config && config.markerUrl) {
+    let finalUrl = config.markerUrl;
+    // Handle Google Drive links
+    if (finalUrl.includes('drive.google.com/file/d/')) {
+        const match = finalUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+            finalUrl = `https://drive.google.com/uc?export=view&id=${match[1]}`;
+        }
+    }
+
     return {
-      url: config.markerUrl,
+      url: finalUrl,
       scaledSize: new google.maps.Size(40, 40),
       anchor: new google.maps.Point(20, 40)
     };

@@ -310,107 +310,120 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
   // --- LOGIN / SIGNUP FORM (Overlay) ---
   return (
-    <div className="relative w-full h-full min-h-screen overflow-hidden bg-white flex flex-col font-sans">
+    <div className="relative w-full h-full min-h-screen overflow-hidden bg-black flex flex-col font-sans">
        
-       <div className="px-4 py-4 flex items-center">
+       {/* Video Background */}
+       <video 
+          autoPlay 
+          loop 
+          muted 
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none mix-blend-overlay"
+        >
+          <source src="https://pixabay.com/videos/download/video-336704_source.mp4" type="video/mp4" />
+        </video>
+
+       <div className="px-4 py-4 flex items-center relative z-10">
             <button 
                 onClick={() => setViewMode('landing')}
-                className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 -ml-2 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm"
             >
                 <ArrowLeft size={28} />
             </button>
        </div>
 
-       <div className="flex-1 px-8 flex flex-col items-center pt-4 overflow-y-auto">
-            <div className="mb-4">
-                {APP_CONFIG.logoUrl ? (
-                    <img src={APP_CONFIG.logoUrl} alt="Logo" className="h-24 w-auto object-contain drop-shadow-md" />
-                ) : (
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg ${APP_CONFIG.primaryGradient}`}>
-                        <Flame className="text-white fill-white" size={32} />
-                    </div>
-                )}
-            </div>
-
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                {viewMode === 'login' ? 'Welcome Back!' : 'Create Account'}
-            </h2>
-
-            <div className="w-full max-w-sm space-y-6 pb-8">
-                <button
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    disabled={isLoading}
-                    className="w-full py-3.5 rounded-full border border-gray-300 bg-white text-gray-700 font-bold text-base shadow-sm hover:bg-gray-50 flex items-center justify-center gap-3 transition-all active:scale-95"
-                >
-                    <GoogleIcon />
-                    <span>Continue with Google</span>
-                </button>
-
-                <div className="relative flex items-center justify-center">
-                    <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-gray-200"></div>
-                    </div>
-                    <span className="relative bg-white px-4 text-sm text-gray-500 font-medium">or</span>
+       <div className="flex-1 px-6 flex flex-col items-center justify-center pt-4 overflow-y-auto relative z-10 pb-12">
+            <div className="bg-white/90 backdrop-blur-md p-8 rounded-[2rem] shadow-2xl w-full max-w-md flex flex-col items-center animate-in zoom-in duration-500 border border-white/20">
+                <div className="mb-4">
+                    {APP_CONFIG.logoUrl ? (
+                        <img src={APP_CONFIG.logoUrl} alt="Logo" className="h-24 w-auto object-contain drop-shadow-md" />
+                    ) : (
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg ${APP_CONFIG.primaryGradient}`}>
+                            <Flame className="text-white fill-white" size={32} />
+                        </div>
+                    )}
                 </div>
 
-                {error && (
-                    <div className="bg-red-50 p-3 rounded-lg flex items-start gap-2 text-red-600 text-sm">
-                        <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                        <span>{error}</span>
-                    </div>
-                )}
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                    {viewMode === 'login' ? 'Welcome Back!' : 'Create Account'}
+                </h2>
 
-                <form onSubmit={viewMode === 'login' ? handleLoginSubmit : handleSignupSubmit} className="space-y-4">
-                    
-                    {viewMode === 'signup' && (
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-600 mb-2">Display Name</label>
-                            <input
-                                type="text"
-                                required
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-gray-900 font-medium"
-                                placeholder="e.g. John Doe"
-                            />
+                <div className="w-full space-y-6">
+                    <button
+                        type="button"
+                        onClick={handleGoogleLogin}
+                        disabled={isLoading}
+                        className="w-full py-3.5 rounded-full border border-gray-300 bg-white text-gray-700 font-bold text-base shadow-sm hover:bg-gray-50 flex items-center justify-center gap-3 transition-all active:scale-95"
+                    >
+                        <GoogleIcon />
+                        <span>Continue with Google</span>
+                    </button>
+
+                    <div className="relative flex items-center justify-center">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-gray-200"></div>
+                        </div>
+                        <span className="relative bg-white px-4 text-sm text-gray-500 font-medium">or</span>
+                    </div>
+
+                    {error && (
+                        <div className="bg-red-50 p-3 rounded-lg flex items-start gap-2 text-red-600 text-sm">
+                            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                            <span>{error}</span>
                         </div>
                     )}
 
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-600 mb-2">Email</label>
-                        <input
-                            type="email"
-                            required
-                            autoFocus
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-gray-900 font-medium"
-                            placeholder="name@example.com"
-                        />
-                    </div>
+                    <form onSubmit={viewMode === 'login' ? handleLoginSubmit : handleSignupSubmit} className="space-y-4">
+                        
+                        {viewMode === 'signup' && (
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-600 mb-2">Display Name</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-gray-900 font-medium"
+                                    placeholder="e.g. John Doe"
+                                />
+                            </div>
+                        )}
 
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-600 mb-2">Password</label>
-                        <input
-                            type="password"
-                            required
-                            minLength={6}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-gray-900 font-medium"
-                            placeholder="••••••"
-                        />
-                    </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-600 mb-2">Email</label>
+                            <input
+                                type="email"
+                                required
+                                autoFocus
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-gray-900 font-medium"
+                                placeholder="name@example.com"
+                            />
+                        </div>
 
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className={`w-full py-3.5 rounded-full text-white font-bold text-lg tracking-wide shadow-lg transform active:scale-95 transition-transform ${APP_CONFIG.primaryGradient}`}
-                    >
-                        {isLoading ? <Loader2 className="animate-spin mx-auto" /> : (viewMode === 'login' ? 'Log In' : 'Create Account')}
-                    </button>
-                </form>
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-600 mb-2">Password</label>
+                            <input
+                                type="password"
+                                required
+                                minLength={6}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-gray-900 font-medium"
+                                placeholder="••••••"
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className={`w-full py-3.5 rounded-full text-white font-bold text-lg tracking-wide shadow-lg transform active:scale-95 transition-transform ${APP_CONFIG.primaryGradient}`}
+                        >
+                            {isLoading ? <Loader2 className="animate-spin mx-auto" /> : (viewMode === 'login' ? 'Log In' : 'Create Account')}
+                        </button>
+                    </form>
+                </div>
             </div>
        </div>
     </div>

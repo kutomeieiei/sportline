@@ -2,12 +2,23 @@ import { Party, User, SportType } from './types';
 import React from 'react';
 import {Footprints, Bike, PersonStanding, Activity} from 'lucide-react';
 
+export const parseGoogleDriveLink = (url: string): string => {
+    if (!url) return url;
+    if (url.includes('drive.google.com/file/d/')) {
+        const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+            return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+        }
+    }
+    return url;
+};
+
 export const APP_CONFIG = {
   // ✨ CONFIGURATION: Main Logo (Large) - Used in Landing Center and Login Form
-  logoUrl: "https://cdn.discordapp.com/attachments/1198199524955529287/1470809699958919291/1770738733559.png?ex=699dc946&is=699c77c6&hm=771f2d86f029cc4cf8e911faf8704dead0a7f44710198104afcb784078db0ef8&", 
+  logoUrl: parseGoogleDriveLink("https://drive.google.com/file/d/1ATCNkuyDtZeq16R6ht19lVp28qjVRORU/view?usp=drive_link"), 
   
   // ✨ CONFIGURATION: Header Logo (Small) - Used in Top Left Bar
-  headerLogoUrl: "https://cdn.discordapp.com/attachments/1198199524955529287/1470810545341989091/1770738946579.png?ex=699dca10&is=699c7890&hm=70577491fce511f58b3e657602fa48ee9e044b5c73348457180fca3f6f12902b&", 
+  headerLogoUrl: parseGoogleDriveLink("https://drive.google.com/file/d/1jcrV3A4xy-jiZjAuxJ2HzkaI2Soiz6JP/view?usp=drive_link"), 
 
   appName: "Sport Line",
   primaryGradient: "bg-gradient-to-r from-red-500 to-pink-600",
