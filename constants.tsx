@@ -15,7 +15,7 @@ export const parseGoogleDriveLink = (url: string): string => {
 
 export const APP_CONFIG = {
   // ✨ CONFIGURATION: Main Logo (Large) - Used in Landing Center and Login Form
-  logoUrl: parseGoogleDriveLink("https://drive.google.com/file/d/1ATCNkuyDtZeq16R6ht19lVp28qjVRORU/view?usp=drive_link"), 
+  logoUrl: parseGoogleDriveLink("https://drive.google.com/file/d/10VbhRdXGv0xk9L4fXRAHLlYG5R3S0rW5/view?usp=drive_link"), 
   
   // ✨ CONFIGURATION: Header Logo (Small) - Used in Top Left Bar
   headerLogoUrl: parseGoogleDriveLink("https://drive.google.com/file/d/1jcrV3A4xy-jiZjAuxJ2HzkaI2Soiz6JP/view?usp=drive_link"), 

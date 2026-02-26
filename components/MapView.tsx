@@ -316,17 +316,55 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
         />
       )}
 
-      {parties.map((party) => (
-        <MarkerF
-          key={party.id}
-          position={{ lat: party.latitude, lng: party.longitude }}
-          icon={getMarkerIcon(party.sport, sportConfigs)}
-          onClick={() => {
-            setSelectedParty(party);
-            setSelectedUser(null);
-          }}
-        />
-      ))}
+      {parties.map((party) => {
+        const config = sportConfigs?.find(c => c.id === party.sport);
+        let customUrl = config?.markerUrl;
+        
+        if (customUrl) {
+            if (customUrl.includes('drive.google.com/file/d/')) {
+                const match = customUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                if (match && match[1]) {
+                    customUrl = `https://lh3.googleusercontent.com/d/${match[1]}`;
+                }
+            }
+            return (
+              <OverlayViewF
+                key={party.id}
+                position={{ lat: party.latitude, lng: party.longitude }}
+                mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+              >
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedParty(party);
+                    setSelectedUser(null);
+                  }}
+                  className="relative flex items-center justify-center cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:scale-110 transition-transform z-10"
+                  style={{ width: '48px', height: '48px' }}
+                >
+                  <img 
+                    src={customUrl} 
+                    alt={party.sport}
+                    className="w-full h-full object-contain drop-shadow-md"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              </OverlayViewF>
+            );
+        }
+
+        return (
+          <MarkerF
+            key={party.id}
+            position={{ lat: party.latitude, lng: party.longitude }}
+            icon={getMarkerIcon(party.sport, sportConfigs)}
+            onClick={() => {
+              setSelectedParty(party);
+              setSelectedUser(null);
+            }}
+          />
+        );
+      })}
 
         {/* Discovered User Markers */}
         {discoveredUsers.map((result) => (

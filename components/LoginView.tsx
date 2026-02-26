@@ -318,7 +318,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
           loop 
           muted 
           playsInline
-          className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none mix-blend-overlay"
+          className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none z-0"
         >
           <source src="https://pixabay.com/videos/download/video-336704_source.mp4" type="video/mp4" />
         </video>
