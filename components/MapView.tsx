@@ -69,7 +69,7 @@ const getMarkerIcon = (sport: SportType, sportConfigs?: SportConfig[]): google.m
     if (finalUrl.includes('drive.google.com/file/d/')) {
         const match = finalUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
         if (match && match[1]) {
-            finalUrl = `https://drive.google.com/uc?export=view&id=${match[1]}`;
+            finalUrl = `https://lh3.googleusercontent.com/d/${match[1]}`;
         }
     }
 

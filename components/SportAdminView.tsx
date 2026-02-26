@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, Loader2, Image as ImageIcon } from 'lucide-react';
 import { SportConfig, SportType } from '../types';
 import { getSportConfigs, updateSportConfig } from '../services/sportService';
-import { SPORTS_LIST } from '../constants';
+import { SPORTS_LIST, parseGoogleDriveLink } from '../constants';
 
 interface SportAdminViewProps {
   onClose: () => void;
@@ -95,7 +95,7 @@ const SportAdminView: React.FC<SportAdminViewProps> = ({ onClose, onUpdate }) =>
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-gray-800">{config.label}</span>
                     {config.markerUrl ? (
-                      <img src={config.markerUrl} alt={config.label} className="w-8 h-8 object-contain drop-shadow-md" />
+                      <img src={parseGoogleDriveLink(config.markerUrl)} alt={config.label} className="w-8 h-8 object-contain drop-shadow-md" />
                     ) : (
                       <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-400">
                         <ImageIcon size={16} />
