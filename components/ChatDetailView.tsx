@@ -253,7 +253,7 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
             >
               {!isMe && (
                  <img 
-                    src={sender ? sender.avatarUrl : chatUser.avatarUrl} 
+                    src={sender ? (sender.profile_img_url || sender.avatarUrl) : chatUser.avatarUrl} 
                     className="w-8 h-8 rounded-full self-end mr-2 mb-1" 
                     title={sender ? sender.displayName : chatUser.name}
                  />

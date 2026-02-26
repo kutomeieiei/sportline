@@ -669,7 +669,7 @@ function App() {
           <TopBar 
             selectedSport={selectedSport} 
             onSelectSport={setSelectedSport}
-            userAvatar={user.avatarUrl}
+            userAvatar={user.profile_img_url || user.avatarUrl || 'https://i.pravatar.cc/150'}
             onAvatarClick={() => setCurrentTab('settings')}
             onLocationSelect={handleLocationSelect}
             isLoaded={isMapsLoaded}

@@ -105,8 +105,8 @@ const ChatListView: React.FC<ChatListViewProps> = ({
 
             return {
               id: otherUserId,
-              name: userData.displayName,
-              avatarUrl: userData.avatarUrl,
+              name: userData.display_name || userData.displayName || 'Unknown',
+              avatarUrl: userData.profile_img_url || userData.avatarUrl || 'https://i.pravatar.cc/150',
               isGroup: false,
               isOnline: userData.isOnline,
               lastMessage: lastMessage ? { text: lastMessage.text, timestamp: lastMessage.timestamp } : undefined,
@@ -132,8 +132,8 @@ const ChatListView: React.FC<ChatListViewProps> = ({
       const chatInfo = friendChatsMap.get(f.uid);
       return {
         id: f.uid,
-        name: f.displayName || f.display_name || 'Unknown',
-        avatarUrl: f.avatarUrl || f.profile_img_url || 'https://i.pravatar.cc/150',
+        name: f.display_name || f.displayName || 'Unknown',
+        avatarUrl: f.profile_img_url || f.avatarUrl || 'https://i.pravatar.cc/150',
         isOnline: f.isOnline,
         lastMessage: chatInfo?.lastMessage,
         isGroup: false,
@@ -144,8 +144,8 @@ const ChatListView: React.FC<ChatListViewProps> = ({
     .filter(f => f.uid)
     .map(f => ({
       id: f.uid,
-      name: f.displayName || f.display_name || 'Unknown',
-      avatarUrl: f.avatarUrl || f.profile_img_url || 'https://i.pravatar.cc/150',
+      name: f.display_name || f.displayName || 'Unknown',
+      avatarUrl: f.profile_img_url || f.avatarUrl || 'https://i.pravatar.cc/150',
       statusText: 'Sent you a friend request',
       isOnline: false,
     }));
@@ -200,8 +200,8 @@ const ChatListView: React.FC<ChatListViewProps> = ({
     .filter(f => f.uid)
     .map(f => ({ 
       id: f.uid, 
-      name: f.displayName || f.display_name || 'Unknown', 
-      avatarUrl: f.avatarUrl || f.profile_img_url || 'https://i.pravatar.cc/150' 
+      name: f.display_name || f.displayName || 'Unknown', 
+      avatarUrl: f.profile_img_url || f.avatarUrl || 'https://i.pravatar.cc/150' 
     })) as ChatUser[];
 
   if (isCreatingGroup) {

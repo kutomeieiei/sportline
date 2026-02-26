@@ -45,7 +45,7 @@ const UserSelectionView: React.FC<UserSelectionViewProps> = ({ friends, onShare,
                   onClick={() => toggleSelection(friend.uid)}
                   className="p-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors"
                 >
-                  <img src={friend.avatarUrl} alt={friend.displayName} className="w-12 h-12 rounded-full object-cover" />
+                  <img src={friend.profile_img_url || friend.avatarUrl || 'https://i.pravatar.cc/150'} alt={friend.displayName} className="w-12 h-12 rounded-full object-cover" />
                   <div className="flex-1">
                       <p className="font-bold text-gray-800">{friend.displayName}</p>
                       <p className="text-sm text-gray-500">@{friend.username}</p>
