@@ -254,17 +254,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
           <source src="https://pixabay.com/videos/download/video-336704_source.mp4" type="video/mp4" />
         </video>
 
-        {/* Top Bar */}
-        <div className="relative z-10 px-4 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-                {displayHeaderLogo && (
-                    <img src={displayHeaderLogo} alt="Logo" className="h-8 object-contain brightness-0 invert" />
-                )}
-            </div>
-            <button className="text-white hover:bg-white/20 p-2 rounded-full transition-colors backdrop-blur-sm">
-                <Menu size={28} />
-            </button>
-        </div>
+
 
         {/* Middle Content */}
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
