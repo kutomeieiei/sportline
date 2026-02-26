@@ -547,7 +547,7 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
                       {partyMembers.map(member => (
                           <img 
                               key={member.uid}
-                              src={member.avatarUrl}
+                              src={member.profile_img_url || member.avatarUrl || 'https://i.pravatar.cc/150'}
                               alt={member.displayName}
                               title={member.displayName}
                               className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"
