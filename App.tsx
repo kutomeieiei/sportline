@@ -678,28 +678,28 @@ function App() {
           {/* Play Sport Button */}
           <button
             onClick={() => setIsPlaySportModalOpen(true)}
-            className="absolute bottom-24 left-4 bg-blue-600 text-white px-6 py-4 rounded-2xl shadow-xl shadow-blue-600/20 font-bold text-lg hover:bg-blue-700 hover:scale-105 transition-all duration-300 z-[1000] flex items-center gap-3"
+            className="absolute bottom-24 left-4 bg-blue-600 text-white px-3 md:px-6 py-2.5 md:py-4 rounded-2xl shadow-xl shadow-blue-600/20 font-bold text-xs md:text-lg hover:bg-blue-700 hover:scale-105 transition-all duration-300 z-[1000] flex items-center gap-1.5 md:gap-3"
           >
-            <Activity size={22} />
-            Play Sport
+            <Activity size={18} className="md:w-6 md:h-6" />
+            <span>Play Sport</span>
           </button>
 
           {/* Stop Live Search Button */}
           {isLiveSearchEnabled && (
-            <div className="absolute bottom-24 right-4 flex flex-col gap-3 z-[1000]">
+            <div className="absolute bottom-24 right-4 flex flex-col gap-2 md:gap-3 z-[1000]">
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className="bg-white/90 backdrop-blur-md text-blue-600 px-5 py-4 rounded-2xl shadow-xl shadow-blue-600/10 font-bold text-sm hover:bg-white hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2 border border-blue-100"
+                className="bg-white/90 backdrop-blur-md text-blue-600 px-3 md:px-5 py-2.5 md:py-4 rounded-2xl shadow-xl shadow-blue-600/10 font-bold text-[10px] md:text-sm hover:bg-white hover:scale-105 transition-all duration-300 flex items-center justify-center gap-1.5 md:gap-2 border border-blue-100"
               >
-                <Users size={18} />
-                View Players ({discoveredUsers.length})
+                <Users size={14} className="md:w-5 md:h-5" />
+                <span>View Players ({discoveredUsers.length})</span>
               </button>
               <button
                 onClick={handleStopLiveSearch}
-                className="bg-red-500 text-white px-5 py-4 rounded-2xl shadow-xl shadow-red-500/20 font-bold text-sm hover:bg-red-600 hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2"
+                className="bg-red-500 text-white px-3 md:px-5 py-2.5 md:py-4 rounded-2xl shadow-xl shadow-red-500/20 font-bold text-[10px] md:text-sm hover:bg-red-600 hover:scale-105 transition-all duration-300 flex items-center justify-center gap-1.5 md:gap-2"
               >
-                <X size={18} />
-                Stop Search
+                <X size={14} className="md:w-5 md:h-5" />
+                <span>Stop Search</span>
               </button>
             </div>
           )}
