@@ -448,15 +448,21 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
               </div>
             )}
 
-            {selectedUser.user?.preferred_sports && selectedUser.user.preferred_sports.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                    {selectedUser.user.preferred_sports.map(s => (
-                        <span key={s} className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded-full font-medium">
-                            {s}
-                        </span>
-                    ))}
-                </div>
-            )}
+            {(() => {
+                const sports = selectedUser.user?.preferred_sports || (selectedUser.user as any)?.preferredSports || [];
+                if (sports.length > 0) {
+                    return (
+                        <div className="flex flex-wrap gap-1">
+                            {sports.map((s: string) => (
+                                <span key={s} className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded-full font-medium">
+                                    {s}
+                                </span>
+                            ))}
+                        </div>
+                    );
+                }
+                return null;
+            })()}
             
             {selectedUser.user?.username && selectedUser.user.username !== currentUser && (
                 <button

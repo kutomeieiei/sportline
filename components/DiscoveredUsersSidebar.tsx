@@ -49,7 +49,7 @@ const DiscoveredUsersSidebar: React.FC<DiscoveredUsersSidebarProps> = ({ isOpen,
               const distanceKm = (result.precise_distance / 1000).toFixed(1);
               const displayName = user?.display_name || user?.displayName || user?.username || 'Unknown Player';
               const avatar = user?.profile_img_url || user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${result.uid}`;
-              const sports = user?.preferred_sports || (result.location.sport ? [result.location.sport] : []);
+              const sports = user?.preferred_sports || (user as any)?.preferredSports || (result.location.sport ? [result.location.sport] : []);
 
               return (
                 <div 
