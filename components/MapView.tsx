@@ -449,7 +449,20 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
             )}
 
             {(() => {
+                const broadcastedSport = selectedUser.location.sport;
                 const sports = selectedUser.user?.preferred_sports || (selectedUser.user as any)?.preferredSports || [];
+                
+                if (broadcastedSport && broadcastedSport !== 'All') {
+                    return (
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500 font-medium">Looking for:</span>
+                            <span className="text-[10px] bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full font-bold">
+                                {broadcastedSport}
+                            </span>
+                        </div>
+                    );
+                }
+
                 if (sports.length > 0) {
                     return (
                         <div className="flex flex-wrap gap-1">

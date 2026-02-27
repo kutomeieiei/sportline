@@ -49,7 +49,8 @@ const DiscoveredUsersSidebar: React.FC<DiscoveredUsersSidebarProps> = ({ isOpen,
               const distanceKm = (result.precise_distance / 1000).toFixed(1);
               const displayName = user?.display_name || user?.displayName || user?.username || 'Unknown Player';
               const avatar = user?.profile_img_url || user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${result.uid}`;
-              const sports = user?.preferred_sports || (user as any)?.preferredSports || (result.location.sport ? [result.location.sport] : []);
+              const broadcastedSport = result.location.sport;
+              const preferredSports = user?.preferred_sports || (user as any)?.preferredSports || [];
 
               return (
                 <div 
@@ -71,9 +72,18 @@ const DiscoveredUsersSidebar: React.FC<DiscoveredUsersSidebarProps> = ({ isOpen,
                     </div>
                   </div>
 
-                  {sports.length > 0 && (
+                  {broadcastedSport && broadcastedSport !== 'All' && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-gray-500 font-medium">Looking for:</span>
+                      <span className="px-2.5 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-full border border-green-200">
+                        {broadcastedSport}
+                      </span>
+                    </div>
+                  )}
+
+                  {(!broadcastedSport || broadcastedSport === 'All') && preferredSports.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-1">
-                      {sports.map((sport, idx) => (
+                      {preferredSports.map((sport: string, idx: number) => (
                         <span 
                           key={idx} 
                           className="px-2.5 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-full border border-blue-100"
