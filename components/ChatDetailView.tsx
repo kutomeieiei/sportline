@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Phone, Video, Info, Send, Image as ImageIcon, Smile, Mic, Square, Loader2 } from 'lucide-react';
+import { ArrowLeft, Phone, Video, Info, Send, Image as ImageIcon, Smile, Mic, Square, Loader2, LogOut, UserMinus, MoreVertical } from 'lucide-react';
 import { ChatUser } from './ChatListView';
 import { User, Venue } from '../types'; // Import User and Venue types
 import { db, storage, firebase } from '../firebase'; // Import db and storage
@@ -41,7 +41,54 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const chatId = chatUser.isGroup ? chatUser.id : [currentUser.uid, chatUser.id].sort().join('_');
+
+  const handleLeaveGroup = async () => {
+    if (!window.confirm("Are you sure you want to leave this group?")) return;
+    
+    try {
+      // Remove from chat members
+      await db.collection('chats').doc(chatId).update({
+        members: firebase.firestore.FieldValue.arrayRemove(currentUser.uid)
+      });
+
+      // Try to remove from party if it exists (assuming party ID matches chat ID)
+      const partyRef = db.collection('parties').doc(chatId);
+      const partyDoc = await partyRef.get();
+      
+      if (partyDoc.exists) {
+        const currentPlayers = partyDoc.data()?.playersCurrent || 1;
+        await partyRef.update({
+          members: firebase.firestore.FieldValue.arrayRemove(currentUser.username),
+          playersCurrent: Math.max(0, currentPlayers - 1)
+        });
+      }
+
+      onBack();
+    } catch (error) {
+      console.error("Error leaving group:", error);
+      alert("Failed to leave group.");
+    }
+  };
+
+  const handleRemoveFriend = async () => {
+    if (!window.confirm(`Are you sure you want to remove ${chatUser.name} from your friends?`)) return;
+
+    try {
+      // Remove from my friends list
+      await db.collection('users').doc(currentUser.uid).collection('friends').doc(chatUser.id).delete();
+      
+      // Remove me from their friends list
+      await db.collection('users').doc(chatUser.id).collection('friends').doc(currentUser.uid).delete();
+
+      onBack();
+    } catch (error) {
+      console.error("Error removing friend:", error);
+      alert("Failed to remove friend.");
+    }
+  };
 
   // Message Listener
   useEffect(() => {
@@ -233,10 +280,34 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4 text-blue-600">
+        <div className="flex items-center gap-4 text-blue-600 relative">
           <Phone size={24} />
           <Video size={24} />
-          <Info size={24} />
+          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+            <MoreVertical size={24} />
+          </button>
+          
+          {isMenuOpen && (
+            <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+              {chatUser.isGroup ? (
+                <button 
+                  onClick={handleLeaveGroup}
+                  className="w-full px-4 py-3 text-left text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
+                >
+                  <LogOut size={18} />
+                  <span className="font-medium text-sm">Leave Group</span>
+                </button>
+              ) : (
+                <button 
+                  onClick={handleRemoveFriend}
+                  className="w-full px-4 py-3 text-left text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
+                >
+                  <UserMinus size={18} />
+                  <span className="font-medium text-sm">Remove Friend</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
