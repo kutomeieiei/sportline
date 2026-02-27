@@ -304,7 +304,8 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
             ...partyData
         };
 
-        await createGroupChat(docRef.id, newParty.title, currentUser.uid, currentUser.avatarUrl);
+        const partyAvatarUrl = currentUser.profile_img_url || currentUser.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(newParty.title)}&background=random`;
+        await createGroupChat(docRef.id, newParty.title, currentUser.uid, partyAvatarUrl);
         
         onCreate(newParty);
     } catch (error: unknown) {

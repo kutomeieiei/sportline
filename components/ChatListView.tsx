@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase'; // Import db from firebase
 import { Plus, Check, Users, Camera, UserPlus } from 'lucide-react';
 import { User } from '../types'; // Import User type
@@ -37,10 +37,29 @@ const ChatListView: React.FC<ChatListViewProps> = ({
 }) => {
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [groupName, setGroupName] = useState('');
+  const [groupAvatarUrl, setGroupAvatarUrl] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'friends' | 'groups' | 'requests'>('friends');
   const [addFriendUsername, setAddFriendUsername] = useState('');
   const [allChats, setAllChats] = useState<ChatUser[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Image is too large. Please select an image under 2MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      setGroupAvatarUrl(result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const formatTimestamp = (timestamp: any) => {
     if (!timestamp) return '';
@@ -167,7 +186,7 @@ const ChatListView: React.FC<ChatListViewProps> = ({
         isGroup: true,
         members: [...selectedIds, currentUser.uid],
         createdAt: new Date(),
-        avatarUrl: 'https://i.pravatar.cc/150?u=group'
+        avatarUrl: groupAvatarUrl.trim() || `https://ui-avatars.com/api/?name=${encodeURIComponent(groupName.trim())}&background=random`
       };
 
       const docRef = await db.collection('chats').add(newGroupData);
@@ -182,6 +201,7 @@ const ChatListView: React.FC<ChatListViewProps> = ({
 
       setIsCreatingGroup(false);
       setGroupName('');
+      setGroupAvatarUrl('');
       setSelectedIds([]);
       setActiveTab('groups');
       
@@ -222,23 +242,40 @@ const ChatListView: React.FC<ChatListViewProps> = ({
                 </button>
             </div>
 
-            <div className="p-6 bg-white border-b border-gray-100">
+            <div className="p-6 bg-white border-b border-gray-100 space-y-4">
                 <div className="flex items-center gap-4">
-                     <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 border border-blue-100 shadow-sm shrink-0">
-                        {groupName ? (
+                     <div 
+                        className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 border border-blue-100 shadow-sm shrink-0 overflow-hidden relative group cursor-pointer"
+                        onClick={() => fileInputRef.current?.click()}
+                     >
+                        {groupAvatarUrl ? (
+                            <img src={groupAvatarUrl} alt="Group Avatar" className="w-full h-full object-cover" />
+                        ) : groupName ? (
                              <span className="text-xl font-bold">{groupName[0].toUpperCase()}</span>
                         ) : (
                              <Camera size={24} />
                         )}
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Camera size={20} className="text-white" />
+                        </div>
                      </div>
                      <input 
-                        type="text" 
-                        placeholder="Group Name"
-                        className="flex-1 text-lg font-semibold outline-none placeholder-gray-400 bg-transparent"
-                        value={groupName}
-                        onChange={(e) => setGroupName(e.target.value)}
-                        autoFocus
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleFileSelect} 
+                        accept="image/*" 
+                        className="hidden" 
                      />
+                     <div className="flex-1 space-y-2">
+                         <input 
+                            type="text" 
+                            placeholder="Group Name"
+                            className="w-full text-lg font-semibold outline-none placeholder-gray-400 bg-transparent"
+                            value={groupName}
+                            onChange={(e) => setGroupName(e.target.value)}
+                            autoFocus
+                         />
+                     </div>
                 </div>
             </div>
 
