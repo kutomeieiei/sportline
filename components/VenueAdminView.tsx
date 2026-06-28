@@ -60,61 +60,61 @@ const VenueAdminView: React.FC<VenueAdminViewProps> = ({ onClose, onAddVenue }) 
   };
 
   return (
-    <div className="absolute inset-0 bg-black bg-opacity-50 z-[2000] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
-        <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-800">Add New Sports Venue</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100">
-            <X className="w-6 h-6 text-gray-600" />
+    <div className="absolute inset-0 bg-black/80 z-[2000] flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-zinc-950 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col border border-zinc-800 animate-in zoom-in-95 duration-200">
+        <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
+          <h2 className="text-xl font-bold text-white tracking-tight">Add New Sports Venue</h2>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-zinc-800 transition-colors active:scale-95">
+            <X className="w-6 h-6 text-zinc-400 hover:text-white" />
           </button>
         </div>
         <form id="venue-admin-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Venue Name</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required />
+            <label className="block text-sm font-medium text-zinc-300">Venue Name</label>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-red-900/50 focus:border-red-500 sm:text-sm transition-all" required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Description</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
+            <label className="block text-sm font-medium text-zinc-300">Description</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="mt-1 block w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-red-900/50 focus:border-red-500 sm:text-sm transition-all"></textarea>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Image URL</label>
-            <input type="url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/image.png" className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+            <label className="block text-sm font-medium text-zinc-300">Image URL</label>
+            <input type="url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/image.png" className="mt-1 block w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg shadow-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-red-900/50 focus:border-red-500 sm:text-sm transition-all" />
           </div>
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700">Latitude</label>
-              <input type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required />
+              <label className="block text-sm font-medium text-zinc-300">Latitude</label>
+              <input type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-red-900/50 focus:border-red-500 sm:text-sm transition-all" required />
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700">Longitude</label>
-              <input type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required />
+              <label className="block text-sm font-medium text-zinc-300">Longitude</label>
+              <input type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-red-900/50 focus:border-red-500 sm:text-sm transition-all" required />
             </div>
           </div>
           
           <div className="pt-2">
-            <h3 className="text-lg font-medium text-gray-800">Courts / Fields</h3>
+            <h3 className="text-lg font-medium text-white">Courts / Fields</h3>
             <div className="space-y-3 mt-2">
               {courts.map((court, index) => (
-                <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border">
-                  <input type="text" placeholder="Court Name (e.g., Court 1)" value={court.name} onChange={(e) => handleCourtChange(index, 'name', e.target.value)} className="flex-1 px-2 py-1 border border-gray-300 rounded-md text-sm" required />
-                  <select value={court.sport} onChange={(e) => handleCourtChange(index, 'sport', e.target.value)} className="px-2 py-1 border border-gray-300 rounded-md text-sm">
+                <div key={index} className="flex items-center gap-2 p-2 bg-zinc-900/50 rounded-lg border border-zinc-800">
+                  <input type="text" placeholder="Court Name (e.g., Court 1)" value={court.name} onChange={(e) => handleCourtChange(index, 'name', e.target.value)} className="flex-1 px-3 py-1.5 bg-zinc-950 border border-zinc-700 rounded-md text-sm text-white focus:outline-none focus:ring-1 focus:ring-red-500 placeholder-zinc-600" required />
+                  <select value={court.sport} onChange={(e) => handleCourtChange(index, 'sport', e.target.value)} className="px-2 py-1.5 bg-zinc-950 border border-zinc-700 rounded-md text-sm text-white focus:outline-none focus:ring-1 focus:ring-red-500">
                     {SPORT_TYPES.map(sport => <option key={sport} value={sport}>{sport}</option>)}
                   </select>
-                  <button type="button" onClick={() => removeCourt(index)} className="p-2 text-red-500 hover:bg-red-100 rounded-full">
+                  <button type="button" onClick={() => removeCourt(index)} className="p-2 text-red-500 hover:bg-red-900/20 rounded-full transition-colors active:scale-95">
                     <Trash2 size={16} />
                   </button>
                 </div>
               ))}
             </div>
-            <button type="button" onClick={addCourt} className="mt-2 flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-800">
+            <button type="button" onClick={addCourt} className="mt-4 flex items-center gap-2 text-sm font-bold text-red-500 hover:text-red-400 transition-colors active:scale-95">
               <Plus size={16} /> Add Court
             </button>
           </div>
         </form>
-        <div className="p-4 bg-gray-50 border-t flex justify-end gap-3">
-          <button onClick={onClose} type="button" className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Cancel</button>
-          <button form="venue-admin-form" disabled={isSubmitting} type="submit" className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">
+        <div className="p-4 bg-zinc-950 border-t border-zinc-800 rounded-b-2xl flex justify-end gap-3">
+          <button onClick={onClose} type="button" className="px-6 py-2.5 text-sm font-bold text-zinc-400 bg-transparent hover:bg-zinc-900 rounded-xl transition-colors active:scale-95">Cancel</button>
+          <button form="venue-admin-form" disabled={isSubmitting} type="submit" className="inline-flex justify-center px-6 py-2.5 text-sm font-bold text-white bg-red-600 border border-transparent rounded-xl shadow-lg shadow-red-900/20 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:shadow-none active:scale-95 transition-all">
             {isSubmitting ? 'Saving...' : 'Save Venue'}
           </button>
         </div>

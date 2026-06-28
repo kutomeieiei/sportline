@@ -28,6 +28,29 @@ const mapOptions: google.maps.MapOptions = {
   mapTypeControl: false,
   streetViewControl: false,
   fullscreenControl: false,
+  styles: [
+    { elementType: "geometry", stylers: [{ color: "#212121" }] },
+    { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+    { elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: "#212121" }] },
+    { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#757575" }] },
+    { featureType: "administrative.country", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
+    { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] },
+    { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#bdbdbd" }] },
+    { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+    { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#181818" }] },
+    { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+    { featureType: "poi.park", elementType: "labels.text.stroke", stylers: [{ color: "#1b1b1b" }] },
+    { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#2c2c2c" }] },
+    { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#8a8a8a" }] },
+    { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#373737" }] },
+    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#3c3c3c" }] },
+    { featureType: "road.highway.controlled_access", elementType: "geometry", stylers: [{ color: "#4e4e4e" }] },
+    { featureType: "road.local", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+    { featureType: "transit", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#000000" }] },
+    { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#3d3d3d" }] }
+  ]
 };
 
 // --- SUB-COMPONENTS ---
@@ -125,10 +148,10 @@ const LocationSection: React.FC<{
 
   return (
     <div className="space-y-4">
-      <label className="block text-sm font-semibold text-gray-700">Match Location</label>
+      <label className="block text-sm font-semibold text-zinc-300">Match Location</label>
       
       {/* Map Display */}
-      <div className="relative border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+      <div className="relative border border-zinc-700 rounded-xl overflow-hidden shadow-sm">
         {isLoaded ? (
           <GoogleMap
             mapContainerStyle={mapContainerStyle}
@@ -144,18 +167,18 @@ const LocationSection: React.FC<{
             <MarkerF position={selectedLocation} />
           </GoogleMap>
         ) : (
-          <div style={mapContainerStyle} className="bg-gray-100 flex items-center justify-center">
-            <Loader2 className="animate-spin text-gray-400" />
+          <div style={mapContainerStyle} className="bg-zinc-800 flex items-center justify-center">
+            <Loader2 className="animate-spin text-zinc-500" />
           </div>
         )}
       </div>
 
       {/* Selected Location Card */}
-      <div className="bg-blue-50 p-3 rounded-xl flex items-center gap-3 border border-blue-100">
-        <MapPin className="text-blue-600 shrink-0" size={20} />
+      <div className="bg-red-900/20 p-3 rounded-xl flex items-center gap-3 border border-red-900/50">
+        <MapPin className="text-red-500 shrink-0" size={20} />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-blue-900 truncate">{displayLocationName}</p>
-          <p className="text-xs text-blue-600 truncate">
+          <p className="text-sm font-bold text-red-50 truncate">{displayLocationName}</p>
+          <p className="text-xs text-red-400 truncate">
             {selectedLocation.lat.toFixed(4)}, {selectedLocation.lng.toFixed(4)}
           </p>
         </div>
@@ -163,32 +186,32 @@ const LocationSection: React.FC<{
 
       {/* Search Input */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
         <input 
           type="text" 
-          className="w-full pl-10 p-3 border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm bg-gray-50 focus:bg-white"
+          className="w-full pl-10 p-3 border border-zinc-700 rounded-xl outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all text-sm bg-zinc-800 focus:bg-zinc-900 text-white placeholder-zinc-500"
           placeholder="Search verified venues (Google Maps)..."
           value={locationQuery}
           onChange={(e) => setLocationQuery(e.target.value)}
         />
-        {isSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-gray-400" size={18} />}
+        {isSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-zinc-500" size={18} />}
       </div>
 
       {suggestions.length > 0 && (
-        <div className="absolute z-20 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden mt-[-10px] w-[calc(100%-2rem)] max-h-60 overflow-y-auto">
+        <div className="absolute z-20 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl overflow-hidden mt-[-10px] w-[calc(100%-2rem)] max-h-60 overflow-y-auto">
           {suggestions.map((place) => (
             <button
               key={place.place_id}
               type="button"
               onClick={() => handleSelectSuggestion(place)}
-              className="w-full flex items-start gap-3 p-3 hover:bg-gray-50 transition-colors text-left border-b border-gray-50 last:border-none"
+              className="w-full flex items-start gap-3 p-3 hover:bg-zinc-800 transition-colors text-left border-b border-zinc-800 last:border-none active:bg-zinc-700"
             >
-              <MapPin size={16} className="text-gray-400 mt-0.5 shrink-0" />
+              <MapPin size={16} className="text-zinc-500 mt-0.5 shrink-0" />
               <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-800 truncate">
+                <p className="text-sm font-medium text-white truncate">
                     {place.structured_formatting.main_text}
                 </p>
-                <p className="text-xs text-gray-500 truncate">
+                <p className="text-xs text-zinc-400 truncate">
                     {place.structured_formatting.secondary_text}
                 </p>
               </div>
@@ -200,7 +223,7 @@ const LocationSection: React.FC<{
       {/* Powered by Google Footer */}
       {suggestions.length > 0 && (
           <div className="flex justify-end px-2">
-               <span className="text-[10px] text-gray-400">Powered by Google</span>
+               <span className="text-[10px] text-zinc-500">Powered by Google</span>
           </div>
       )}
     </div>
@@ -213,17 +236,17 @@ const SportSelectionSection: React.FC<{
 }> = ({ selectedSport, setSelectedSport }) => {
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-semibold text-gray-700">Sport Category</label>
+      <label className="block text-sm font-semibold text-zinc-300">Sport Category</label>
       <div className="grid grid-cols-2 gap-2">
         {SPORTS_LIST.map(sport => (
           <button
             key={sport.type}
             type="button"
             onClick={() => setSelectedSport(sport.type)}
-            className={`p-3 rounded-xl border text-sm font-medium flex items-center justify-center gap-2 transition-all duration-300
+            className={`p-3 rounded-xl border text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 active:scale-95
               ${selectedSport === sport.type 
-                ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm scale-[1.02]' 
-                : 'border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'}`}
+                ? 'border-red-500 bg-red-900/30 text-red-400 shadow-sm scale-[1.02]' 
+                : 'border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:border-zinc-600'}`}
           >
             {sport.icon}
             {sport.label}
@@ -325,11 +348,11 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
   };
 
   return (
-    <div className="fixed inset-0 bg-white z-[2000] flex flex-col animate-in slide-in-from-bottom duration-300">
-      <div className="px-4 py-5 border-b border-gray-100 flex items-center justify-between bg-white/90 backdrop-blur-md shadow-sm sticky top-0 z-10">
-        <h2 className="text-xl font-bold text-gray-900 tracking-tight">Host a Game</h2>
-        <button onClick={onClose} className="p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors">
-          <X size={20} className="text-gray-500" />
+    <div className="fixed inset-0 bg-zinc-950 z-[2000] flex flex-col animate-in slide-in-from-bottom duration-300">
+      <div className="px-4 py-5 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/90 backdrop-blur-md shadow-sm sticky top-0 z-10">
+        <h2 className="text-xl font-bold text-white tracking-tight">Host a Game</h2>
+        <button onClick={onClose} className="p-2 bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors active:scale-95">
+          <X size={20} className="text-zinc-400" />
         </button>
       </div>
 
@@ -350,24 +373,24 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
             setSelectedSport={(sport) => setFormData({...formData, sport})}
           />
 
-          <div className="space-y-5 pt-2 border-t border-gray-100">
+          <div className="space-y-5 pt-2 border-t border-zinc-800">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Party Title</label>
+              <label className="block text-sm font-semibold text-zinc-300 mb-2">Party Title</label>
               <input 
                 required
                 type="text" 
-                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium"
-                placeholder="e.g. Khon Kaen Weekly Match"
+                className="w-full p-4 bg-zinc-800 border border-zinc-700 rounded-xl outline-none focus:bg-zinc-900 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all font-medium text-white placeholder-zinc-500"
+                placeholder="e.g. Weekly Match"
                 value={formData.title}
                 onChange={(e) => setFormData({...formData, title: e.target.value})}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
+              <label className="block text-sm font-semibold text-zinc-300 mb-2">Description</label>
               <textarea 
                 rows={3}
-                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all resize-none font-medium"
+                className="w-full p-4 bg-zinc-800 border border-zinc-700 rounded-xl outline-none focus:bg-zinc-900 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all resize-none font-medium text-white placeholder-zinc-500"
                 placeholder="Details, rules, or requirements..."
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
@@ -376,13 +399,13 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
 
             <div className="grid grid-cols-1 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Date</label>
+                <label className="block text-sm font-semibold text-zinc-300 mb-2">Date</label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
                   <input 
                     required
                     type="date" 
-                    className="w-full pl-10 p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                    className="w-full pl-10 p-4 bg-zinc-800 border border-zinc-700 rounded-xl outline-none focus:bg-zinc-900 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all text-white"
                     value={formData.date}
                     onChange={(e) => setFormData({...formData, date: e.target.value})}
                   />
@@ -391,26 +414,26 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Start</label>
+                  <label className="block text-sm font-semibold text-zinc-300 mb-2">Start</label>
                   <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
                     <input 
                       required
                       type="time" 
-                      className="w-full pl-10 p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                      className="w-full pl-10 p-4 bg-zinc-800 border border-zinc-700 rounded-xl outline-none focus:bg-zinc-900 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all text-white"
                       value={formData.startTime}
                       onChange={(e) => setFormData({...formData, startTime: e.target.value})}
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">End</label>
+                  <label className="block text-sm font-semibold text-zinc-300 mb-2">End</label>
                   <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
                     <input 
                       required
                       type="time" 
-                      className="w-full pl-10 p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                      className="w-full pl-10 p-4 bg-zinc-800 border border-zinc-700 rounded-xl outline-none focus:bg-zinc-900 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all text-white"
                       value={formData.endTime}
                       onChange={(e) => setFormData({...formData, endTime: e.target.value})}
                     />
@@ -419,14 +442,14 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Max Players</label>
+                <label className="block text-sm font-semibold text-zinc-300 mb-2">Max Players</label>
                 <div className="relative">
-                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
                   <input 
                     type="number" 
                     min="2"
                     max="50"
-                    className="w-full pl-10 p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                    className="w-full pl-10 p-4 bg-zinc-800 border border-zinc-700 rounded-xl outline-none focus:bg-zinc-900 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all text-white"
                     value={formData.playersMax}
                     onChange={(e) => setFormData({...formData, playersMax: parseInt(e.target.value)})}
                   />
@@ -438,12 +461,12 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
         </form>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 pb-safe pt-4 shadow-[0_-8px_30px_-15px_rgba(0,0,0,0.1)]">
+      <div className="absolute bottom-0 left-0 right-0 p-4 bg-zinc-900/90 backdrop-blur-md border-t border-zinc-800 pb-safe pt-4 shadow-[0_-8px_30px_-15px_rgba(0,0,0,0.5)]">
         <button 
           type="submit" 
           form="create-party-form"
           disabled={isSubmitting}
-          className="w-full bg-blue-600 text-white font-bold text-lg py-4 rounded-2xl shadow-xl hover:bg-blue-700 active:scale-[0.98] transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+          className="w-full bg-red-600 text-white font-bold text-lg py-4 rounded-2xl shadow-xl shadow-red-900/50 hover:bg-red-700 active:scale-95 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
         >
           {isSubmitting ? <Loader2 className="animate-spin" /> : 'Create Party'}
         </button>

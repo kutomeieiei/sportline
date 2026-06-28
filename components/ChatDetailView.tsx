@@ -258,41 +258,41 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
   };
 
   return (
-    <div className="fixed inset-0 bg-white z-[2000] flex flex-col">
+    <div className="fixed inset-0 bg-zinc-950 z-[2000] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shadow-sm bg-white sticky top-0 z-10">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shadow-sm bg-zinc-900/90 backdrop-blur-md sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-1 -ml-2 text-blue-600 rounded-full hover:bg-blue-50">
+          <button onClick={onBack} className="p-1 -ml-2 text-red-500 rounded-full hover:bg-zinc-800 active:scale-95 transition-transform">
             <ArrowLeft size={24} />
           </button>
           <div className="relative">
-             <img src={chatUser.avatarUrl} alt={chatUser.name} className="w-10 h-10 rounded-full object-cover" />
+             <img src={chatUser.avatarUrl} alt={chatUser.name} className="w-10 h-10 rounded-full object-cover border border-zinc-800" />
              {chatUser.isOnline && !chatUser.isGroup && (
-               <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+               <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-zinc-900 rounded-full"></div>
              )}
           </div>
           <div>
-            <h3 className="font-bold text-gray-900 leading-none">{chatUser.name}</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <h3 className="font-bold text-white leading-none">{chatUser.name}</h3>
+            <p className="text-xs text-zinc-500 mt-0.5">
               {chatUser.isGroup 
                 ? `${chatUser.members || 2} members` 
                 : (chatUser.isOnline ? 'Active now' : chatUser.statusText)}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4 text-blue-600 relative">
+        <div className="flex items-center gap-4 text-red-500 relative">
           <Phone size={24} />
           <Video size={24} />
-          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1 hover:bg-zinc-800 rounded-full transition-colors active:scale-95">
             <MoreVertical size={24} />
           </button>
           
           {isMenuOpen && (
-            <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+            <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 rounded-xl shadow-lg border border-zinc-800 py-1 z-50">
               {chatUser.isGroup ? (
                 <button 
                   onClick={handleLeaveGroup}
-                  className="w-full px-4 py-3 text-left text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
+                  className="w-full px-4 py-3 text-left text-red-500 hover:bg-zinc-800 flex items-center gap-3 transition-colors"
                 >
                   <LogOut size={18} />
                   <span className="font-medium text-sm">Leave Group</span>
@@ -300,7 +300,7 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
               ) : (
                 <button 
                   onClick={handleRemoveFriend}
-                  className="w-full px-4 py-3 text-left text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors"
+                  className="w-full px-4 py-3 text-left text-red-500 hover:bg-zinc-800 flex items-center gap-3 transition-colors"
                 >
                   <UserMinus size={18} />
                   <span className="font-medium text-sm">Remove Friend</span>
@@ -312,8 +312,8 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4">
-        <div className="text-center text-xs text-gray-400 my-4">Today</div>
+      <div className="flex-1 overflow-y-auto bg-zinc-950 p-4 space-y-4">
+        <div className="text-center text-xs text-zinc-600 my-4">Today</div>
         {messages.map((msg) => {
           const isMe = msg.senderId === currentUser.uid;
           const sender = chatMembers[msg.senderId];
@@ -325,25 +325,25 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
               {!isMe && (
                  <img 
                     src={sender ? (sender.profile_img_url || sender.avatarUrl) : chatUser.avatarUrl} 
-                    className="w-8 h-8 rounded-full self-end mr-2 mb-1" 
+                    className="w-8 h-8 rounded-full self-end mr-2 mb-1 border border-zinc-800" 
                     title={sender ? sender.displayName : chatUser.name}
                  />
               )}
               <div className={`max-w-[70%] px-4 py-2 rounded-2xl text-[15px] ${
                   msg.type === 'venue_share' || msg.type === 'image' || msg.type === 'audio'
-                  ? `bg-white text-gray-800 border border-gray-200 ${isMe ? 'rounded-br-none' : 'rounded-bl-none'}`
+                  ? `bg-zinc-900 text-white border border-zinc-800 ${isMe ? 'rounded-br-none' : 'rounded-bl-none'}`
                   : (isMe 
-                      ? 'bg-blue-600 text-white rounded-br-none' 
-                      : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none')
+                      ? 'bg-red-600 text-white rounded-br-none' 
+                      : 'bg-zinc-900 text-zinc-300 border border-zinc-800 rounded-bl-none')
               }`}>
                 {msg.type === 'venue_share' && msg.venue ? (
                   <div className="w-full">
                     <p className="mb-2">{msg.text}</p>
-                    <div className="border-l-4 border-blue-500 pl-3">
-                      <img src={msg.venue.imageUrl} alt={msg.venue.name} className="w-full h-32 object-cover rounded-lg mb-2" />
-                      <h4 className="font-bold">{msg.venue.name}</h4>
-                      <p className="text-xs text-gray-500">{msg.venue.description}</p>
-                      <button onClick={() => handleViewOnMap(msg.venue!)} className="mt-2 text-xs text-blue-500 hover:underline">View on Map</button>
+                    <div className="border-l-4 border-red-500 pl-3">
+                      <img src={msg.venue.imageUrl} alt={msg.venue.name} className="w-full h-32 object-cover rounded-lg mb-2 opacity-80" />
+                      <h4 className="font-bold text-white">{msg.venue.name}</h4>
+                      <p className="text-xs text-zinc-500">{msg.venue.description}</p>
+                      <button onClick={() => handleViewOnMap(msg.venue!)} className="mt-2 text-xs text-red-500 hover:text-red-400 font-bold transition-colors">View on Map</button>
                     </div>
                   </div>
                 ) : msg.type === 'image' && msg.imageUrl ? (
@@ -365,7 +365,7 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
       </div>
 
       {/* Input Area */}
-      <div className="p-3 bg-white border-t border-gray-100 flex items-center gap-3 pb-safe">
+      <div className="p-3 bg-zinc-950 border-t border-zinc-900 flex items-center gap-3 pb-safe">
         <input 
           type="file" 
           accept="image/*" 
@@ -376,52 +376,52 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
         <button 
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading || isRecording}
-          className="text-blue-600 p-2 hover:bg-gray-100 rounded-full disabled:opacity-50"
+          className="text-red-500 p-2 hover:bg-zinc-900 rounded-full disabled:opacity-50 transition-colors"
         >
             <ImageIcon size={24} />
         </button>
         
         {isRecording ? (
-          <div className="flex-1 flex items-center justify-between bg-red-50 rounded-full px-4 py-2 border border-red-100">
+          <div className="flex-1 flex items-center justify-between bg-red-900/30 rounded-full px-4 py-2 border border-red-900/50">
             <div className="flex items-center gap-2 text-red-500">
               <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               <span className="font-medium text-sm">{formatDuration(recordingDuration)}</span>
             </div>
-            <button onClick={stopRecording} className="text-red-500 hover:text-red-600">
+            <button onClick={stopRecording} className="text-red-500 hover:text-red-400">
               <Square size={20} fill="currentColor" />
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSend} className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2">
+          <form onSubmit={handleSend} className="flex-1 flex items-center gap-2 bg-zinc-900 rounded-full px-4 py-2 border border-zinc-800">
               <input 
                   type="text" 
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   placeholder="Message..."
-                  className="flex-1 bg-transparent outline-none text-gray-900 placeholder-gray-500"
+                  className="flex-1 bg-transparent outline-none text-white placeholder-zinc-500"
                   disabled={isUploading}
               />
-              <button type="button" className="text-gray-400">
+              <button type="button" className="text-zinc-500 hover:text-zinc-400 transition-colors">
                   <Smile size={24} />
               </button>
           </form>
         )}
 
         {isUploading ? (
-          <div className="p-2 text-blue-600">
+          <div className="p-2 text-red-500">
             <Loader2 size={24} className="animate-spin" />
           </div>
         ) : inputValue.trim() ? (
           <button 
               onClick={handleSend}
-              className="text-blue-600 p-2 hover:bg-blue-50 rounded-full"
+              className="text-red-500 p-2 hover:bg-red-900/20 rounded-full transition-colors active:scale-95"
           >
               <Send size={24} />
           </button>
         ) : (
           <button 
               onClick={isRecording ? stopRecording : startRecording}
-              className={`${isRecording ? 'text-red-500 hover:bg-red-50' : 'text-blue-600 hover:bg-blue-50'} p-2 rounded-full transition-colors`}
+              className={`${isRecording ? 'text-white bg-red-600 shadow-md shadow-red-900/50' : 'text-red-500 hover:bg-red-900/20'} p-2 rounded-full transition-all active:scale-95`}
           >
               <Mic size={24} />
           </button>

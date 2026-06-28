@@ -621,8 +621,8 @@ function App() {
 
   if (isLoadingAuth) {
      return (
-        <div className="w-full h-screen flex items-center justify-center bg-white">
-            <Loader2 className="animate-spin text-blue-600" size={48} />
+        <div className="w-full h-screen flex items-center justify-center bg-zinc-950">
+            <Loader2 className="animate-spin text-red-600" size={48} />
         </div>
      );
   }
@@ -633,15 +633,15 @@ function App() {
 
   if (!isServerDataLoaded) {
     return (
-        <div className="w-full h-screen flex flex-col items-center justify-center bg-gray-50">
-            <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
-            <p className="text-gray-400 text-sm font-medium">Syncing with server...</p>
+        <div className="w-full h-screen flex flex-col items-center justify-center bg-zinc-950">
+            <Loader2 className="animate-spin text-red-600 mb-4" size={48} />
+            <p className="text-zinc-400 text-sm font-medium">Syncing with server...</p>
         </div>
      );
   }
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-gray-50 flex flex-col font-sans">
+    <div className="relative w-full h-screen overflow-hidden bg-zinc-950 flex flex-col font-sans">
       
       {/* Map Layer */}
       <div className="absolute inset-0 top-0 bottom-[72px] z-0">
@@ -676,29 +676,29 @@ function App() {
           />
 
           {/* Play Sport Button */}
-          <button
+          <button 
             onClick={() => setIsPlaySportModalOpen(true)}
-            className="absolute bottom-24 left-4 bg-blue-600 text-white px-3 md:px-6 py-2.5 md:py-4 rounded-2xl shadow-xl shadow-blue-600/20 font-bold text-xs md:text-lg hover:bg-blue-700 hover:scale-105 transition-all duration-300 z-[1000] flex items-center gap-1.5 md:gap-3"
+            className="absolute bottom-20 md:bottom-24 left-4 bg-red-600 text-white px-2.5 md:px-6 py-2 md:py-4 rounded-xl md:rounded-2xl shadow-xl shadow-red-900/50 font-bold text-[10px] md:text-lg hover:bg-red-700 hover:scale-105 active:scale-95 transition-all duration-200 z-[1000] flex items-center gap-1.5 md:gap-3"
           >
-            <Activity size={18} className="md:w-6 md:h-6" />
+            <Activity size={16} className="md:w-6 md:h-6" />
             <span>Play Sport</span>
           </button>
 
           {/* Stop Live Search Button */}
           {isLiveSearchEnabled && (
-            <div className="absolute bottom-24 right-4 flex flex-col gap-2 md:gap-3 z-[1000]">
+            <div className="absolute bottom-20 md:bottom-24 right-4 flex flex-col gap-1.5 md:gap-3 z-[1000]">
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className="bg-white/90 backdrop-blur-md text-blue-600 px-3 md:px-5 py-2.5 md:py-4 rounded-2xl shadow-xl shadow-blue-600/10 font-bold text-[10px] md:text-sm hover:bg-white hover:scale-105 transition-all duration-300 flex items-center justify-center gap-1.5 md:gap-2 border border-blue-100"
+                className="bg-zinc-900/90 backdrop-blur-md text-white px-2.5 md:px-5 py-2 md:py-4 rounded-xl md:rounded-2xl shadow-xl shadow-black/50 font-bold text-[9px] md:text-sm hover:bg-zinc-800 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center gap-1.5 md:gap-2 border border-zinc-700"
               >
-                <Users size={14} className="md:w-5 md:h-5" />
+                <Users size={12} className="md:w-5 md:h-5 text-red-500" />
                 <span>View Players ({discoveredUsers.length})</span>
               </button>
               <button
                 onClick={handleStopLiveSearch}
-                className="bg-red-500 text-white px-3 md:px-5 py-2.5 md:py-4 rounded-2xl shadow-xl shadow-red-500/20 font-bold text-[10px] md:text-sm hover:bg-red-600 hover:scale-105 transition-all duration-300 flex items-center justify-center gap-1.5 md:gap-2"
+                className="bg-red-600 text-white px-2.5 md:px-5 py-2 md:py-4 rounded-xl md:rounded-2xl shadow-xl shadow-red-900/50 font-bold text-[9px] md:text-sm hover:bg-red-700 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center gap-1.5 md:gap-2"
               >
-                <X size={14} className="md:w-5 md:h-5" />
+                <X size={12} className="md:w-5 md:h-5" />
                 <span>Stop Search</span>
               </button>
             </div>

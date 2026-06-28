@@ -258,7 +258,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
         {/* Middle Content */}
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
-            <div className="bg-white/90 backdrop-blur-md p-8 rounded-[2rem] shadow-2xl w-full max-w-md flex flex-col items-center animate-in zoom-in duration-500 border border-white/20">
+            <div className="bg-zinc-900/90 backdrop-blur-md p-8 rounded-[2rem] shadow-2xl w-full max-w-md flex flex-col items-center animate-in zoom-in duration-500 border border-zinc-800">
                 {APP_CONFIG.logoUrl ? (
                    <img 
                       src={APP_CONFIG.logoUrl} 
@@ -270,8 +270,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                      <div className={`w-24 h-24 rounded-2xl flex items-center justify-center shadow-xl mb-6 transform -rotate-6 ${APP_CONFIG.primaryGradient}`}>
                           <Flame className="text-white fill-white" size={48} />
                      </div>
-                     <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase drop-shadow-sm mb-8">
-                         Sport<span className="text-red-500">Line</span>
+                     <h1 className="text-4xl font-black text-white tracking-tighter uppercase drop-shadow-sm mb-8">
+                         Sport<span className="text-red-500">Sphere</span>
                      </h1>
                    </>
                 )}
@@ -280,14 +280,14 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 <div className="w-full space-y-4">
                     <button 
                         onClick={() => { setViewMode('signup'); resetForm(); }}
-                        className={`w-full py-3.5 rounded-full text-white font-bold text-lg tracking-wide shadow-lg transform active:scale-95 transition-transform ${APP_CONFIG.primaryGradient}`}
+                        className={`w-full py-3.5 rounded-full text-white font-bold text-lg tracking-wide shadow-lg transform active:scale-95 transition-all duration-200 ${APP_CONFIG.primaryGradient}`}
                     >
                         Create Account
                     </button>
 
                     <button 
                         onClick={() => { setViewMode('login'); resetForm(); }}
-                        className="w-full py-3.5 rounded-full bg-transparent border-2 border-gray-200 text-gray-700 font-bold text-lg tracking-wide hover:bg-gray-50 transform active:scale-95 transition-all"
+                        className="w-full py-3.5 rounded-full bg-transparent border-2 border-zinc-700 text-zinc-300 font-bold text-lg tracking-wide hover:bg-zinc-800 transform active:scale-95 transition-all duration-200"
                     >
                         Log In
                     </button>
@@ -323,7 +323,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
        </div>
 
        <div className="flex-1 px-6 flex flex-col items-center justify-center pt-4 overflow-y-auto relative z-10 pb-12">
-            <div className="bg-white/90 backdrop-blur-md p-8 rounded-[2rem] shadow-2xl w-full max-w-md flex flex-col items-center animate-in zoom-in duration-500 border border-white/20">
+            <div className="bg-zinc-900/90 backdrop-blur-md p-8 rounded-[2rem] shadow-2xl w-full max-w-md flex flex-col items-center animate-in zoom-in duration-500 border border-zinc-800">
                 <div className="mb-4">
                     {APP_CONFIG.logoUrl ? (
                         <img src={APP_CONFIG.logoUrl} alt="Logo" className="h-24 w-auto object-contain drop-shadow-md" />
@@ -334,7 +334,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                     )}
                 </div>
 
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                <h2 className="text-2xl font-bold text-white mb-6">
                     {viewMode === 'login' ? 'Welcome Back!' : 'Create Account'}
                 </h2>
 
@@ -343,7 +343,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                         type="button"
                         onClick={handleGoogleLogin}
                         disabled={isLoading}
-                        className="w-full py-3.5 rounded-full border border-gray-300 bg-white text-gray-700 font-bold text-base shadow-sm hover:bg-gray-50 flex items-center justify-center gap-3 transition-all active:scale-95"
+                        className="w-full py-3.5 rounded-full border border-zinc-700 bg-zinc-800 text-white font-bold text-base shadow-sm hover:bg-zinc-700 flex items-center justify-center gap-3 transition-all active:scale-95 duration-200"
                     >
                         <GoogleIcon />
                         <span>Continue with Google</span>
@@ -351,13 +351,13 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
                     <div className="relative flex items-center justify-center">
                         <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-gray-200"></div>
+                            <div className="w-full border-t border-zinc-800"></div>
                         </div>
-                        <span className="relative bg-white px-4 text-sm text-gray-500 font-medium">or</span>
+                        <span className="relative bg-zinc-900 px-4 text-sm text-zinc-500 font-medium">or</span>
                     </div>
 
                     {error && (
-                        <div className="bg-red-50 p-3 rounded-lg flex items-start gap-2 text-red-600 text-sm">
+                        <div className="bg-red-900/30 p-3 rounded-lg flex items-start gap-2 text-red-500 text-sm border border-red-900/50">
                             <AlertCircle size={16} className="mt-0.5 shrink-0" />
                             <span>{error}</span>
                         </div>
@@ -367,40 +367,40 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                         
                         {viewMode === 'signup' && (
                             <div>
-                                <label className="block text-sm font-semibold text-gray-600 mb-2">Display Name</label>
+                                <label className="block text-sm font-semibold text-zinc-400 mb-2">Display Name</label>
                                 <input
                                     type="text"
                                     required
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-gray-900 font-medium"
+                                    className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-900 transition-all text-white font-medium placeholder-zinc-500"
                                     placeholder="e.g. John Doe"
                                 />
                             </div>
                         )}
 
                         <div>
-                            <label className="block text-sm font-semibold text-gray-600 mb-2">Email</label>
+                            <label className="block text-sm font-semibold text-zinc-400 mb-2">Email</label>
                             <input
                                 type="email"
                                 required
                                 autoFocus
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-gray-900 font-medium"
+                                className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-900 transition-all text-white font-medium placeholder-zinc-500"
                                 placeholder="name@example.com"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-sm font-semibold text-gray-600 mb-2">Password</label>
+                            <label className="block text-sm font-semibold text-zinc-400 mb-2">Password</label>
                             <input
                                 type="password"
                                 required
                                 minLength={6}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-gray-900 font-medium"
+                                className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-900 transition-all text-white font-medium placeholder-zinc-500"
                                 placeholder="••••••"
                             />
                         </div>
@@ -408,7 +408,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className={`w-full py-3.5 rounded-full text-white font-bold text-lg tracking-wide shadow-lg transform active:scale-95 transition-transform ${APP_CONFIG.primaryGradient}`}
+                            className={`w-full py-3.5 rounded-full text-white font-bold text-lg tracking-wide shadow-lg transform active:scale-95 transition-all duration-200 ${APP_CONFIG.primaryGradient}`}
                         >
                             {isLoading ? <Loader2 className="animate-spin mx-auto" /> : (viewMode === 'login' ? 'Log In' : 'Create Account')}
                         </button>
