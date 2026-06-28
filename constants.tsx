@@ -56,22 +56,22 @@ export const SPORTS_LIST: { type: SportType; label: string; icon: React.ReactNod
   { 
     type: 'Football', 
     label: 'Football', 
-    icon: <SportIcon src="https://scontent-bkk1-2.xx.fbcdn.net/v/t1.15752-9/625479480_2815063875508348_1299433945545769362_n.jpg?stp=dst-jpg_s480x480_tt6&_nc_cat=105&ccb=1-7&_nc_sid=0024fc&_nc_ohc=v3-EB4dP75YQ7kNvwHDY7a8&_nc_oc=AdlW8YJk08k4iz1Fi_cEm8GxVe5n2b4jgL6WD_0p9TfwhNBkap9GQRrk-IoWrNMhNpo&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-bkk1-2.xx&oh=03_Q7cD4gFFjsrVyQtmqe-uCsPtXFiTT7_hbsGlZyhO2GXdo9AjeQ&oe=69B412EE" /> 
+    icon: <SportIcon src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/26bd.png" /> 
   },
   { 
     type: 'Basketball', 
     label: 'Basketball', 
-    icon: <SportIcon src="https://scontent-bkk1-2.xx.fbcdn.net/v/t1.15752-9/628227202_1207636497744026_8656495493284332119_n.jpg?stp=dst-jpg_p480x480_tt6&_nc_cat=107&ccb=1-7&_nc_sid=0024fc&_nc_ohc=fr9BePp1DqwQ7kNvwFQfVgh&_nc_oc=AdntcUkMbz9PpP4XsqzksrGU-DvNl-Nv9jx-vhiHFLokarE8mTq_xsoYmYMUFjr78Ho&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-bkk1-2.xx&oh=03_Q7cD4gHdnLgeW_7pCwrTS33g_kmEyshQ-G5Z7EgfJ_gTjvAFtQ&oe=69B415CD" /> 
+    icon: <SportIcon src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f3c0.png" /> 
   },
   { 
     type: 'Badminton', 
     label: 'Badminton', 
-    icon: <SportIcon src="https://scontent-bkk1-1.xx.fbcdn.net/v/t1.15752-9/627373711_2462168940868197_3866383048095157629_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=0024fc&_nc_ohc=Ux-M_wiHfHsQ7kNvwFeTIk2&_nc_oc=AdmCn-bCVQfpvLy3M341LNrcRUiFcjPwAsLybA_WHbK6QrWnqFVqX3SXjHu9oDJex5k&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-bkk1-1.xx&oh=03_Q7cD4gFlVOWPqR3Ttk8JQ5JudTscHWiGOVNUsugxWk01E2LB2Q&oe=69B40E80" /> 
+    icon: <SportIcon src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f3f8.png" /> 
   },
   { 
     type: 'Tennis', 
     label: 'Tennis', 
-    icon: <SportIcon src="https://scontent-bkk1-2.xx.fbcdn.net/v/t1.15752-9/627853533_890411217073725_4490951804069085752_n.jpg?stp=dst-jpg_p480x480_tt6&_nc_cat=107&ccb=1-7&_nc_sid=0024fc&_nc_ohc=5-Vuhlgbho8Q7kNvwEfAFJa&_nc_oc=Admu07Q8xMVvmxEEQOkYtFkan54aHucyC0-GX3OaFYkjdCYezKBejSu16grws0GMGVk&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=scontent-bkk1-2.xx&oh=03_Q7cD4gFKEUDbcLPqqIifXpR3bDNaStQd8PjeFofrEE1vIqUhDw&oe=69B420A5" /> 
+    icon: <SportIcon src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f3be.png" /> 
   },
   { 
     type: 'Running', 
