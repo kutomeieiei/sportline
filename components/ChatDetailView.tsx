@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Phone, Video, Info, Send, Image as ImageIcon, Smile, Mic, Square, Loader2, LogOut, UserMinus, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Phone, Video, Send, Image as ImageIcon, Smile, Mic, Square, Loader2, LogOut, UserMinus, MoreVertical, Camera } from 'lucide-react';
+import { useCall } from '../services/callContext';
+import { CallType } from '../services/callService';
+import CameraCapture from './CameraCapture';
 import { ChatUser } from './ChatListView';
 import { User, Venue } from '../types'; // Import User and Venue types
 import { db, storage, firebase } from '../firebase'; // Import db and storage
@@ -42,6 +45,9 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [memberIds, setMemberIds] = useState<string[]>([]);
+  const { startCall, joinCall, activeCalls, currentCall } = useCall();
 
   const chatId = chatUser.isGroup ? chatUser.id : [currentUser.uid, chatUser.id].sort().join('_');
 
@@ -109,7 +115,8 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
         const chatDoc = await db.collection('chats').doc(chatId).get();
         if (!chatDoc.exists) return;
 
-        const memberIds = chatDoc.data()?.members || [];
+        const memberIds: string[] = chatDoc.data()?.members || [];
+        setMemberIds(memberIds);
         if (memberIds.length === 0) return;
 
         const memberPromises = memberIds.map((id: string) => 
@@ -158,13 +165,26 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !currentUser || !currentUser.uid || !chatUser.id) return;
+    if (file) await uploadImageFile(file);
+  };
+
+  const uploadImageFile = async (file: File) => {
+    if (!currentUser || !currentUser.uid || !chatUser.id) return;
+    if (!file.type.startsWith('image/')) {
+      alert("Please choose an image.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Image is too large (max 10MB).");
+      return;
+    }
 
     setIsUploading(true);
     try {
       const storageRef = storage.ref();
-      const fileRef = storageRef.child(`chats/${chatId}/${Date.now()}_${file.name}`);
-      await fileRef.put(file);
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileRef = storageRef.child(`chats/${chatId}/${Date.now()}_${safeName}`);
+      await fileRef.put(file, { contentType: file.type });
       const downloadUrl = await fileRef.getDownloadURL();
 
       const newMessage: Omit<Message, 'id'> = {
@@ -251,6 +271,25 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
     }
   };
 
+  // --- Calls ---
+  const groupCallInProgress = chatUser.isGroup
+    ? activeCalls.find((c) => c.chatId === chatId && !c.joined.includes(currentUser.uid) && c.joined.length > 0)
+    : undefined;
+  const isInThisCall = currentCall?.chatId === chatId;
+
+  const handleCall = (type: CallType) => {
+    if (groupCallInProgress) {
+      joinCall(groupCallInProgress);
+      return;
+    }
+    const participants = chatUser.isGroup ? memberIds : [currentUser.uid, chatUser.id];
+    if (chatUser.isGroup && participants.length < 2) {
+      alert("Group members are still loading. Try again in a moment.");
+      return;
+    }
+    startCall({ chatId, isGroup: !!chatUser.isGroup, title: chatUser.name, type, participants });
+  };
+
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -281,8 +320,12 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
           </div>
         </div>
         <div className="flex items-center gap-4 text-red-500 relative">
-          <Phone size={24} />
-          <Video size={24} />
+          <button onClick={() => handleCall('audio')} disabled={isInThisCall} aria-label="Voice call" title="Voice call" className="p-1 hover:bg-zinc-800 rounded-full transition-colors active:scale-95 disabled:opacity-40">
+            <Phone size={24} />
+          </button>
+          <button onClick={() => handleCall('video')} disabled={isInThisCall} aria-label="Video call" title="Video call" className="p-1 hover:bg-zinc-800 rounded-full transition-colors active:scale-95 disabled:opacity-40">
+            <Video size={24} />
+          </button>
           <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1 hover:bg-zinc-800 rounded-full transition-colors active:scale-95">
             <MoreVertical size={24} />
           </button>
@@ -310,6 +353,19 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
           )}
         </div>
       </div>
+
+      {groupCallInProgress && (
+        <button
+          onClick={() => joinCall(groupCallInProgress)}
+          className="flex items-center justify-between gap-3 px-4 py-3 bg-green-700/90 text-white text-sm font-semibold hover:bg-green-700"
+        >
+          <span className="flex items-center gap-2">
+            {groupCallInProgress.type === 'video' ? <Video size={18} /> : <Phone size={18} />}
+            {groupCallInProgress.type === 'video' ? 'Video' : 'Voice'} call in progress · {groupCallInProgress.joined.length} joined
+          </span>
+          <span className="px-3 py-1 rounded-full bg-white text-green-800 font-bold">Join</span>
+        </button>
+      )}
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto bg-zinc-950 p-4 space-y-4">
@@ -380,6 +436,14 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
         >
             <ImageIcon size={24} />
         </button>
+        <button
+          onClick={() => setIsCameraOpen(true)}
+          disabled={isUploading || isRecording}
+          aria-label="Take a photo"
+          className="text-red-500 p-2 -ml-2 hover:bg-zinc-900 rounded-full disabled:opacity-50 transition-colors"
+        >
+            <Camera size={24} />
+        </button>
         
         {isRecording ? (
           <div className="flex-1 flex items-center justify-between bg-red-900/30 rounded-full px-4 py-2 border border-red-900/50">
@@ -427,6 +491,15 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
           </button>
         )}
       </div>
+
+      {isCameraOpen && (
+        <CameraCapture
+          title={`Send to ${chatUser.name}`}
+          initialFacing="environment"
+          onCapture={uploadImageFile}
+          onClose={() => setIsCameraOpen(false)}
+        />
+      )}
     </div>
   );
 };

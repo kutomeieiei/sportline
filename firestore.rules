@@ -128,6 +128,72 @@ service cloud.firestore {
       }
     }
 
+    // ---------- Voice / video calls ----------
+    // calls/{callId}: participants = everyone in the chat, joined = in the call now,
+    // activeFor = who still sees it ringing / joinable.
+    match /calls/{callId} {
+      function chatPath(chatId) {
+        return /databases/$(database)/documents/chats/$(chatId);
+      }
+      // Participants must exactly match the chat: the two people of a direct
+      // chat ("uidA_uidB"), or the members of a group chat.
+      function matchesChat(d) {
+        return (d.isGroup == false
+                 && d.chatId.split('_').size() == 2
+                 && d.participants.toSet() == d.chatId.split('_').toSet())
+            || (d.isGroup == true
+                 && exists(chatPath(d.chatId))
+                 && get(chatPath(d.chatId)).data.members.toSet() == d.participants.toSet());
+      }
+      function onlyMeChanged(field) {
+        return request.resource.data[field].toSet().difference(resource.data[field].toSet()).hasOnly([request.auth.uid])
+          && resource.data[field].toSet().difference(request.resource.data[field].toSet()).hasOnly([request.auth.uid]);
+      }
+
+      allow read: if isSignedIn() && (
+        request.auth.uid in resource.data.participants
+        || request.auth.uid in resource.data.activeFor
+      );
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.participants is list
+        && request.resource.data.participants.size() >= 2
+        && request.resource.data.participants.size() <= 12
+        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.joined == [request.auth.uid]
+        && request.resource.data.declined == []
+        && request.resource.data.activeFor.toSet() == request.resource.data.participants.toSet()
+        && request.resource.data.status == 'ringing'
+        && request.resource.data.type in ['audio', 'video']
+        && matchesChat(request.resource.data);
+      // Participants can join/leave themselves, decline, mark it active/ended,
+      // and remove people from activeFor (never add). Nothing else changes.
+      allow update: if isSignedIn()
+        && request.auth.uid in resource.data.participants
+        && changedOnly(['joined', 'declined', 'activeFor', 'status', 'answeredAt'])
+        && onlyMeChanged('joined')
+        && onlyMeChanged('declined')
+        && request.resource.data.activeFor.toSet().difference(resource.data.activeFor.toSet()).size() == 0
+        && request.resource.data.status in ['ringing', 'active', 'ended']
+        && !(resource.data.status == 'ended' && request.resource.data.status != 'ended');
+      allow delete: if false;
+
+      // Connection details exchanged between two people in the call.
+      match /signals/{signalId} {
+        function callData() {
+          return get(/databases/$(database)/documents/calls/$(callId)).data;
+        }
+        allow create: if isSignedIn()
+          && request.resource.data.from == request.auth.uid
+          && request.auth.uid in callData().participants
+          && request.resource.data.to in callData().participants
+          && request.resource.data.type in ['offer', 'answer', 'candidate'];
+        allow read: if isSignedIn() && resource.data.to == request.auth.uid;
+        allow delete: if isSignedIn()
+          && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);
+      }
+    }
+
     // ---------- Legacy chat/friend collections (old ChatView) ----------
     match /conversations/{conversationId} {
       allow read: if isSignedIn() && request.auth.uid in resource.data.participants;
