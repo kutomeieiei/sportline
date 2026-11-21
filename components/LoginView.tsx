@@ -144,41 +144,43 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="relative w-full h-full min-h-screen overflow-hidden flex flex-col font-sans bg-black">
+    <div className="relative w-full h-full min-h-screen overflow-hidden flex flex-col font-sans bg-gray-50">
 
-      {/* Background Video */}
+      {/* Background video, faded into a bright background */}
       <video
         autoPlay
         loop
         muted
         playsInline
-        className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none z-0"
+        className="absolute inset-0 w-full h-full object-cover opacity-20 grayscale pointer-events-none z-0"
       >
         <source src="https://pixabay.com/videos/download/video-336704_source.mp4" type="video/mp4" />
       </video>
+      <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/40 to-white/90 pointer-events-none z-0" />
 
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
-        <div className="bg-zinc-900/90 backdrop-blur-md p-8 rounded-[2rem] shadow-2xl w-full max-w-md flex flex-col items-center animate-in zoom-in duration-500 border border-zinc-800">
+        <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-elev-2 w-full max-w-sm flex flex-col items-center animate-in zoom-in">
           {APP_CONFIG.logoUrl ? (
             <img
               src={APP_CONFIG.logoUrl}
               alt={APP_CONFIG.appName}
-              className="w-64 md:w-80 h-auto object-contain drop-shadow-xl mb-8"
+              className="w-56 h-auto object-contain mb-8"
             />
           ) : (
             <>
-              <div className={`w-24 h-24 rounded-2xl flex items-center justify-center shadow-xl mb-6 transform -rotate-6 ${APP_CONFIG.primaryGradient}`}>
-                <Flame className="text-white fill-white" size={48} />
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-elev-1 mb-5 ${APP_CONFIG.primaryGradient}`}>
+                <Flame className="text-white fill-white/90" size={32} />
               </div>
-              <h1 className="text-4xl font-black text-white tracking-tighter uppercase drop-shadow-sm mb-8">
-                Sport<span className="text-red-500">Sphere</span>
+              <h1 className="text-[28px] font-medium text-gray-900 tracking-tight mb-1">
+                Sport<span className="text-red-600">Sphere</span>
               </h1>
+              <p className="text-sm text-gray-500 mb-8">Find people to play with, near you.</p>
             </>
           )}
 
           <div className="w-full space-y-4">
             {error && (
-              <div className="bg-red-900/30 p-3 rounded-lg flex items-start gap-2 text-red-500 text-sm border border-red-900/50 text-left">
+              <div className="bg-red-50 p-3 rounded-xl flex items-start gap-2 text-red-700 text-sm text-left animate-in fade-in slide-in-from-top">
                 <AlertCircle size={16} className="mt-0.5 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -188,14 +190,14 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
               type="button"
               onClick={handleGoogleLogin}
               disabled={isLoading}
-              className="w-full py-3.5 rounded-full bg-white text-zinc-900 font-bold text-base shadow-lg hover:bg-zinc-100 disabled:opacity-60 flex items-center justify-center gap-3 transition-all active:scale-95 duration-200"
+              className="ripple press w-full h-12 rounded-full bg-white border border-gray-300 text-gray-800 font-medium text-[15px] hover:bg-gray-50 hover:shadow-elev-1 disabled:opacity-60 flex items-center justify-center gap-3"
             >
-              {isLoading ? <Loader2 className="animate-spin" size={20} /> : <GoogleIcon />}
-              <span>{isLoading ? 'Signing in...' : 'Continue with Google'}</span>
+              {isLoading ? <Loader2 className="animate-spin text-red-600" size={20} /> : <GoogleIcon />}
+              <span>{isLoading ? 'Signing in…' : 'Continue with Google'}</span>
             </button>
 
-            <p className="text-xs text-zinc-500">
-              Sign in with your Google (Gmail) account to continue.
+            <p className="text-xs text-gray-500">
+              Use your Google (Gmail) account to continue.
             </p>
           </div>
         </div>

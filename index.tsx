@@ -1,6 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
+import { installRipple } from './utils/ripple';
+
+installRipple();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -19,15 +22,15 @@ const REQUIRED_ENV = [
 const missingEnv = REQUIRED_ENV.filter((key) => !import.meta.env[key]);
 
 const ConfigErrorScreen: React.FC<{ title: string; details: string[] }> = ({ title, details }) => (
-  <div className="w-full min-h-screen flex items-center justify-center bg-zinc-950 p-6">
-    <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-6 text-left">
-      <h1 className="text-lg font-bold text-white mb-2">{title}</h1>
-      <p className="text-sm text-zinc-400 mb-3">
+  <div className="w-full min-h-screen flex items-center justify-center bg-gray-50 p-6">
+    <div className="max-w-md w-full bg-white shadow-elev-2 rounded-2xl p-6 text-left">
+      <h1 className="text-lg font-medium text-gray-900 mb-2">{title}</h1>
+      <p className="text-sm text-gray-600 mb-3">
         The app can't start. If you run this site, add these settings as environment
         variables in your hosting (for example Vercel → Settings → Environment Variables)
         and redeploy:
       </p>
-      <ul className="text-sm text-red-400 font-mono space-y-1">
+      <ul className="text-sm text-red-600 font-mono space-y-1">
         {details.map((d) => <li key={d}>{d}</li>)}
       </ul>
     </div>

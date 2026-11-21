@@ -172,21 +172,21 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
 
   if (isEditing) {
     return (
-      <div className="fixed inset-0 bg-zinc-950 z-[2000] flex flex-col animate-in slide-in-from-bottom duration-300">
+      <div className="fixed inset-0 bg-white z-[2000] flex flex-col animate-in slide-in-from-bottom duration-300">
         {/* Edit Header */}
-        <div className="px-4 py-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/90 backdrop-blur-md sticky top-0 z-10 shadow-sm">
+        <div className="px-4 py-4 border-b border-gray-200 flex items-center justify-between bg-white/95 backdrop-blur-md sticky top-0 z-10 shadow-sm">
           <button 
             onClick={() => setIsEditing(false)}
             disabled={isSaving}
-            className="text-zinc-400 font-medium hover:text-white"
+            className="text-gray-600 font-medium hover:text-gray-900"
           >
             Cancel
           </button>
-          <h2 className="text-lg font-bold text-white tracking-tight">Edit Profile</h2>
+          <h2 className="text-lg font-bold text-gray-900 tracking-tight">Edit Profile</h2>
           <button 
             onClick={handleSave}
             disabled={isSaving}
-            className="text-red-500 font-bold hover:text-red-400 disabled:opacity-50 active:scale-95 transition-transform"
+            className="text-red-600 font-bold hover:text-red-700 disabled:opacity-50 active:scale-95 transition-transform"
           >
             {isSaving ? <Loader2 size={20} className="animate-spin" /> : 'Save'}
           </button>
@@ -197,7 +197,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
           {/* Avatar Section */}
           <div className="flex flex-col items-center mb-8">
             <div 
-              className="relative w-28 h-28 rounded-full overflow-hidden bg-zinc-800 border-4 border-zinc-700 shadow-sm cursor-pointer"
+              className="relative w-28 h-28 rounded-full overflow-hidden bg-gray-100 border-4 border-gray-200 shadow-sm cursor-pointer"
               onClick={() => fileInputRef.current?.click()}
             >
               <img 
@@ -206,20 +206,20 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                 <Camera className="text-white" size={32} />
+                 <Camera className="text-gray-900" size={32} />
               </div>
             </div>
             <div className="mt-3 flex items-center gap-4">
               <button 
                 onClick={() => fileInputRef.current?.click()}
-                className="text-sm font-semibold text-red-500 hover:text-red-400 transition-colors"
+                className="text-sm font-semibold text-red-600 hover:text-red-700 transition-colors"
               >
                 Choose Photo
               </button>
-              <span className="text-zinc-700">|</span>
+              <span className="text-gray-300">|</span>
               <button 
                 onClick={() => setIsCameraOpen(true)}
-                className="text-sm font-semibold text-red-500 hover:text-red-400 transition-colors flex items-center gap-1"
+                className="text-sm font-semibold text-red-600 hover:text-red-700 transition-colors flex items-center gap-1"
               >
                 <Camera size={16} /> Take Photo
               </button>
@@ -244,60 +244,60 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
           {/* Form Fields */}
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-bold text-zinc-300 mb-1">Display Name</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Display Name</label>
               <input 
                 type="text"
                 value={formData.display_name}
                 maxLength={40}
                 onChange={e => setFormData({...formData, display_name: e.target.value})}
-                className="w-full p-4 bg-zinc-900 border border-zinc-800 rounded-xl font-medium outline-none focus:bg-zinc-800 focus:border-red-500 transition-all text-white placeholder-zinc-500"
+                className="w-full p-4 bg-white border border-gray-200 rounded-xl font-medium outline-none focus:bg-white focus:border-red-500 transition-all text-gray-900 placeholder-gray-400"
                 placeholder="Your Name"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-zinc-300 mb-1">Username</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Username</label>
               <input 
                 type="text"
                 value={formData.username}
                 maxLength={20}
                 autoCapitalize="none"
                 onChange={e => setFormData({...formData, username: e.target.value.toLowerCase().replace(/\s/g, '')})}
-                className="w-full p-4 bg-zinc-900 border border-zinc-800 rounded-xl font-medium outline-none focus:bg-zinc-800 focus:border-red-500 transition-all text-white placeholder-zinc-500"
+                className="w-full p-4 bg-white border border-gray-200 rounded-xl font-medium outline-none focus:bg-white focus:border-red-500 transition-all text-gray-900 placeholder-gray-400"
                 placeholder="Username"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-bold text-zinc-300 mb-1">Email</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Email</label>
               <input 
                 type="email"
                 value={formData.email || ''}
                 disabled
-                className="w-full p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl font-medium outline-none text-zinc-500 cursor-not-allowed"
+                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl font-medium outline-none text-gray-500 cursor-not-allowed"
               />
-              <p className="text-xs text-zinc-500 mt-1 ml-1">Email cannot be changed here.</p>
+              <p className="text-xs text-gray-500 mt-1 ml-1">Email cannot be changed here.</p>
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-zinc-300 mb-1">Bio</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Bio</label>
               <textarea 
                 rows={3}
                 value={formData.bio}
                 maxLength={200}
                 onChange={e => setFormData({...formData, bio: e.target.value})}
-                className="w-full p-4 bg-zinc-900 border border-zinc-800 rounded-xl font-medium outline-none focus:bg-zinc-800 focus:border-red-500 transition-all resize-none text-white placeholder-zinc-500"
+                className="w-full p-4 bg-white border border-gray-200 rounded-xl font-medium outline-none focus:bg-white focus:border-red-500 transition-all resize-none text-gray-900 placeholder-gray-400"
                 placeholder="About you..."
               />
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-zinc-300 mb-1">Gender</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Gender</label>
               <div className="relative">
                 <select 
                   value={formData.gender}
                   onChange={e => setFormData({...formData, gender: e.target.value})}
-                  className="w-full p-4 bg-zinc-900 border border-zinc-800 rounded-xl font-medium outline-none focus:bg-zinc-800 focus:border-red-500 appearance-none text-white"
+                  className="w-full p-4 bg-white border border-gray-200 rounded-xl font-medium outline-none focus:bg-white focus:border-red-500 appearance-none text-gray-900"
                 >
                   <option>Prefer not to say</option>
                   <option>Male</option>
@@ -309,7 +309,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-zinc-300 mb-2">Sports Interests</label>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Sports Interests</label>
               <div className="flex flex-wrap gap-2">
                 {SPORTS_LIST.filter(s => s.type !== 'All').map(sport => {
                   const isSelected = formData.preferred_sports?.includes(sport.type);
@@ -319,8 +319,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
                       onClick={() => toggleSport(sport.type)}
                       className={`px-3 py-2 rounded-lg text-sm font-semibold border transition-all flex items-center gap-2 active:scale-95 ${
                         isSelected 
-                        ? 'bg-red-600 text-white border-red-500 shadow-md shadow-red-900/50' 
-                        : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-700'
+                        ? 'bg-red-600 text-white border-red-500 shadow-md shadow-red-600/20' 
+                        : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
                       }`}
                     >
                       {sport.icon}
@@ -342,61 +342,61 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
   }
 
   return (
-    <div className="fixed inset-0 bg-zinc-950 z-[2000] flex flex-col animate-in slide-in-from-right duration-300">
-       <div className="px-4 py-4 border-b border-zinc-800 flex items-center gap-4 bg-zinc-900/90 backdrop-blur-md sticky top-0 z-10 shadow-sm">
-        <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-full active:scale-95 transition-transform">
-          <ArrowLeft size={24} className="text-zinc-400 hover:text-white" />
+    <div className="fixed inset-0 bg-white z-[2000] flex flex-col animate-in slide-in-from-right duration-300">
+       <div className="px-4 py-4 border-b border-gray-200 flex items-center gap-4 bg-white/95 backdrop-blur-md sticky top-0 z-10 shadow-sm">
+        <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full active:scale-95 transition-transform">
+          <ArrowLeft size={24} className="text-gray-600 hover:text-gray-900" />
         </button>
-        <h2 className="text-xl font-bold text-white">Settings</h2>
+        <h2 className="text-xl font-bold text-gray-900">Settings</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="bg-zinc-900 p-8 mb-6 shadow-sm flex flex-col items-center text-center">
-            <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-zinc-800 shadow-lg mb-4 bg-zinc-800">
+        <div className="bg-white p-8 mb-6 shadow-sm flex flex-col items-center text-center">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-gray-200 shadow-lg mb-4 bg-gray-100">
                 <img src={avatarSrc} alt="Profile" className="w-full h-full object-cover" />
             </div>
-            <h1 className="text-2xl font-bold text-white">{profile.display_name || 'Sports Fan'}</h1>
-            <p className="text-zinc-500">@{user.username}</p>
+            <h1 className="text-2xl font-bold text-gray-900">{profile.display_name || 'Sports Fan'}</h1>
+            <p className="text-gray-500">@{user.username}</p>
             {user.email && (
-                 <div className="flex items-center gap-1.5 mt-1 text-zinc-400 text-sm">
+                 <div className="flex items-center gap-1.5 mt-1 text-gray-600 text-sm">
                     <Mail size={12} />
                     <span>{user.email}</span>
                  </div>
             )}
-            {user.bio && <p className="mt-4 text-zinc-400 text-sm italic">"{user.bio}"</p>}
+            {user.bio && <p className="mt-4 text-gray-600 text-sm italic">"{user.bio}"</p>}
 
             <button 
                 onClick={() => setIsEditing(true)}
-                className="mt-6 px-6 py-2 bg-red-600 text-white text-sm font-bold rounded-full hover:bg-red-700 shadow-lg shadow-red-900/50 active:scale-95 transition-all"
+                className="ripple press mt-5 h-10 px-6 bg-white border border-gray-300 text-red-700 text-sm font-medium rounded-full hover:bg-red-50 hover:border-red-200"
             >
                 Edit Profile
             </button>
         </div>
 
-        <div className="bg-zinc-900 border-t border-b border-zinc-800 mb-6">
+        <div className="bg-white border-t border-b border-gray-200 mb-6">
             <MenuButton icon={<Shield size={20} />} label="Privacy Policy" onClick={() => setIsPrivacyOpen(true)} />
             <MenuButton icon={<HelpCircle size={20} />} label="Support" />
         </div>
 
         {isAdmin && (
         <div className="px-6 mb-6">
-             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 shadow-sm">
-                 <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
-                     <Database size={16} className="text-red-500" /> Admin Tools
+             <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                 <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                     <Database size={16} className="text-red-600" /> Admin Tools
                  </h3>
                  <button 
                     onClick={onOpenVenueAdmin}
-                    className="w-full flex items-center justify-between p-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors border border-zinc-700 mb-2 active:scale-[0.98]"
+                    className="w-full flex items-center justify-between p-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors border border-gray-200 mb-2 active:scale-[0.98]"
                  >
-                    <span className="font-medium text-sm text-zinc-300">Manage Sport Venues</span>
-                    <ChevronRight size={16} className="text-zinc-500" />
+                    <span className="font-medium text-sm text-gray-700">Manage Sport Venues</span>
+                    <ChevronRight size={16} className="text-gray-500" />
                  </button>
                  <button 
                     onClick={onOpenSportAdmin}
-                    className="w-full flex items-center justify-between p-3 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors border border-zinc-700 active:scale-[0.98]"
+                    className="w-full flex items-center justify-between p-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors border border-gray-200 active:scale-[0.98]"
                  >
-                    <span className="font-medium text-sm text-zinc-300">Manage Sport Markers</span>
-                    <ChevronRight size={16} className="text-zinc-500" />
+                    <span className="font-medium text-sm text-gray-700">Manage Sport Markers</span>
+                    <ChevronRight size={16} className="text-gray-500" />
                  </button>
              </div>
         </div>
@@ -410,14 +410,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
         <div className="px-6 pb-6">
             <button 
                 onClick={onLogout}
-                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-zinc-900 border border-zinc-800 text-red-500 hover:bg-zinc-800 transition-colors rounded-2xl font-bold active:scale-95"
+                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-white border border-gray-200 text-red-600 hover:bg-gray-100 transition-colors rounded-2xl font-bold active:scale-95"
             >
                 <LogOut size={20} />
                 <span>Log Out</span>
             </button>
         </div>
         
-        <div className="p-4 text-center text-xs text-zinc-600">
+        <div className="p-4 text-center text-xs text-gray-400">
             v3.0.1 (Simplified)
         </div>
       </div>
@@ -426,10 +426,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
 };
 
 const MenuButton = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick?: () => void }) => (
-    <button onClick={onClick} className="w-full flex items-center gap-4 px-6 py-4 border-b border-zinc-800 hover:bg-zinc-800 transition-colors text-left last:border-0 active:bg-zinc-800">
-        <div className="text-zinc-500">{icon}</div>
-        <span className="text-zinc-300 font-medium">{label}</span>
-        <ChevronRight className="ml-auto text-zinc-600" size={16} />
+    <button onClick={onClick} className="ripple w-full flex items-center gap-4 px-6 py-4 border-b border-gray-100 hover:bg-gray-50 text-left last:border-0">
+        <div className="text-gray-500">{icon}</div>
+        <span className="text-gray-700 font-medium">{label}</span>
+        <ChevronRight className="ml-auto text-gray-400" size={16} />
     </button>
 );
 

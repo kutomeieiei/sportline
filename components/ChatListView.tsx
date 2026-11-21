@@ -256,26 +256,26 @@ const ChatListView: React.FC<ChatListViewProps> = ({
 
   if (isCreatingGroup) {
     return (
-        <div className="w-full h-full bg-zinc-950 flex flex-col font-sans animate-in slide-in-from-bottom duration-300">
+        <div className="w-full h-full bg-white flex flex-col font-sans animate-in slide-in-from-bottom duration-300">
             {/* Create Group Header */}
-            <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/90 backdrop-blur-md sticky top-0 z-10 shadow-sm">
-                <button onClick={() => setIsCreatingGroup(false)} className="text-zinc-400 hover:text-white font-medium transition-colors active:scale-95">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-white/95 backdrop-blur-md sticky top-0 z-10 shadow-sm">
+                <button onClick={() => setIsCreatingGroup(false)} className="text-gray-600 hover:text-gray-900 font-medium transition-colors active:scale-95">
                     Cancel
                 </button>
-                <h2 className="text-lg font-bold text-white tracking-tight">New Group</h2>
+                <h2 className="text-lg font-bold text-gray-900 tracking-tight">New Group</h2>
                 <button 
                     onClick={handleCreateGroup}
                     disabled={!groupName.trim() || selectedIds.length === 0}
-                    className={`font-bold transition-colors active:scale-95 ${!groupName.trim() || selectedIds.length === 0 ? 'text-zinc-600' : 'text-red-500 hover:text-red-400'}`}
+                    className={`font-bold transition-colors active:scale-95 ${!groupName.trim() || selectedIds.length === 0 ? 'text-gray-400' : 'text-red-600 hover:text-red-700'}`}
                 >
                     Create
                 </button>
             </div>
 
-            <div className="p-6 bg-zinc-950 border-b border-zinc-800 space-y-4">
+            <div className="p-6 bg-white border-b border-gray-200 space-y-4">
                 <div className="flex items-center gap-4">
                      <div 
-                        className="w-16 h-16 rounded-full bg-red-900/20 flex items-center justify-center text-red-500 border border-red-900/50 shadow-sm shrink-0 overflow-hidden relative group cursor-pointer"
+                        className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center text-red-600 border border-red-200 shadow-sm shrink-0 overflow-hidden relative group cursor-pointer"
                         onClick={() => fileInputRef.current?.click()}
                      >
                         {groupAvatarUrl ? (
@@ -286,7 +286,7 @@ const ChatListView: React.FC<ChatListViewProps> = ({
                              <Camera size={24} />
                         )}
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Camera size={20} className="text-white" />
+                            <Camera size={20} className="text-gray-900" />
                         </div>
                      </div>
                      <input 
@@ -300,7 +300,7 @@ const ChatListView: React.FC<ChatListViewProps> = ({
                          <input 
                             type="text" 
                             placeholder="Group Name"
-                            className="w-full text-lg font-semibold outline-none placeholder-zinc-500 bg-transparent text-white"
+                            className="w-full text-lg font-semibold outline-none placeholder-gray-400 bg-transparent text-gray-900"
                             value={groupName}
                             onChange={(e) => setGroupName(e.target.value)}
                             autoFocus
@@ -309,30 +309,30 @@ const ChatListView: React.FC<ChatListViewProps> = ({
                 </div>
             </div>
 
-            <div className="px-4 py-3 text-xs font-bold text-zinc-500 uppercase tracking-wider bg-zinc-900 border-b border-zinc-800">
+            <div className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider bg-white border-b border-gray-200">
                 Select Members ({selectedIds.length})
             </div>
 
-            <div className="flex-1 overflow-y-auto bg-zinc-950">
+            <div className="flex-1 overflow-y-auto bg-white">
                 {contacts.map(contact => {
                     const isSelected = selectedIds.includes(contact.id);
                     return (
                         <button 
                             key={contact.id}
                             onClick={() => toggleSelection(contact.id)}
-                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-900 transition-colors border-b border-zinc-900 last:border-none active:scale-[0.98]"
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-none active:scale-[0.98]"
                         >
                             <div className="relative">
-                                <img src={contact.avatarUrl} className="w-12 h-12 rounded-full object-cover border border-zinc-800" />
+                                <img src={contact.avatarUrl} className="w-12 h-12 rounded-full object-cover border border-gray-200" />
                                 {isSelected && (
-                                    <div className="absolute -bottom-1 -right-1 bg-red-600 text-white rounded-full p-0.5 border-2 border-zinc-950 shadow-sm">
+                                    <div className="absolute -bottom-1 -right-1 bg-red-600 text-white rounded-full p-0.5 border-2 border-white shadow-sm">
                                         <Check size={10} strokeWidth={4} />
                                     </div>
                                 )}
                             </div>
-                            <span className="flex-1 text-left font-medium text-white text-base">{contact.name}</span>
-                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'border-red-600 bg-red-600' : 'border-zinc-700'}`}>
-                                {isSelected && <Check size={14} className="text-white" />}
+                            <span className="flex-1 text-left font-medium text-gray-900 text-base">{contact.name}</span>
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'border-red-600 bg-red-600' : 'border-gray-200'}`}>
+                                {isSelected && <Check size={14} className="text-gray-900" />}
                             </div>
                         </button>
                     );
@@ -343,20 +343,20 @@ const ChatListView: React.FC<ChatListViewProps> = ({
   }
 
   return (
-    <div className="w-full h-full bg-zinc-950 flex flex-col font-sans">
+    <div className="w-full h-full bg-white flex flex-col font-sans">
       {/* Header */}
-      <div className="pt-4 pb-2 px-4 bg-zinc-950 sticky top-0 z-10 flex items-center justify-between">
-         <h1 className="text-2xl font-bold text-white tracking-tight py-1">Chats</h1>
+      <div className="pt-4 pb-2 px-4 bg-white sticky top-0 z-10 flex items-center justify-between">
+         <h1 className="text-[22px] font-medium text-gray-900 tracking-tight py-1">Chats</h1>
       </div>
 
       {/* Tabs */}
-      <div className="flex px-4 border-b border-zinc-800 bg-zinc-950 sticky top-[60px] z-10">
+      <div className="flex px-4 border-b border-gray-200 bg-white sticky top-[60px] z-10">
         <button 
             onClick={() => setActiveTab('friends')}
-            className={`flex-1 py-3 text-sm font-bold text-center transition-all border-b-2 active:scale-95 ${
+            className={`flex-1 py-3 text-sm font-medium text-center transition-all border-b-2 active:scale-95 ${
                 activeTab === 'friends' 
-                ? 'border-red-500 text-red-500' 
-                : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                ? 'border-red-500 text-red-600' 
+                : 'border-transparent text-gray-500 hover:text-gray-900'
             }`}
         >
             Friends
@@ -368,10 +368,10 @@ const ChatListView: React.FC<ChatListViewProps> = ({
         </button>
         <button 
             onClick={() => setActiveTab('groups')}
-            className={`flex-1 py-3 text-sm font-bold text-center transition-all border-b-2 active:scale-95 ${
+            className={`flex-1 py-3 text-sm font-medium text-center transition-all border-b-2 active:scale-95 ${
                 activeTab === 'groups' 
-                ? 'border-red-500 text-red-500' 
-                : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                ? 'border-red-500 text-red-600' 
+                : 'border-transparent text-gray-500 hover:text-gray-900'
             }`}
         >
             Groups
@@ -383,10 +383,10 @@ const ChatListView: React.FC<ChatListViewProps> = ({
         </button>
         <button 
             onClick={() => setActiveTab('requests')}
-            className={`flex-1 py-3 text-sm font-bold text-center transition-all border-b-2 active:scale-95 ${
+            className={`flex-1 py-3 text-sm font-medium text-center transition-all border-b-2 active:scale-95 ${
                 activeTab === 'requests' 
-                ? 'border-red-500 text-red-500' 
-                : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                ? 'border-red-500 text-red-600' 
+                : 'border-transparent text-gray-500 hover:text-gray-900'
             }`}
         >
             Requests
@@ -400,19 +400,19 @@ const ChatListView: React.FC<ChatListViewProps> = ({
 
       {/* Add Friend Input */}
       {activeTab === 'friends' && (
-        <div className="p-4 bg-zinc-950 border-b border-zinc-800 sticky top-[108px] z-10">
-            <div className="flex items-center gap-2 bg-zinc-900 rounded-xl p-1 border border-zinc-800 focus-within:border-red-500 transition-colors">
+        <div className="p-4 bg-white border-b border-gray-200 sticky top-[108px] z-10">
+            <div className="flex items-center gap-2 bg-white rounded-xl p-1 border border-gray-200 focus-within:border-red-500 transition-colors">
                 <input 
                     type="text"
                     placeholder="Add friend by username or Gmail"
-                    className="flex-1 bg-transparent px-3 py-2 text-sm outline-none text-white placeholder-zinc-500"
+                    className="flex-1 bg-transparent px-3 py-2 text-sm outline-none text-gray-900 placeholder-gray-400"
                     value={addFriendUsername}
                     onChange={(e) => setAddFriendUsername(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleAddFriendClick()}
                 />
                 <button 
                     onClick={handleAddFriendClick}
-                    className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-zinc-800 disabled:text-zinc-500 transition-colors active:scale-95"
+                    className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-100 disabled:text-gray-500 transition-colors active:scale-95"
                     disabled={!addFriendUsername.trim()}
                 >
                     <UserPlus size={18} />
@@ -423,41 +423,41 @@ const ChatListView: React.FC<ChatListViewProps> = ({
 
       {/* New Group (in the Groups tab) */}
       {activeTab === 'groups' && (
-        <div className="p-4 bg-zinc-950 border-b border-zinc-800 sticky top-[108px] z-10">
+        <div className="p-4 bg-white border-b border-gray-200 sticky top-[108px] z-10">
           <button
             onClick={() => setIsCreatingGroup(true)}
-            className="w-full flex items-center justify-center gap-2 py-3 bg-zinc-900 border border-zinc-800 rounded-xl hover:bg-zinc-800 text-zinc-200 transition-colors active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-gray-200 rounded-xl hover:bg-gray-100 text-gray-800 transition-colors active:scale-[0.98]"
           >
-            <Plus size={20} className="text-red-500" />
+            <Plus size={20} className="text-red-600" />
             <span className="text-sm font-semibold">New Group</span>
           </button>
         </div>
       )}
 
       <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col pb-24">
+        <div key={activeTab} className="flex flex-col pb-24 stagger">
           {filteredChats.length > 0 ? (
             filteredChats.map((chat) => (
               <button
                 key={chat.id}
                 onClick={() => activeTab !== 'requests' && onSelectChat(chat)}
-                className={`flex items-center gap-4 px-4 py-3 hover:bg-zinc-900 transition-colors w-full text-left border-b border-zinc-900/50 ${activeTab !== 'requests' ? 'active:scale-[0.98]' : 'cursor-default'}`}
+                className={`ripple flex items-center gap-4 px-4 py-3 hover:bg-gray-50 w-full text-left ${activeTab !== 'requests' ? '' : 'cursor-default'}`}
               >
                 {/* Avatar Container */}
                 <div className="relative flex-shrink-0">
-                  <div className={`w-[60px] h-[60px] rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 ${chat.isGroup ? 'p-1' : ''}`}>
+                  <div className={`w-[60px] h-[60px] rounded-full overflow-hidden bg-gray-100 border border-gray-200 ${chat.isGroup ? 'p-1' : ''}`}>
                       <img src={chat.avatarUrl} alt={chat.name} className={`w-full h-full object-cover ${chat.isGroup ? 'rounded-full' : ''}`} />
                   </div>
                   
                   {/* Online Status Dot */}
                   {chat.isOnline && !chat.isGroup && activeTab !== 'requests' && (
-                    <div className="absolute bottom-1 right-1 w-4 h-4 bg-green-500 border-2 border-zinc-950 rounded-full"></div>
+                    <div className="absolute bottom-1 right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
                   )}
                   
                   {/* Group Icon Indicator */}
                   {chat.isGroup && (
-                     <div className="absolute bottom-0 right-0 bg-zinc-800 rounded-full p-1 shadow-sm border border-zinc-700">
-                          <Users size={12} className="text-red-500 fill-red-900/50" />
+                     <div className="absolute bottom-0 right-0 bg-gray-100 rounded-full p-1 shadow-sm border border-gray-200">
+                          <Users size={12} className="text-red-600 fill-red-100" />
                      </div>
                   )}
                 </div>
@@ -465,22 +465,22 @@ const ChatListView: React.FC<ChatListViewProps> = ({
                 {/* Text Content */}
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
                   <div className="flex justify-between items-baseline mb-1">
-                      <h3 className={`text-[17px] text-white truncate leading-tight ${chat.unreadCount ? 'font-bold' : 'font-semibold'}`}>
+                      <h3 className={`text-[17px] text-gray-900 truncate leading-tight ${chat.unreadCount ? 'font-bold' : 'font-semibold'}`}>
                           {chat.name}
                       </h3>
                       {chat.lastMessage?.timestamp && activeTab !== 'requests' && (
-                          <span className={`text-[12px] font-normal ml-2 flex-shrink-0 ${chat.unreadCount ? 'text-red-500 font-semibold' : 'text-zinc-500'}`}>{formatTimestamp(chat.lastMessage.timestamp)}</span>
+                          <span className={`text-[12px] font-normal ml-2 flex-shrink-0 ${chat.unreadCount ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>{formatTimestamp(chat.lastMessage.timestamp)}</span>
                       )}
                   </div>
                   
-                  <div className="flex items-center gap-2 text-[15px] text-zinc-400 font-light leading-tight">
-                    <span className={`flex-1 truncate ${chat.unreadCount ? 'font-semibold text-white' : ''}`}>
+                  <div className="flex items-center gap-2 text-[15px] text-gray-600 font-light leading-tight">
+                    <span className={`flex-1 truncate ${chat.unreadCount ? 'font-semibold text-gray-900' : ''}`}>
                       {chat.lastMessage
                         ? `${chat.lastMessage.senderId === currentUser.uid ? 'You: ' : ''}${chat.lastMessage.text}`
                         : (chat.statusText || (activeTab === 'friends' ? 'Say hi 👋' : ''))}
                     </span>
                     {!!chat.unreadCount && activeTab !== 'requests' && (
-                      <span className="min-w-[22px] h-[22px] px-1.5 rounded-full bg-red-600 text-white text-[12px] font-bold flex items-center justify-center flex-shrink-0 shadow-sm shadow-red-900/50">
+                      <span className="min-w-[22px] h-[22px] px-1.5 rounded-full bg-red-600 text-white text-[12px] font-bold flex items-center justify-center flex-shrink-0 shadow-sm shadow-red-600/20">
                         {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
                       </span>
                     )}
@@ -505,7 +505,7 @@ const ChatListView: React.FC<ChatListViewProps> = ({
                                 e.stopPropagation();
                                 onRejectFriend(chat.id);
                             }}
-                            className="p-2 bg-zinc-800 text-zinc-400 rounded-full hover:bg-zinc-700 transition-colors"
+                            className="p-2 bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200 transition-colors"
                             title="Reject"
                         >
                             <Plus size={18} className="rotate-45" />
@@ -516,14 +516,14 @@ const ChatListView: React.FC<ChatListViewProps> = ({
             ))
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-                <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center text-zinc-600 mb-4 border border-zinc-800">
+                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-gray-400 mb-4 border border-gray-200">
                     {activeTab === 'friends' ? <Users size={32} /> : <Users size={32} />}
                 </div>
-                <p className="text-zinc-500 font-medium">No {activeTab} yet</p>
+                <p className="text-gray-500 font-medium">No {activeTab} yet</p>
                 {activeTab === 'groups' && (
                     <button 
                         onClick={() => setIsCreatingGroup(true)}
-                        className="mt-4 text-red-500 font-bold text-sm hover:text-red-400 active:scale-95 transition-transform"
+                        className="mt-4 text-red-600 font-bold text-sm hover:text-red-700 active:scale-95 transition-transform"
                     >
                         Create a Group
                     </button>

@@ -308,60 +308,60 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
   };
 
   return (
-    <div className="fixed inset-0 bg-zinc-950 z-[2000] flex flex-col">
+    <div className="fixed inset-0 bg-white z-[2000] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shadow-sm bg-zinc-900/90 backdrop-blur-md sticky top-0 z-10">
+      <div className="flex items-center justify-between pl-2 pr-2 h-16 border-b border-gray-100 bg-white sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-1 -ml-2 text-red-500 rounded-full hover:bg-zinc-800 active:scale-95 transition-transform">
+          <button onClick={onBack} aria-label="Back" className="ripple press w-10 h-10 flex items-center justify-center text-gray-700 rounded-full hover:bg-gray-100">
             <ArrowLeft size={24} />
           </button>
           <div className="relative">
-             <img src={headerAvatar} alt={headerName} className="w-10 h-10 rounded-full object-cover border border-zinc-800" />
+             <img src={headerAvatar} alt={headerName} className="w-10 h-10 rounded-full object-cover border border-gray-200" />
              {chatUser.isOnline && !chatUser.isGroup && (
-               <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-zinc-900 rounded-full"></div>
+               <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-gray-100 rounded-full"></div>
              )}
           </div>
           <div>
-            <h3 className="font-bold text-white leading-none truncate max-w-[45vw]">{headerName}</h3>
-            <p className="text-xs text-zinc-500 mt-0.5">
+            <h3 className="font-bold text-gray-900 leading-none truncate max-w-[45vw]">{headerName}</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
               {chatUser.isGroup 
                 ? `${memberIds.length || chatUser.members || 2} members` 
                 : (chatUser.isOnline ? 'Active now' : chatUser.statusText)}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4 text-red-500 relative">
-          <button onClick={() => handleCall('audio')} disabled={isInThisCall} aria-label="Voice call" title="Voice call" className="p-1 hover:bg-zinc-800 rounded-full transition-colors active:scale-95 disabled:opacity-40">
+        <div className="flex items-center gap-1 text-gray-700 relative">
+          <button onClick={() => handleCall('audio')} disabled={isInThisCall} aria-label="Voice call" title="Voice call" className="ripple press w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full disabled:opacity-40">
             <Phone size={24} />
           </button>
-          <button onClick={() => handleCall('video')} disabled={isInThisCall} aria-label="Video call" title="Video call" className="p-1 hover:bg-zinc-800 rounded-full transition-colors active:scale-95 disabled:opacity-40">
+          <button onClick={() => handleCall('video')} disabled={isInThisCall} aria-label="Video call" title="Video call" className="ripple press w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full disabled:opacity-40">
             <Video size={24} />
           </button>
-          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-1 hover:bg-zinc-800 rounded-full transition-colors active:scale-95">
+          <button onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="More options" className="ripple press w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full">
             <MoreVertical size={24} />
           </button>
           
           {isMenuOpen && (
-            <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 rounded-xl shadow-lg border border-zinc-800 py-1 z-50">
+            <div className="absolute top-full right-0 mt-1 w-52 bg-white rounded-xl shadow-elev-2 py-2 z-50 origin-top-right animate-in zoom-in">
               {chatUser.isGroup ? (
                 <>
                 <button
                   onClick={() => { setIsMenuOpen(false); setIsEditGroupOpen(true); }}
-                  className="w-full px-4 py-3 text-left text-zinc-200 hover:bg-zinc-800 flex items-center gap-3 transition-colors"
+                  className="w-full px-4 py-3 text-left text-gray-800 hover:bg-gray-100 flex items-center gap-3 transition-colors"
                 >
                   <Pencil size={18} />
                   <span className="font-medium text-sm">Edit Group</span>
                 </button>
                 <button
                   onClick={() => { setIsMenuOpen(false); setIsAddMembersOpen(true); }}
-                  className="w-full px-4 py-3 text-left text-zinc-200 hover:bg-zinc-800 flex items-center gap-3 transition-colors"
+                  className="w-full px-4 py-3 text-left text-gray-800 hover:bg-gray-100 flex items-center gap-3 transition-colors"
                 >
                   <UserPlus size={18} />
                   <span className="font-medium text-sm">Add Members</span>
                 </button>
                 <button 
                   onClick={handleLeaveGroup}
-                  className="w-full px-4 py-3 text-left text-red-500 hover:bg-zinc-800 flex items-center gap-3 transition-colors"
+                  className="w-full px-4 py-3 text-left text-red-600 hover:bg-gray-100 flex items-center gap-3 transition-colors"
                 >
                   <LogOut size={18} />
                   <span className="font-medium text-sm">Leave Group</span>
@@ -370,7 +370,7 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
               ) : (
                 <button 
                   onClick={handleRemoveFriend}
-                  className="w-full px-4 py-3 text-left text-red-500 hover:bg-zinc-800 flex items-center gap-3 transition-colors"
+                  className="w-full px-4 py-3 text-left text-red-600 hover:bg-gray-100 flex items-center gap-3 transition-colors"
                 >
                   <UserMinus size={18} />
                   <span className="font-medium text-sm">Remove Friend</span>
@@ -395,45 +395,45 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
       )}
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto bg-zinc-950 p-4 space-y-4">
-        <div className="text-center text-xs text-zinc-600 my-4">Today</div>
+      <div className="flex-1 overflow-y-auto bg-white p-4 space-y-4">
+        <div className="text-center text-xs text-gray-400 my-4">Today</div>
         {messages.map((msg) => {
           const isMe = msg.senderId === currentUser.uid;
           const sender = chatMembers[msg.senderId];
           if (msg.type === 'system') {
             return (
               <div key={msg.id} className="flex justify-center">
-                <span className="px-3 py-1 rounded-full bg-zinc-900 text-zinc-500 text-xs border border-zinc-800">{msg.text}</span>
+                <span className="px-3 py-1 rounded-full bg-white text-gray-500 text-xs border border-gray-200">{msg.text}</span>
               </div>
             );
           }
           return (
             <div 
               key={msg.id} 
-              className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+              className={`pop-in flex ${isMe ? 'justify-end' : 'justify-start'}`}
             >
               {!isMe && (
                  <img 
                     src={sender ? (sender.profile_img_url || sender.avatarUrl) : chatUser.avatarUrl} 
-                    className="w-8 h-8 rounded-full self-end mr-2 mb-1 border border-zinc-800" 
+                    className="w-8 h-8 rounded-full self-end mr-2 mb-1 border border-gray-200" 
                     title={sender ? sender.displayName : chatUser.name}
                  />
               )}
               <div className={`max-w-[70%] px-4 py-2 rounded-2xl text-[15px] ${
                   msg.type === 'venue_share' || msg.type === 'image' || msg.type === 'audio'
-                  ? `bg-zinc-900 text-white border border-zinc-800 ${isMe ? 'rounded-br-none' : 'rounded-bl-none'}`
+                  ? `bg-white text-gray-900 border border-gray-200 ${isMe ? 'rounded-br-md' : 'rounded-bl-md'}`
                   : (isMe 
-                      ? 'bg-red-600 text-white rounded-br-none' 
-                      : 'bg-zinc-900 text-zinc-300 border border-zinc-800 rounded-bl-none')
+                      ? 'bg-red-600 text-white rounded-br-md' 
+                      : 'bg-gray-100 text-gray-900 rounded-bl-md')
               }`}>
                 {msg.type === 'venue_share' && msg.venue ? (
                   <div className="w-full">
                     <p className="mb-2">{msg.text}</p>
                     <div className="border-l-4 border-red-500 pl-3">
                       <img src={msg.venue.imageUrl} alt={msg.venue.name} className="w-full h-32 object-cover rounded-lg mb-2 opacity-80" />
-                      <h4 className="font-bold text-white">{msg.venue.name}</h4>
-                      <p className="text-xs text-zinc-500">{msg.venue.description}</p>
-                      <button onClick={() => handleViewOnMap(msg.venue!)} className="mt-2 text-xs text-red-500 hover:text-red-400 font-bold transition-colors">View on Map</button>
+                      <h4 className="font-bold text-gray-900">{msg.venue.name}</h4>
+                      <p className="text-xs text-gray-500">{msg.venue.description}</p>
+                      <button onClick={() => handleViewOnMap(msg.venue!)} className="mt-2 text-xs text-red-600 hover:text-red-700 font-bold transition-colors">View on Map</button>
                     </div>
                   </div>
                 ) : msg.type === 'image' && msg.imageUrl ? (
@@ -455,7 +455,7 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
       </div>
 
       {/* Input Area */}
-      <div className="p-3 bg-zinc-950 border-t border-zinc-900 flex items-center gap-3 pb-safe">
+      <div className="px-2 py-2 bg-white border-t border-gray-100 flex items-center gap-1 pb-safe">
         <input 
           type="file" 
           accept="image/*" 
@@ -466,7 +466,7 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
         <button 
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading || isRecording}
-          className="text-red-500 p-2 hover:bg-zinc-900 rounded-full disabled:opacity-50 transition-colors"
+          className="ripple press shrink-0 text-gray-600 w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full disabled:opacity-50"
         >
             <ImageIcon size={24} />
         </button>
@@ -474,52 +474,52 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
           onClick={() => setIsCameraOpen(true)}
           disabled={isUploading || isRecording}
           aria-label="Take a photo"
-          className="text-red-500 p-2 -ml-2 hover:bg-zinc-900 rounded-full disabled:opacity-50 transition-colors"
+          className="ripple press shrink-0 text-gray-600 w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full disabled:opacity-50"
         >
             <Camera size={24} />
         </button>
         
         {isRecording ? (
-          <div className="flex-1 flex items-center justify-between bg-red-900/30 rounded-full px-4 py-2 border border-red-900/50">
-            <div className="flex items-center gap-2 text-red-500">
+          <div className="flex-1 min-w-0 flex items-center justify-between bg-red-50 rounded-full px-4 h-11 animate-in fade-in">
+            <div className="flex items-center gap-2 text-red-600">
               <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               <span className="font-medium text-sm">{formatDuration(recordingDuration)}</span>
             </div>
-            <button onClick={stopRecording} className="text-red-500 hover:text-red-400">
+            <button onClick={stopRecording} className="text-red-600 hover:text-red-700">
               <Square size={20} fill="currentColor" />
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSend} className="flex-1 flex items-center gap-2 bg-zinc-900 rounded-full px-4 py-2 border border-zinc-800">
+          <form onSubmit={handleSend} className="flex-1 min-w-0 flex items-center gap-2 bg-gray-100 rounded-full pl-4 pr-2 h-11 focus-within:bg-white focus-within:ring-1 focus-within:ring-gray-300 transition-colors">
               <input 
                   type="text" 
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   placeholder="Message..."
-                  className="flex-1 bg-transparent outline-none text-white placeholder-zinc-500"
+                  className="flex-1 min-w-0 bg-transparent outline-none text-[15px] text-gray-900 placeholder-gray-500"
                   disabled={isUploading}
               />
-              <button type="button" className="text-zinc-500 hover:text-zinc-400 transition-colors">
+              <button type="button" className="shrink-0 text-gray-500 hover:text-gray-700">
                   <Smile size={24} />
               </button>
           </form>
         )}
 
         {isUploading ? (
-          <div className="p-2 text-red-500">
+          <div className="shrink-0 w-11 h-11 flex items-center justify-center text-red-600">
             <Loader2 size={24} className="animate-spin" />
           </div>
         ) : inputValue.trim() ? (
           <button 
               onClick={handleSend}
-              className="text-red-500 p-2 hover:bg-red-900/20 rounded-full transition-colors active:scale-95"
+              className="ripple press shrink-0 w-11 h-11 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 animate-in zoom-in"
           >
               <Send size={24} />
           </button>
         ) : (
           <button 
               onClick={isRecording ? stopRecording : startRecording}
-              className={`${isRecording ? 'text-white bg-red-600 shadow-md shadow-red-900/50' : 'text-red-500 hover:bg-red-900/20'} p-2 rounded-full transition-all active:scale-95`}
+              className={`ripple press shrink-0 w-11 h-11 flex items-center justify-center rounded-full ${isRecording ? 'text-white bg-red-600 animate-pulse' : 'text-gray-600 hover:bg-gray-100'}`}
           >
               <Mic size={24} />
           </button>

@@ -51,18 +51,18 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({ chatId, friends, memb
   };
 
   return (
-    <div className="fixed inset-0 z-[3000] bg-black/70 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className="w-full sm:max-w-md max-h-[80vh] bg-zinc-900 border border-zinc-800 rounded-t-3xl sm:rounded-3xl flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-5 border-b border-zinc-800">
-          <h2 className="text-lg font-bold text-white">Add Members</h2>
-          <button onClick={onClose} aria-label="Close" className="p-2 rounded-full bg-zinc-800 text-zinc-400 hover:bg-zinc-700"><X size={18} /></button>
+    <div className="fixed inset-0 z-[3000] bg-black/40 backdrop-in flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div className="w-full sm:max-w-md max-h-[80vh] bg-white rounded-t-3xl sm:rounded-3xl shadow-elev-3 sheet-up sm:animate-none flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b border-gray-200">
+          <h2 className="text-lg font-bold text-gray-900">Add Members</h2>
+          <button onClick={onClose} aria-label="Close" className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"><X size={18} /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {candidates.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center gap-3 py-14 px-6">
-              <Users size={36} className="text-zinc-600" />
-              <p className="text-zinc-400 text-sm">
+              <Users size={36} className="text-gray-400" />
+              <p className="text-gray-600 text-sm">
                 {friends.length === 0 ? 'Add some friends first, then you can add them to groups.' : 'All your friends are already in this group.'}
               </p>
             </div>
@@ -72,19 +72,19 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({ chatId, friends, memb
               <button
                 key={f.uid}
                 onClick={() => toggle(f.uid)}
-                className="w-full flex items-center gap-3 px-5 py-3 hover:bg-zinc-800 transition-colors"
+                className="w-full flex items-center gap-3 px-5 py-3 hover:bg-gray-100 transition-colors"
               >
-                <img src={f.profile_img_url || f.avatarUrl || fallbackAvatar(nameOf(f))} alt="" className="w-11 h-11 rounded-full object-cover border border-zinc-700" />
-                <span className="flex-1 text-left text-white font-medium truncate">{nameOf(f)}</span>
-                <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-red-600 bg-red-600' : 'border-zinc-600'}`}>
-                  {isSelected && <Check size={14} className="text-white" />}
+                <img src={f.profile_img_url || f.avatarUrl || fallbackAvatar(nameOf(f))} alt="" className="w-11 h-11 rounded-full object-cover border border-gray-200" />
+                <span className="flex-1 text-left text-gray-900 font-medium truncate">{nameOf(f)}</span>
+                <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-red-600 bg-red-600' : 'border-gray-300'}`}>
+                  {isSelected && <Check size={14} className="text-gray-900" />}
                 </span>
               </button>
             );
           })}
         </div>
 
-        <div className="p-5 border-t border-zinc-800">
+        <div className="p-5 border-t border-gray-200">
           <button
             onClick={add}
             disabled={saving || selected.length === 0}

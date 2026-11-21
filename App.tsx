@@ -682,8 +682,8 @@ function App() {
 
   if (isLoadingAuth) {
      return (
-        <div className="w-full h-screen flex items-center justify-center bg-zinc-950">
-            <Loader2 className="animate-spin text-red-600" size={48} />
+        <div className="w-full h-screen flex items-center justify-center bg-white">
+            <Loader2 className="animate-spin text-red-600" size={36} />
         </div>
      );
   }
@@ -694,16 +694,16 @@ function App() {
 
   if (!isServerDataLoaded) {
     return (
-        <div className="w-full h-screen flex flex-col items-center justify-center bg-zinc-950">
+        <div className="w-full h-screen flex flex-col items-center justify-center bg-white">
             <Loader2 className="animate-spin text-red-600 mb-4" size={48} />
-            <p className="text-zinc-400 text-sm font-medium">Syncing with server...</p>
+            <p className="text-gray-600 text-sm font-medium">Syncing with server...</p>
         </div>
      );
   }
 
   return (
     <CallProvider currentUser={{ ...user, uid: authUser?.uid || user.uid }}>
-    <div className="relative w-full h-screen overflow-hidden bg-zinc-950 flex flex-col font-sans">
+    <div className="relative w-full h-screen overflow-hidden bg-white flex flex-col font-sans">
       
       {/* Map Layer */}
       <div className="absolute inset-0 top-0 bottom-[72px] z-0">
@@ -737,31 +737,41 @@ function App() {
             isLoaded={isMapsLoaded}
           />
 
-          {/* Play Sport Button */}
-          <button 
-            onClick={() => setIsPlaySportModalOpen(true)}
-            className="absolute bottom-20 md:bottom-24 left-4 bg-red-600 text-white px-2.5 md:px-6 py-2 md:py-4 rounded-xl md:rounded-2xl shadow-xl shadow-red-900/50 font-bold text-[10px] md:text-lg hover:bg-red-700 hover:scale-105 active:scale-95 transition-all duration-200 z-[1000] flex items-center gap-1.5 md:gap-3"
-          >
-            <Activity size={16} className="md:w-6 md:h-6" />
-            <span>Play Sport</span>
-          </button>
+          {/* My location + Play Sport (Google Maps style floating buttons) */}
+          <div className="absolute bottom-[88px] right-4 z-[1000] flex flex-col items-end gap-3 animate-in fade-in slide-in-from-bottom">
+            <button
+              onClick={handleRecenter}
+              aria-label="Show my location"
+              title="Show my location"
+              className="ripple press w-12 h-12 rounded-full bg-white text-gray-700 shadow-elev-2 hover:bg-gray-50 flex items-center justify-center"
+            >
+              <Crosshair size={22} />
+            </button>
+            <button
+              onClick={() => setIsPlaySportModalOpen(true)}
+              className="ripple press h-14 pl-4 pr-5 rounded-2xl bg-red-600 text-white shadow-elev-3 hover:bg-red-700 font-medium text-[15px] flex items-center gap-2"
+            >
+              <Activity size={20} />
+              <span>Play Sport</span>
+            </button>
+          </div>
 
-          {/* Stop Live Search Button */}
+          {/* Live search controls */}
           {isLiveSearchEnabled && (
-            <div className="absolute bottom-20 md:bottom-24 right-4 flex flex-col gap-1.5 md:gap-3 z-[1000]">
+            <div className="absolute bottom-[88px] left-4 flex flex-col gap-2 z-[1000] animate-in fade-in slide-in-from-left">
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className="bg-zinc-900/90 backdrop-blur-md text-white px-2.5 md:px-5 py-2 md:py-4 rounded-xl md:rounded-2xl shadow-xl shadow-black/50 font-bold text-[9px] md:text-sm hover:bg-zinc-800 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center gap-1.5 md:gap-2 border border-zinc-700"
+                className="ripple press h-10 px-4 rounded-full bg-white text-gray-800 shadow-elev-2 hover:bg-gray-50 text-sm font-medium flex items-center gap-2"
               >
-                <Users size={12} className="md:w-5 md:h-5 text-red-500" />
-                <span>View Players ({discoveredUsers.length})</span>
+                <Users size={16} className="text-red-600" />
+                <span>Players nearby ({discoveredUsers.length})</span>
               </button>
               <button
                 onClick={handleStopLiveSearch}
-                className="bg-red-600 text-white px-2.5 md:px-5 py-2 md:py-4 rounded-xl md:rounded-2xl shadow-xl shadow-red-900/50 font-bold text-[9px] md:text-sm hover:bg-red-700 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center gap-1.5 md:gap-2"
+                className="ripple press h-10 px-4 rounded-full bg-white text-red-700 shadow-elev-2 hover:bg-red-50 text-sm font-medium flex items-center gap-2"
               >
-                <X size={12} className="md:w-5 md:h-5" />
-                <span>Stop Search</span>
+                <X size={16} />
+                <span>Stop search</span>
               </button>
             </div>
           )}
