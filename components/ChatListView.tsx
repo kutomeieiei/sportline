@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase'; // Import db from firebase
 import { Plus, Check, Users, Camera, UserPlus } from 'lucide-react';
 import { User } from '../types'; // Import User type
+import { resizeImageToDataUrl } from '../utils/image';
 
 export interface ChatUser {
   id: string;
@@ -44,21 +45,19 @@ const ChatListView: React.FC<ChatListViewProps> = ({
   const [allChats, setAllChats] = useState<ChatUser[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      alert("Image is too large. Please select an image under 2MB.");
+    if (file.size > 15 * 1024 * 1024) {
+      alert("Image is too large. Please select an image under 15MB.");
       return;
     }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      setGroupAvatarUrl(result);
-    };
-    reader.readAsDataURL(file);
+    try {
+      setGroupAvatarUrl(await resizeImageToDataUrl(file, 256));
+    } catch (err) {
+      alert((err as Error).message || "Could not use this image.");
+    }
   };
 
   const formatTimestamp = (timestamp: any) => {

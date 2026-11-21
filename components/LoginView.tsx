@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { User } from '../types';
 import { Loader2, Flame, AlertCircle } from 'lucide-react';
 import { APP_CONFIG } from '../constants';
-import { auth, googleProvider, db } from '../firebase';
+import { auth, googleProvider, db, firebase } from '../firebase';
+import { fallbackAvatar } from '../utils/image';
+import { normalizeUsername, pickFreeUsername } from '../utils/username';
 
 interface LoginViewProps {
   onLogin: (user: User) => void;
@@ -33,75 +35,60 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Helper to ensure user document exists in Firestore
-  const ensureUserDocument = async (authUser: firebase.User, additionalData: { username?: string } = {}) => {
+  // Makes sure the signed-in user has a complete profile in Firestore.
+  // New users get a unique username and their Google name/photo.
+  const ensureUserDocument = async (authUser: firebase.User): Promise<User> => {
     if (!db) throw new Error("Database not initialized");
-    
+
+    const name = authUser.displayName || 'Sports Fan';
+    const photo = authUser.photoURL || fallbackAvatar(name);
+    const userRef = db.collection('users').doc(authUser.uid);
+
     let userSnap;
     try {
-        userSnap = await db.collection('users').doc(authUser.uid).get();
+      userSnap = await userRef.get();
     } catch (err) {
-        console.warn("Could not fetch user profile (likely offline). Using Auth profile fallback.", err);
-        // Fallback: Return a temporary user object based on Auth data
-        return {
-            username: additionalData.username || authUser.email?.split('@')[0] || 'user',
-            displayName: authUser.displayName || additionalData.username || 'Sports Fan',
-            email: authUser.email || "",
-            avatarUrl: authUser.photoURL || `https://ui-avatars.com/api/?name=${authUser.displayName || 'User'}&background=random`,
-            bio: "Ready to play!",
-            gender: "Prefer not to say",
-            preferredSports: []
-        } as User;
-    }
-
-    if (!userSnap.exists) {
-      const newUser: User = {
-        username: additionalData.username || authUser.email?.split('@')[0] || 'user',
-        displayName: authUser.displayName || additionalData.username || 'Sports Fan',
-        email: authUser.email || "", // Save email
-        avatarUrl: authUser.photoURL || `https://ui-avatars.com/api/?name=${authUser.displayName || 'User'}&background=random`,
+      console.warn("Could not fetch user profile (likely offline). Using Auth profile fallback.", err);
+      return {
+        uid: authUser.uid,
+        username: normalizeUsername(authUser.email?.split('@')[0] || 'user'),
+        display_name: name,
+        displayName: name,
+        email: authUser.email || "",
+        profile_img_url: photo,
+        avatarUrl: photo,
         bio: "Ready to play!",
         gender: "Prefer not to say",
-        preferredSports: []
+        preferred_sports: [],
+        skill_metrics: { endurance: 0, speed: 0, technique: 0, teamwork: 0 },
       };
-      
-      try {
-        await db.collection('users').doc(authUser.uid).set(newUser);
-      } catch (writeErr: unknown) {
-        console.error("Failed to create user profile in DB:", writeErr);
-        const err = writeErr as { code?: string };
-        if (err.code === 'permission-denied') {
-             alert("⚠️ Account created, but Profile saving failed.\n\nDatabase Permission Denied. Check Firebase Console > Firestore Database > Rules.");
-        }
-      }
-      return newUser;
-    } else {
-        // User exists: Update latest email and avatar from Google Auth if available
-        // This ensures the "Gmail saving" requirement is robust
-        const userData = userSnap.data() as User;
-        const updates: Record<string, unknown> = {};
-        
-        if (authUser.email && userData.email !== authUser.email) {
-            updates.email = authUser.email;
-            userData.email = authUser.email;
-        }
-        
-        if (authUser.photoURL && userData.avatarUrl !== authUser.photoURL) {
-            // Only update avatar if it hasn't been manually set to something else custom
-            // For now, we sync it to keep it fresh
-            updates.avatarUrl = authUser.photoURL;
-            userData.avatarUrl = authUser.photoURL;
-        }
-
-        if (Object.keys(updates).length > 0) {
-            try {
-                await db.collection('users').doc(authUser.uid).set(updates, { merge: true });
-            } catch {
-                // Ignore write errors for updates
-            }
-        }
-        return userData;
     }
+
+    const existing = (userSnap.exists ? userSnap.data() : {}) as Partial<User>;
+    const updates: Record<string, unknown> = {};
+
+    // Fill in anything missing (new users, or profiles made by older app versions).
+    if (!existing.username) {
+      updates.username = await pickFreeUsername(authUser.email?.split('@')[0] || name, authUser.uid);
+    }
+    if (!existing.display_name) updates.display_name = existing.displayName || name;
+    if (!existing.displayName) updates.displayName = existing.display_name || name;
+    if (!existing.profile_img_url) updates.profile_img_url = existing.avatarUrl || photo;
+    if (!existing.preferred_sports) updates.preferred_sports = [];
+    if (existing.bio === undefined) updates.bio = "Ready to play!";
+    if (!existing.gender) updates.gender = "Prefer not to say";
+    // Keep the email and Google photo in sync (custom photos live in profile_img_url).
+    if (authUser.email && existing.email !== authUser.email) updates.email = authUser.email;
+    if (authUser.photoURL && existing.avatarUrl !== authUser.photoURL) updates.avatarUrl = authUser.photoURL;
+
+    if (Object.keys(updates).length > 0) {
+      try {
+        await userRef.set(updates, { merge: true });
+      } catch (writeErr) {
+        console.error("Failed to save user profile:", writeErr);
+      }
+    }
+    return { ...existing, ...updates, uid: authUser.uid } as User;
   };
 
   const formatError = (err: unknown) => {

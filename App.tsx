@@ -403,7 +403,17 @@ function App() {
                 throw "Party does not exist!";
             }
 
-            const currentPlayers = partyDoc.data()?.playersCurrent || 0;
+            const partyData = partyDoc.data() || {};
+            const currentPlayers = partyData.playersCurrent || 0;
+            const members: string[] = partyData.members || [];
+
+            // Don't count the same person twice, and don't go over the limit.
+            if (members.includes(user.username)) {
+                throw "You already joined this party.";
+            }
+            if (partyData.playersMax && currentPlayers >= partyData.playersMax) {
+                throw "This party is full.";
+            }
 
             transaction.update(partyRef, {
                 members: firebase.firestore.FieldValue.arrayUnion(user.username),
@@ -417,6 +427,7 @@ function App() {
 
     } catch (error) {
         console.error("Error joining party and chat:", error);
+        alert(typeof error === 'string' ? error : "Couldn't join this party. Please try again.");
     }
   };
 

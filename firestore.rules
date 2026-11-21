@@ -32,26 +32,51 @@ service cloud.firestore {
     }
 
     // ---------- Users ----------
+    function validProfile(data) {
+      return (!('username' in data) || (data.username is string && data.username.matches('^[a-z0-9._]{3,20}$')))
+        && (!('display_name' in data) || (data.display_name is string && data.display_name.size() <= 40))
+        && (!('bio' in data) || (data.bio is string && data.bio.size() <= 200))
+        && (!('profile_img_url' in data) || (data.profile_img_url is string && data.profile_img_url.size() <= 300000));
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create, update: if isSelf(userId);
+      allow create, update: if isSelf(userId) && validProfile(request.resource.data);
       allow delete: if false;
 
-      // Friend list entries. Both people involved may create/update/delete
-      // the entry, because sending/accepting/removing a friend touches both sides.
+      // Friend list entries: users/{owner}/friends/{other}
+      //   status 'sent'     = owner sent a request to other
+      //   status 'pending'  = other sent a request to owner (waiting for owner)
+      //   status 'accepted' = friends
+      // Nobody can make themselves someone's friend without that person accepting.
       match /friends/{friendId} {
         allow read: if isSelf(userId);
-        allow create, update, delete: if isSelf(userId) || isSelf(friendId);
+        allow create: if (isSelf(userId) && request.resource.data.status == 'sent')
+                      || (isSelf(friendId) && request.resource.data.status == 'pending');
+        allow update: if (isSelf(userId) && resource.data.status == 'pending' && request.resource.data.status == 'accepted')
+                      || (isSelf(friendId) && resource.data.status == 'sent' && request.resource.data.status == 'accepted');
+        allow delete: if isSelf(userId) || isSelf(friendId);
       }
     }
 
     // ---------- Parties ----------
     match /parties/{partyId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.hostUid == request.auth.uid;
+      function validPlayerCount() {
+        return request.resource.data.playersCurrent is int
+          && request.resource.data.playersCurrent >= 0
+          && request.resource.data.playersCurrent <= request.resource.data.playersMax;
+      }
+      allow create: if isSignedIn()
+        && request.resource.data.hostUid == request.auth.uid
+        && request.resource.data.playersCurrent == 1
+        && request.resource.data.playersMax is int
+        && request.resource.data.playersMax >= 2
+        && request.resource.data.playersMax <= 100;
       // Host can edit everything (but can't hand the party to someone else).
       // Anyone else can only join/leave: change members and the player count by 1.
-      allow update: if isSignedIn() && (
+      // Nobody can push the count past the limit.
+      allow update: if isSignedIn() && validPlayerCount() && (
         (resource.data.hostUid == request.auth.uid
           && request.resource.data.hostUid == resource.data.hostUid)
         || (changedOnly(['members', 'playersCurrent'])
