@@ -3,6 +3,18 @@ import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
 import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, Mail, Database, CheckCircle, AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
 import { db, auth, firebase } from '../firebase';
+import { resizeImageToDataUrl, fallbackAvatar } from '../utils/image';
+import { usernameError, isUsernameTaken, normalizeUsername } from '../utils/username';
+
+// Fill old/new field names so the form and profile always show something.
+const withProfileDefaults = (u: User): User => ({
+  ...u,
+  display_name: u.display_name || u.displayName || '',
+  profile_img_url: u.profile_img_url || u.avatarUrl || '',
+  preferred_sports: u.preferred_sports || [],
+  bio: u.bio || '',
+  gender: u.gender || 'Prefer not to say',
+});
 
 interface SettingsViewProps {
   user: User;
@@ -17,34 +29,39 @@ interface SettingsViewProps {
 const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose, onLogout, onOpenVenueAdmin, onOpenSportAdmin, isAdmin = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<User>(user);
+  const [formData, setFormData] = useState<User>(withProfileDefaults(user));
+  const profile = withProfileDefaults(user);
+  const avatarSrc = profile.profile_img_url || fallbackAvatar(profile.display_name);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testMessage, setTestMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync state when entering edit mode
+  // Load the latest profile into the form only when editing starts,
+  // so background updates don't wipe what the user is typing.
   useEffect(() => {
     if (isEditing) {
-      setFormData(user);
+      setFormData(withProfileDefaults(user));
     }
-  }, [isEditing, user]);
+  }, [isEditing]);
 
   // Image Processing Helper
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = ''; // allow picking the same file again
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      alert("Image is too large. Please select an image under 2MB.");
+    if (file.size > 15 * 1024 * 1024) {
+      alert("Image is too large. Please select an image under 15MB.");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      setFormData(prev => ({ ...prev, profile_img_url: result }));
-    };
-    reader.readAsDataURL(file);
+    try {
+      // Shrink to a small square-ish photo so it always fits in the database.
+      const resized = await resizeImageToDataUrl(file, 256);
+      setFormData(prev => ({ ...prev, profile_img_url: resized }));
+    } catch (err) {
+      alert((err as Error).message || "Could not use this image.");
+    }
   };
 
   const handleSave = async () => {
@@ -53,8 +70,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
       alert("Display Name is required");
       return;
     }
-    if (!formData.username?.trim()) {
-      alert("Username is required");
+    if (formData.display_name.trim().length > 40) {
+      alert("Display Name must be 40 characters or less");
+      return;
+    }
+    const nameProblem = usernameError(formData.username || '');
+    if (nameProblem) {
+      alert(nameProblem);
+      return;
+    }
+    if ((formData.bio || '').length > 200) {
+      alert("Bio must be 200 characters or less");
       return;
     }
 
@@ -66,12 +92,20 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
         throw new Error("You are not currently signed in.");
       }
 
-      // 2. Prepare Data (Clean undefined values)
+      const newUsername = normalizeUsername(formData.username || '');
+      if (newUsername !== user.username && await isUsernameTaken(newUsername, currentUser.uid)) {
+        alert(`The username "${newUsername}" is already taken. Please choose another.`);
+        setIsSaving(false);
+        return;
+      }
+
+      // 2. Prepare Data (save both old and new field names so every screen shows it)
+      const displayName = formData.display_name.trim();
       const userDataToSave = {
-        display_name: formData.display_name || "",
-        username: formData.username || "",
-        email: formData.email || "", 
-        bio: formData.bio || "",
+        display_name: displayName,
+        displayName: displayName,
+        username: newUsername,
+        bio: (formData.bio || "").trim(),
         gender: formData.gender || "Prefer not to say",
         preferred_sports: formData.preferred_sports || [],
         profile_img_url: formData.profile_img_url || ""
@@ -89,7 +123,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
       
       console.log("Profile updated successfully");
       setIsEditing(false);
-      onUpdateUser(formData); // Update local state
+      onUpdateUser({ ...formData, ...userDataToSave }); // Update local state
 
     } catch (error: unknown) {
       console.error("Save failed:", error);
@@ -218,7 +252,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
               onClick={() => fileInputRef.current?.click()}
             >
               <img 
-                src={formData.profile_img_url || 'https://via.placeholder.com/150'} 
+                src={formData.profile_img_url || fallbackAvatar(formData.display_name)} 
                 alt="Avatar" 
                 className="w-full h-full object-cover"
               />
@@ -248,6 +282,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
               <input 
                 type="text"
                 value={formData.display_name}
+                maxLength={40}
                 onChange={e => setFormData({...formData, display_name: e.target.value})}
                 className="w-full p-4 bg-zinc-900 border border-zinc-800 rounded-xl font-medium outline-none focus:bg-zinc-800 focus:border-red-500 transition-all text-white placeholder-zinc-500"
                 placeholder="Your Name"
@@ -259,7 +294,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
               <input 
                 type="text"
                 value={formData.username}
-                onChange={e => setFormData({...formData, username: e.target.value})}
+                maxLength={20}
+                autoCapitalize="none"
+                onChange={e => setFormData({...formData, username: e.target.value.toLowerCase().replace(/\s/g, '')})}
                 className="w-full p-4 bg-zinc-900 border border-zinc-800 rounded-xl font-medium outline-none focus:bg-zinc-800 focus:border-red-500 transition-all text-white placeholder-zinc-500"
                 placeholder="Username"
               />
@@ -281,6 +318,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
               <textarea 
                 rows={3}
                 value={formData.bio}
+                maxLength={200}
                 onChange={e => setFormData({...formData, bio: e.target.value})}
                 className="w-full p-4 bg-zinc-900 border border-zinc-800 rounded-xl font-medium outline-none focus:bg-zinc-800 focus:border-red-500 transition-all resize-none text-white placeholder-zinc-500"
                 placeholder="About you..."
@@ -345,9 +383,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
       <div className="flex-1 overflow-y-auto">
         <div className="bg-zinc-900 p-8 mb-6 shadow-sm flex flex-col items-center text-center">
             <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-zinc-800 shadow-lg mb-4 bg-zinc-800">
-                <img src={user.profile_img_url || 'https://via.placeholder.com/150'} alt="Profile" className="w-full h-full object-cover" />
+                <img src={avatarSrc} alt="Profile" className="w-full h-full object-cover" />
             </div>
-            <h1 className="text-2xl font-bold text-white">{user.display_name}</h1>
+            <h1 className="text-2xl font-bold text-white">{profile.display_name || 'Sports Fan'}</h1>
             <p className="text-zinc-500">@{user.username}</p>
             {user.email && (
                  <div className="flex items-center gap-1.5 mt-1 text-zinc-400 text-sm">

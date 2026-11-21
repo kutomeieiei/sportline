@@ -298,8 +298,14 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
         // TIER 1: Compute Geohash for Spatial Indexing
         const geohash = encodeGeohash(selectedLocation.lat, selectedLocation.lng);
 
+        const playersMax = Number.isFinite(formData.playersMax)
+          ? Math.min(50, Math.max(2, Math.round(formData.playersMax)))
+          : 10;
+
         const partyData = {
           ...formData,
+          title: formData.title.trim(),
+          playersMax,
           playersCurrent: 1,
           latitude: selectedLocation.lat,
           longitude: selectedLocation.lng,
@@ -338,7 +344,7 @@ const CreatePartyView: React.FC<CreatePartyViewProps> = ({ onClose, onCreate, cu
         if (err.message && err.message.includes("TIMEOUT")) {
              alert("⚠️ Request Timed Out.\n\nThe server is not responding. Please check your internet connection and try again.");
         } else if (err.code === 'permission-denied') {
-            alert("⚠️ Database Permission Denied.\n\nThe app cannot save your party because the database is locked.\n\nPlease go to Firebase Console > Firestore Database > Rules and change 'allow write: if false;' to 'allow write: if request.auth != null;'.");
+            alert("⚠️ Couldn't create the party.\n\nPlease check the details (players must be between 2 and 50) and that you're signed in with Google, then try again.");
         } else {
             alert(`Failed to create party. Error: ${err.message || "Unknown error"}`);
         }
