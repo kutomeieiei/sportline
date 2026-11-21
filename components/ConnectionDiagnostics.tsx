@@ -1,0 +1,272 @@
+import React, { useState } from 'react';
+import { Activity, CheckCircle, AlertTriangle, XCircle, Loader2, RefreshCw, Trash2, Copy, Circle } from 'lucide-react';
+import { db, auth, storage, firebase } from '../firebase';
+
+type CheckState = 'idle' | 'running' | 'ok' | 'warn' | 'fail';
+interface CheckResult { state: CheckState; detail: string }
+
+interface CheckDef {
+  id: string;
+  label: string;
+  run: () => Promise<CheckResult>;
+}
+
+const withTimeout = <T,>(p: Promise<T>, ms: number, what: string): Promise<T> =>
+  Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`TIMEOUT: ${what} did not respond in ${ms / 1000}s`)), ms))]);
+
+const ok = (detail: string): CheckResult => ({ state: 'ok', detail });
+const warn = (detail: string): CheckResult => ({ state: 'warn', detail });
+const fail = (detail: string): CheckResult => ({ state: 'fail', detail });
+
+const errMessage = (e: unknown) => {
+  const err = e as { code?: string; message?: string };
+  if (err.message?.startsWith('TIMEOUT')) return err.message.replace('TIMEOUT: ', '') + '. A firewall or slow connection may be blocking it.';
+  if (err.code === 'permission-denied') return 'Permission denied by database rules.';
+  if (err.code === 'unavailable') return 'Server unreachable (offline?).';
+  return err.message || 'Unknown error';
+};
+
+async function permissionState(name: 'camera' | 'microphone'): Promise<CheckResult> {
+  if (!navigator.mediaDevices?.getUserMedia) return fail('Not supported here. Open the site over https in Chrome, Safari or Edge.');
+  try {
+    const status = await navigator.permissions.query({ name: name as PermissionName });
+    if (status.state === 'granted') return ok('Allowed');
+    if (status.state === 'denied') return fail(`Blocked. Allow ${name} access for this site in your browser settings.`);
+    return warn('Not asked yet. You\'ll be asked the first time you use it.');
+  } catch {
+    return warn('Your browser doesn\'t report this. You\'ll be asked when needed.');
+  }
+}
+
+/** Checks whether calls can reach the internet directly (STUN). */
+function checkCallNetwork(): Promise<CheckResult> {
+  return new Promise((resolve) => {
+    if (typeof RTCPeerConnection === 'undefined') { resolve(fail('This browser does not support calls.')); return; }
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    let foundPublic = false;
+    const finish = (r: CheckResult) => { try { pc.close(); } catch { /* ignore */ } resolve(r); };
+    const timer = setTimeout(() => finish(foundPublic
+      ? ok('Calls can connect directly.')
+      : warn('Could not reach the call server. Calls may fail on this network (strict Wi-Fi or mobile data). A relay (TURN) server would fix this.')), 6000);
+    pc.onicecandidate = (e) => {
+      if (e.candidate && / typ srflx /.test(e.candidate.candidate)) {
+        foundPublic = true;
+        clearTimeout(timer);
+        finish(ok('Calls can connect directly.'));
+      }
+    };
+    pc.createDataChannel('diag');
+    pc.createOffer().then((o) => pc.setLocalDescription(o)).catch(() => {
+      clearTimeout(timer);
+      finish(fail('Could not start a test connection.'));
+    });
+  });
+}
+
+const CHECKS: CheckDef[] = [
+  {
+    id: 'internet',
+    label: 'Internet',
+    run: async () => navigator.onLine ? ok('Online') : fail('You appear to be offline.'),
+  },
+  {
+    id: 'signin',
+    label: 'Signed in with Google',
+    run: async () => {
+      const u = auth.currentUser;
+      if (!u) return fail('Not signed in.');
+      const google = u.providerData.some((p) => p?.providerId === 'google.com');
+      return google ? ok(u.email || 'Signed in') : fail('Signed in without Google. Please sign out and use Google.');
+    },
+  },
+  {
+    id: 'db-read',
+    label: 'Database (read)',
+    run: async () => {
+      const start = performance.now();
+      try {
+        await withTimeout(db.collection('connection_test').doc('ping').get({ source: 'server' }), 10000, 'Database');
+        const ms = Math.round(performance.now() - start);
+        return ms > 3000 ? warn(`Slow: ${ms} ms`) : ok(`${ms} ms`);
+      } catch (e) { return fail(errMessage(e)); }
+    },
+  },
+  {
+    id: 'db-write',
+    label: 'Database (save)',
+    run: async () => {
+      const u = auth.currentUser;
+      if (!u) return fail('Sign in first.');
+      const start = performance.now();
+      try {
+        await withTimeout(db.collection('connection_test').add({
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          uid: u.uid,
+          test: true,
+        }), 10000, 'Database');
+        return ok(`${Math.round(performance.now() - start)} ms`);
+      } catch (e) { return fail(errMessage(e)); }
+    },
+  },
+  {
+    id: 'profile',
+    label: 'Your profile',
+    run: async () => {
+      const u = auth.currentUser;
+      if (!u) return fail('Sign in first.');
+      try {
+        const snap = await withTimeout(db.collection('users').doc(u.uid).get({ source: 'server' }), 10000, 'Database');
+        if (!snap.exists) return fail('Profile missing. Sign out and sign in again to recreate it.');
+        const d = snap.data() || {};
+        return d.username ? ok(`@${d.username}`) : warn('Profile has no username. Set one in Edit Profile.');
+      } catch (e) { return fail(errMessage(e)); }
+    },
+  },
+  {
+    id: 'storage',
+    label: 'Photo & voice uploads',
+    run: async () => {
+      try {
+        // Asking for a file we can't see: a "not allowed"/"not found" answer still
+        // proves the upload server is reachable.
+        await withTimeout(storage.ref('chats/__diagnostics__/ping.txt').getMetadata(), 10000, 'File storage');
+        return ok('Reachable');
+      } catch (e) {
+        const code = (e as { code?: string }).code || '';
+        if (code === 'storage/unauthorized' || code === 'storage/object-not-found') return ok('Reachable');
+        if (code === 'storage/retry-limit-exceeded' || (e as Error).message?.startsWith('TIMEOUT')) return fail('Upload server unreachable.');
+        return warn(code || errMessage(e));
+      }
+    },
+  },
+  {
+    id: 'maps',
+    label: 'Map',
+    run: async () => {
+      const g = (window as unknown as { google?: { maps?: unknown } }).google;
+      return g?.maps ? ok('Loaded') : warn('Map not loaded yet. Open the Explore tab, or check the Google Maps key.');
+    },
+  },
+  { id: 'mic', label: 'Microphone permission', run: () => permissionState('microphone') },
+  { id: 'camera', label: 'Camera permission', run: () => permissionState('camera') },
+  { id: 'calls', label: 'Voice/video calls network', run: checkCallNetwork },
+];
+
+const StateIcon: React.FC<{ state: CheckState }> = ({ state }) => {
+  switch (state) {
+    case 'running': return <Loader2 size={16} className="animate-spin text-zinc-400 shrink-0" />;
+    case 'ok': return <CheckCircle size={16} className="text-green-500 shrink-0" />;
+    case 'warn': return <AlertTriangle size={16} className="text-amber-400 shrink-0" />;
+    case 'fail': return <XCircle size={16} className="text-red-500 shrink-0" />;
+    default: return <Circle size={16} className="text-zinc-700 shrink-0" />;
+  }
+};
+
+const ConnectionDiagnostics: React.FC = () => {
+  const [results, setResults] = useState<Record<string, CheckResult>>({});
+  const [running, setRunning] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const runAll = async () => {
+    setRunning(true);
+    setResults(Object.fromEntries(CHECKS.map((c) => [c.id, { state: 'running', detail: 'Checking…' }])));
+    await Promise.all(CHECKS.map(async (c) => {
+      let r: CheckResult;
+      try { r = await c.run(); } catch (e) { r = fail(errMessage(e)); }
+      setResults((prev) => ({ ...prev, [c.id]: r }));
+    }));
+    setRunning(false);
+  };
+
+  const resetCache = async () => {
+    if (!confirm("This will refresh the app and clear its saved offline data. Continue?")) return;
+    try {
+      await db.terminate();
+      await db.clearPersistence();
+    } catch {
+      // Reload anyway.
+    }
+    window.location.reload();
+  };
+
+  const copyReport = async () => {
+    const lines = [
+      `SportSphere diagnostics - ${new Date().toISOString()}`,
+      `Browser: ${navigator.userAgent}`,
+      ...CHECKS.map((c) => `${c.label}: ${results[c.id]?.state || 'not run'} - ${results[c.id]?.detail || ''}`),
+    ];
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      alert(lines.join('\n'));
+    }
+  };
+
+  const hasRun = Object.keys(results).length > 0;
+  const failures = Object.values(results).filter((r) => r.state === 'fail').length;
+  const warnings = Object.values(results).filter((r) => r.state === 'warn').length;
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 shadow-sm">
+      <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
+        <Activity size={16} className="text-red-500" /> Connection Diagnostics
+      </h3>
+      <p className="text-xs text-zinc-500 mb-3">Checks every part of the app if something isn't working.</p>
+
+      {hasRun && (
+        <>
+          {!running && (
+            <div className={`text-xs p-2 rounded-lg mb-3 border ${failures ? 'bg-red-900/30 text-red-400 border-red-900/50' : warnings ? 'bg-amber-900/20 text-amber-300 border-amber-900/40' : 'bg-green-900/30 text-green-400 border-green-900/50'}`}>
+              {failures ? `${failures} problem${failures > 1 ? 's' : ''} found. See below.` : warnings ? 'Working, with a few notes below.' : 'Everything is working.'}
+            </div>
+          )}
+          <ul className="space-y-2 mb-3">
+            {CHECKS.map((c) => {
+              const r = results[c.id] || { state: 'idle' as CheckState, detail: '' };
+              return (
+                <li key={c.id} className="flex items-start gap-2">
+                  <span className="mt-0.5"><StateIcon state={r.state} /></span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-zinc-200">{c.label}</p>
+                    <p className={`text-[11px] break-words ${r.state === 'fail' ? 'text-red-400' : r.state === 'warn' ? 'text-amber-300' : 'text-zinc-500'}`}>{r.detail}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          onClick={runAll}
+          disabled={running}
+          className="flex-1 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
+        >
+          <RefreshCw size={12} className={running ? 'animate-spin' : ''} />
+          {hasRun ? 'Run Again' : 'Run Diagnostics'}
+        </button>
+        {hasRun && !running && (
+          <button
+            onClick={copyReport}
+            title="Copy results to send to support"
+            className="px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-2 active:scale-95"
+          >
+            <Copy size={12} /> {copied ? 'Copied!' : 'Copy'}
+          </button>
+        )}
+        <button
+          onClick={resetCache}
+          title="Clear the app's offline data and reload"
+          className="px-3 py-2 bg-red-900/20 border border-red-900/50 rounded-lg text-xs font-bold text-red-500 hover:bg-red-900/40 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+        >
+          <Trash2 size={12} /> Reset
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default ConnectionDiagnostics;

@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase'; // Import db from firebase
 import { Plus, Check, Users, Camera, UserPlus } from 'lucide-react';
 import { User } from '../types'; // Import User type
-import { resizeImageToDataUrl } from '../utils/image';
+import { resizeImageToDataUrl, fallbackAvatar } from '../utils/image';
+import { recordMessage } from '../services/chatMeta';
 
 export interface ChatUser {
   id: string;
@@ -14,7 +15,9 @@ export interface ChatUser {
   isUnread?: boolean;
   isGroup?: boolean;
   members?: number;
-  lastMessage?: { text: string; timestamp: any };
+  lastMessage?: { text: string; timestamp: any; senderId?: string };
+  unreadCount?: number;
+  sortTime?: number;
 }
 
 interface ChatListViewProps {
@@ -94,53 +97,64 @@ const ChatListView: React.FC<ChatListViewProps> = ({
 
 
 
+  // Profiles of people I have direct chats with (cached so the list doesn't flicker).
+  const [dmProfiles, setDmProfiles] = useState<Record<string, User>>({});
+
   useEffect(() => {
     if (!currentUser.uid || !db) return;
 
-    const unsubscribe = db.collection('chats')
+    return db.collection('chats')
       .where('members', 'array-contains', currentUser.uid)
-      .onSnapshot(async (snapshot) => {
-        const chatPromises = snapshot.docs.map(async (doc) => {
+      .onSnapshot((snapshot) => {
+        const chats: ChatUser[] = [];
+        snapshot.docs.forEach((doc) => {
           const chatData = doc.data();
-          const lastMessageSnapshot = await doc.ref.collection('messages').orderBy('timestamp', 'desc').limit(1).get();
-          const lastMessage = lastMessageSnapshot.docs.length > 0 ? lastMessageSnapshot.docs[0].data() : null;
+          // lastMessage is an object {text, senderId, timestamp}; party chats made by
+          // older versions stored a plain string.
+          const lm = chatData.lastMessage;
+          const lastMessage = lm && typeof lm === 'object'
+            ? { text: lm.text || '', timestamp: lm.timestamp, senderId: lm.senderId }
+            : (typeof lm === 'string' ? { text: lm, timestamp: chatData.lastMessageTimestamp || chatData.createdAt } : undefined);
+          const unreadCount = Number(chatData.unread?.[currentUser.uid] || 0);
+          const ts = lastMessage?.timestamp || chatData.createdAt;
+          const sortTime = ts?.toMillis ? ts.toMillis() : (ts instanceof Date ? ts.getTime() : 0);
 
           if (chatData.isGroup) {
-            return {
+            chats.push({
               id: doc.id,
               name: chatData.name || 'Group Chat',
-              avatarUrl: chatData.avatarUrl || 'https://i.pravatar.cc/150?u=group',
+              avatarUrl: chatData.avatarUrl || fallbackAvatar(chatData.name || 'Group'),
               isGroup: true,
-              members: chatData.members.length,
-              lastMessage: lastMessage ? { text: lastMessage.text, timestamp: lastMessage.timestamp } : undefined,
-            };
+              members: (chatData.members || []).length,
+              lastMessage,
+              unreadCount,
+              sortTime,
+            });
           } else {
-            const otherUserId = chatData.members.find((m: string) => m !== currentUser.uid);
-            if (!otherUserId) return null;
-
-            const userDoc = await db.collection('users').doc(otherUserId).get();
-            const userData = userDoc.data() as User;
-
-            return {
-              id: otherUserId,
-              name: userData.display_name || userData.displayName || 'Unknown',
-              avatarUrl: userData.profile_img_url || userData.avatarUrl || 'https://i.pravatar.cc/150',
-              isGroup: false,
-              isOnline: userData.isOnline,
-              lastMessage: lastMessage ? { text: lastMessage.text, timestamp: lastMessage.timestamp } : undefined,
-            };
+            const otherUserId = (chatData.members || []).find((m: string) => m !== currentUser.uid);
+            if (!otherUserId) return;
+            chats.push({ id: otherUserId, name: '', avatarUrl: '', isGroup: false, lastMessage, unreadCount, sortTime });
           }
         });
-
-        const chats = (await Promise.all(chatPromises)).filter((c): c is ChatUser => c !== null);
         setAllChats(chats);
-      });
-
-    return () => unsubscribe();
+      }, (err) => console.error('Chat list listener failed', err));
   }, [currentUser.uid]);
 
+  // Load names/photos for direct chats with people who aren't in my friends list.
+  useEffect(() => {
+    const known = new Set(friends.map((f) => f.uid));
+    const missing = allChats.filter((c) => !c.isGroup && !known.has(c.id) && !dmProfiles[c.id]).map((c) => c.id);
+    if (missing.length === 0) return;
+    Promise.all(missing.map((uid) => db.collection('users').doc(uid).get())).then((docs) => {
+      const add: Record<string, User> = {};
+      docs.forEach((d) => { if (d.exists) add[d.id] = { uid: d.id, ...d.data() } as User; });
+      setDmProfiles((prev) => ({ ...prev, ...add }));
+    }).catch(() => {});
+  }, [allChats, friends, dmProfiles]);
+
   const friendChats = allChats.filter(c => !c.isGroup);
-  const groupChats = allChats.filter(c => c.isGroup);
+  const byNewest = (a: ChatUser, b: ChatUser) => (b.sortTime || 0) - (a.sortTime || 0);
+  const groupChats = allChats.filter(c => c.isGroup).sort(byNewest);
 
   const friendChatsMap = new Map(friendChats.map(c => [c.id, c]));
 
@@ -148,22 +162,36 @@ const ChatListView: React.FC<ChatListViewProps> = ({
     .filter(f => f.uid)
     .map(f => {
       const chatInfo = friendChatsMap.get(f.uid);
+      const name = f.display_name || f.displayName || 'Unknown';
       return {
         id: f.uid,
-        name: f.display_name || f.displayName || 'Unknown',
-        avatarUrl: f.profile_img_url || f.avatarUrl || 'https://i.pravatar.cc/150',
+        name,
+        avatarUrl: f.profile_img_url || f.avatarUrl || fallbackAvatar(name),
         isOnline: f.isOnline,
         lastMessage: chatInfo?.lastMessage,
+        unreadCount: chatInfo?.unreadCount || 0,
+        sortTime: chatInfo?.sortTime || 0,
         isGroup: false,
       };
     });
+  // People who messaged me but aren't (or are no longer) my friends still show up.
+  const friendIds = new Set(friendsList.map((f) => f.id));
+  friendChats.filter((c) => !friendIds.has(c.id) && c.lastMessage).forEach((c) => {
+    const p = dmProfiles[c.id];
+    const name = p ? (p.display_name || p.displayName || p.username || 'Player') : '…';
+    friendsList.push({ ...c, name, avatarUrl: p ? (p.profile_img_url || p.avatarUrl || fallbackAvatar(name)) : fallbackAvatar(name) });
+  });
+  friendsList.sort(byNewest);
+
+  const friendsUnread = friendsList.reduce((n, c) => n + (c.unreadCount || 0), 0);
+  const groupsUnread = groupChats.reduce((n, c) => n + (c.unreadCount || 0), 0);
 
   const requestChats: ChatUser[] = friendRequests
     .filter(f => f.uid)
     .map(f => ({
       id: f.uid,
       name: f.display_name || f.displayName || 'Unknown',
-      avatarUrl: f.profile_img_url || f.avatarUrl || 'https://i.pravatar.cc/150',
+      avatarUrl: f.profile_img_url || f.avatarUrl || fallbackAvatar(f.display_name || f.displayName),
       statusText: 'Sent you a friend request',
       isOnline: false,
     }));
@@ -180,23 +208,26 @@ const ChatListView: React.FC<ChatListViewProps> = ({
     if (!groupName.trim() || selectedIds.length === 0 || !currentUser.uid) return;
 
     try {
+      const members = [...selectedIds, currentUser.uid];
       const newGroupData = {
-        name: groupName.trim(),
+        name: groupName.trim().slice(0, 50),
         isGroup: true,
-        members: [...selectedIds, currentUser.uid],
+        members,
         createdAt: new Date(),
-        avatarUrl: groupAvatarUrl.trim() || `https://ui-avatars.com/api/?name=${encodeURIComponent(groupName.trim())}&background=random`
+        avatarUrl: groupAvatarUrl.trim() || fallbackAvatar(groupName.trim())
       };
 
       const docRef = await db.collection('chats').add(newGroupData);
       
       // Add an initial message
+      const text = `${currentUser.display_name || currentUser.displayName || 'Someone'} created the group.`;
       await docRef.collection('messages').add({
-        text: `${currentUser.displayName || currentUser.display_name || 'Someone'} created the group.`,
+        text,
         senderId: currentUser.uid,
         timestamp: new Date(),
         type: 'system'
       });
+      await recordMessage(docRef.id, members, currentUser.uid, 'system', text).catch(() => {});
 
       setIsCreatingGroup(false);
       setGroupName('');
@@ -315,14 +346,7 @@ const ChatListView: React.FC<ChatListViewProps> = ({
     <div className="w-full h-full bg-zinc-950 flex flex-col font-sans">
       {/* Header */}
       <div className="pt-4 pb-2 px-4 bg-zinc-950 sticky top-0 z-10 flex items-center justify-between">
-         <h1 className="text-2xl font-bold text-white tracking-tight">Chats</h1>
-         <button 
-            onClick={() => setIsCreatingGroup(true)}
-            className="p-2 bg-zinc-900 border border-zinc-800 rounded-full hover:bg-zinc-800 text-zinc-300 transition-colors flex items-center gap-2 px-3 active:scale-95"
-         >
-            <Plus size={20} className="text-red-500" />
-            <span className="text-sm font-semibold">New Group</span>
-         </button>
+         <h1 className="text-2xl font-bold text-white tracking-tight py-1">Chats</h1>
       </div>
 
       {/* Tabs */}
@@ -336,6 +360,11 @@ const ChatListView: React.FC<ChatListViewProps> = ({
             }`}
         >
             Friends
+            {friendsUnread > 0 && (
+                <span className="ml-1.5 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full align-middle font-bold shadow-sm">
+                    {friendsUnread > 99 ? '99+' : friendsUnread}
+                </span>
+            )}
         </button>
         <button 
             onClick={() => setActiveTab('groups')}
@@ -346,6 +375,11 @@ const ChatListView: React.FC<ChatListViewProps> = ({
             }`}
         >
             Groups
+            {groupsUnread > 0 && (
+                <span className="ml-1.5 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full align-middle font-bold shadow-sm">
+                    {groupsUnread > 99 ? '99+' : groupsUnread}
+                </span>
+            )}
         </button>
         <button 
             onClick={() => setActiveTab('requests')}
@@ -370,7 +404,7 @@ const ChatListView: React.FC<ChatListViewProps> = ({
             <div className="flex items-center gap-2 bg-zinc-900 rounded-xl p-1 border border-zinc-800 focus-within:border-red-500 transition-colors">
                 <input 
                     type="text"
-                    placeholder="Add friend by username"
+                    placeholder="Add friend by username or Gmail"
                     className="flex-1 bg-transparent px-3 py-2 text-sm outline-none text-white placeholder-zinc-500"
                     value={addFriendUsername}
                     onChange={(e) => setAddFriendUsername(e.target.value)}
@@ -384,6 +418,19 @@ const ChatListView: React.FC<ChatListViewProps> = ({
                     <UserPlus size={18} />
                 </button>
             </div>
+        </div>
+      )}
+
+      {/* New Group (in the Groups tab) */}
+      {activeTab === 'groups' && (
+        <div className="p-4 bg-zinc-950 border-b border-zinc-800 sticky top-[108px] z-10">
+          <button
+            onClick={() => setIsCreatingGroup(true)}
+            className="w-full flex items-center justify-center gap-2 py-3 bg-zinc-900 border border-zinc-800 rounded-xl hover:bg-zinc-800 text-zinc-200 transition-colors active:scale-[0.98]"
+          >
+            <Plus size={20} className="text-red-500" />
+            <span className="text-sm font-semibold">New Group</span>
+          </button>
         </div>
       )}
 
@@ -418,18 +465,25 @@ const ChatListView: React.FC<ChatListViewProps> = ({
                 {/* Text Content */}
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
                   <div className="flex justify-between items-baseline mb-1">
-                      <h3 className="text-[17px] font-semibold text-white truncate leading-tight">
+                      <h3 className={`text-[17px] text-white truncate leading-tight ${chat.unreadCount ? 'font-bold' : 'font-semibold'}`}>
                           {chat.name}
                       </h3>
                       {chat.lastMessage?.timestamp && activeTab !== 'requests' && (
-                          <span className="text-[12px] text-zinc-500 font-normal ml-2 flex-shrink-0">{formatTimestamp(chat.lastMessage.timestamp)}</span>
+                          <span className={`text-[12px] font-normal ml-2 flex-shrink-0 ${chat.unreadCount ? 'text-red-500 font-semibold' : 'text-zinc-500'}`}>{formatTimestamp(chat.lastMessage.timestamp)}</span>
                       )}
                   </div>
                   
-                  <div className="flex items-center gap-1 text-[15px] text-zinc-400 font-light truncate leading-tight">
-                    <span className={`truncate ${chat.isUnread ? 'font-bold text-white' : ''}`}>
-                      {chat.lastMessage ? chat.lastMessage.text : chat.statusText}
+                  <div className="flex items-center gap-2 text-[15px] text-zinc-400 font-light leading-tight">
+                    <span className={`flex-1 truncate ${chat.unreadCount ? 'font-semibold text-white' : ''}`}>
+                      {chat.lastMessage
+                        ? `${chat.lastMessage.senderId === currentUser.uid ? 'You: ' : ''}${chat.lastMessage.text}`
+                        : (chat.statusText || (activeTab === 'friends' ? 'Say hi 👋' : ''))}
                     </span>
+                    {!!chat.unreadCount && activeTab !== 'requests' && (
+                      <span className="min-w-[22px] h-[22px] px-1.5 rounded-full bg-red-600 text-white text-[12px] font-bold flex items-center justify-center flex-shrink-0 shadow-sm shadow-red-900/50">
+                        {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
+                      </span>
+                    )}
                   </div>
                 </div>
 

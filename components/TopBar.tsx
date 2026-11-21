@@ -1,7 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, Mic, X, MapPin, Loader2 } from 'lucide-react';
+import { Mic, X, MapPin, Loader2 } from 'lucide-react';
 import { SportType } from '../types';
 import { SPORTS_LIST, APP_CONFIG } from '../constants';
+
+// Minimal types for the browser's speech recognition (not in TypeScript's DOM types).
+interface SpeechResultEvent { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }
+interface SpeechRecognizer {
+  lang: string; interimResults: boolean; continuous: boolean; maxAlternatives: number;
+  onresult: ((e: SpeechResultEvent) => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void; stop: () => void; abort: () => void;
+}
+type SpeechRecognizerCtor = new () => SpeechRecognizer;
+const getSpeechRecognition = (): SpeechRecognizerCtor | null => {
+  const w = window as unknown as { SpeechRecognition?: SpeechRecognizerCtor; webkitSpeechRecognition?: SpeechRecognizerCtor };
+  return w.SpeechRecognition || w.webkitSpeechRecognition || null;
+};
 
 interface TopBarProps {
   selectedSport: SportType;
@@ -20,6 +35,60 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
   const [isLoading, setIsLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
+  const recognizerRef = useRef<SpeechRecognizer | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceHint, setVoiceHint] = useState<string | null>(null);
+
+  // Stop listening if the search bar goes away.
+  useEffect(() => () => recognizerRef.current?.abort(), []);
+
+  const showHint = (text: string) => {
+    setVoiceHint(text);
+    setTimeout(() => setVoiceHint((h) => (h === text ? null : h)), 3500);
+  };
+
+  // Voice search: say a place name and it's typed into the search box.
+  const toggleVoiceSearch = () => {
+    if (isListening) {
+      recognizerRef.current?.stop();
+      return;
+    }
+    const Recognition = getSpeechRecognition();
+    if (!Recognition) {
+      showHint("Voice search isn't supported in this browser. Try Chrome or Safari.");
+      return;
+    }
+    const rec = new Recognition();
+    rec.lang = navigator.language || 'en-US';
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.maxAlternatives = 1;
+    rec.onresult = (e) => {
+      let text = '';
+      for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+      setQuery(text.trim());
+    };
+    rec.onerror = (e) => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        showHint('Microphone blocked. Allow microphone access for this site in your browser settings.');
+      } else if (e.error === 'no-speech') {
+        showHint("Didn't hear anything. Tap the mic and try again.");
+      } else if (e.error === 'network') {
+        showHint('Voice search needs an internet connection.');
+      } else if (e.error !== 'aborted') {
+        showHint("Voice search didn't work. Please type instead.");
+      }
+    };
+    rec.onend = () => { setIsListening(false); recognizerRef.current = null; };
+    recognizerRef.current = rec;
+    try {
+      rec.start();
+      setIsListening(true);
+    } catch {
+      setIsListening(false);
+      showHint("Couldn't start voice search.");
+    }
+  };
 
   const displayLogo = APP_CONFIG.headerLogoUrl || APP_CONFIG.logoUrl;
 
@@ -123,7 +192,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => { if (suggestions.length > 0) setIsOpen(true); }}
-              placeholder="Search places..."
+              placeholder={isListening ? 'Listening… say a place' : 'Search places...'}
               className="w-full outline-none text-white text-base placeholder-zinc-500 bg-transparent"
             />
           </div>
@@ -136,12 +205,27 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
             </button>
           )}
 
-          {!query && <Mic className="text-zinc-500 cursor-pointer" size={20} />}
+          {(!query || isListening) && (
+            <button
+              onClick={toggleVoiceSearch}
+              aria-label={isListening ? 'Stop voice search' : 'Search by voice'}
+              title={isListening ? 'Stop' : 'Search by voice'}
+              className={`p-1.5 rounded-full transition-all duration-200 active:scale-90 ${isListening ? 'bg-red-600 text-white animate-pulse shadow-lg shadow-red-900/50' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'}`}
+            >
+              <Mic size={20} />
+            </button>
+          )}
           
           <button onClick={onAvatarClick} className="relative w-8 h-8 rounded-full overflow-hidden border border-zinc-700 ml-1 active:scale-95 transition-all duration-200">
             <img src={userAvatar} alt="Profile" className="w-full h-full object-cover" />
           </button>
         </div>
+
+        {voiceHint && (
+          <div className="mt-2 mx-auto w-fit max-w-full px-4 py-2 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-semibold shadow-lg">
+            {voiceHint}
+          </div>
+        )}
 
         {/* Autocomplete Dropdown */}
         {isOpen && suggestions.length > 0 && (

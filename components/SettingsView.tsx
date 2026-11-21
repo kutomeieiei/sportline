@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { User, SportType } from '../types';
 import { SPORTS_LIST } from '../constants';
-import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, Mail, Database, CheckCircle, AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
-import { db, auth, firebase } from '../firebase';
+import { Camera, ArrowLeft, LogOut, Shield, HelpCircle, ChevronRight, Loader2, Mail, Database } from 'lucide-react';
+import { db, auth } from '../firebase';
 import { resizeImageToDataUrl, fallbackAvatar } from '../utils/image';
 import CameraCapture from './CameraCapture';
+import ConnectionDiagnostics from './ConnectionDiagnostics';
+import PrivacyPolicyView from './PrivacyPolicyView';
 import { usernameError, isUsernameTaken, normalizeUsername } from '../utils/username';
 
 // Fill old/new field names so the form and profile always show something.
@@ -33,8 +35,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
   const [formData, setFormData] = useState<User>(withProfileDefaults(user));
   const profile = withProfileDefaults(user);
   const avatarSrc = profile.profile_img_url || fallbackAvatar(profile.display_name);
-  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-  const [testMessage, setTestMessage] = useState('');
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
@@ -156,69 +157,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const handleTestConnection = async () => {
-    setTestStatus('testing');
-    setTestMessage('Testing Read/Write... (10s timeout)');
-    
-    try {
-        if (!auth.currentUser) throw new Error("Not logged in");
-        if (!navigator.onLine) throw new Error("You appear to be offline.");
-
-        // TIMEOUT WRAPPER
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("TIMEOUT: Database did not respond.")), 10000)
-        );
-
-        // Step 1: Test READ (usually faster)
-        // We read a non-existent doc just to see if we can reach the server
-        const readPromise = db.collection('connection_test').doc('ping').get();
-        await Promise.race([readPromise, timeoutPromise]);
-
-        // Step 2: Test WRITE
-        const writePromise = db.collection('connection_test').add({
-            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-            uid: auth.currentUser.uid,
-            test: true,
-            platform: navigator.userAgent
-        });
-
-        await Promise.race([writePromise, timeoutPromise]);
-
-        setTestStatus('success');
-        setTestMessage('Success! Read & Write operational.');
-    } catch (error: unknown) {
-        console.error("Connection Test Failed:", error);
-        setTestStatus('error');
-        
-        const err = error as { code?: string; message?: string };
-
-        if (err.message && err.message.includes("TIMEOUT")) {
-            setTestMessage("TIMEOUT: Firewall blocking connection. Try 'Reset Cache'.");
-        } else if (err.code === 'permission-denied') {
-            setTestMessage('PERMISSION DENIED: Update Firestore Rules in Console.');
-        } else if (err.code === 'unavailable' || (err.message && err.message.includes("offline"))) {
-            setTestMessage('OFFLINE: Check your internet connection.');
-        } else {
-            setTestMessage(`ERROR: ${err.message || 'Unknown error'}`);
-        }
-    }
-  };
-
-  const handleResetCache = async () => {
-      if (!confirm("This will refresh the app and clear local database data. Continue?")) return;
-      
-      try {
-          // Terminate connection and clear persistence
-          await db.terminate();
-          await db.clearPersistence();
-          window.location.reload();
-      } catch (e: unknown) {
-          const err = e as { message?: string };
-          alert("Error resetting cache: " + (err.message || 'Unknown error'));
-          window.location.reload(); // Reload anyway
-      }
   };
 
   const toggleSport = (sport: SportType) => {
@@ -399,6 +337,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
   }
 
   // View Mode
+  if (isPrivacyOpen) {
+    return <PrivacyPolicyView onClose={() => setIsPrivacyOpen(false)} />;
+  }
+
   return (
     <div className="fixed inset-0 bg-zinc-950 z-[2000] flex flex-col animate-in slide-in-from-right duration-300">
        <div className="px-4 py-4 border-b border-zinc-800 flex items-center gap-4 bg-zinc-900/90 backdrop-blur-md sticky top-0 z-10 shadow-sm">
@@ -432,8 +374,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
         </div>
 
         <div className="bg-zinc-900 border-t border-b border-zinc-800 mb-6">
-            <MenuButton icon={<Shield size={20} />} label="Privacy Policy" />
-            <MenuButton icon={<Bell size={20} />} label="Notifications" />
+            <MenuButton icon={<Shield size={20} />} label="Privacy Policy" onClick={() => setIsPrivacyOpen(true)} />
             <MenuButton icon={<HelpCircle size={20} />} label="Support" />
         </div>
 
@@ -463,46 +404,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
 
         {/* Diagnostic Tool */}
         <div className="px-6 mb-6">
-             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 shadow-sm">
-                 <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
-                     <Database size={16} className="text-red-500" /> Connection Diagnostics
-                 </h3>
-                 <p className="text-xs text-zinc-500 mb-3">Troubleshoot database connectivity issues.</p>
-                 
-                 {testStatus !== 'idle' && (
-                     <div className={`text-xs p-2 rounded-lg mb-3 ${
-                         testStatus === 'success' ? 'bg-green-900/30 text-green-400 border border-green-900/50' :
-                         testStatus === 'error' ? 'bg-red-900/30 text-red-400 border border-red-900/50' :
-                         'bg-zinc-800 text-zinc-300 border border-zinc-700'
-                     }`}>
-                         {testStatus === 'testing' && <Loader2 className="inline animate-spin mr-2 w-3 h-3" />}
-                         {testStatus === 'success' && <CheckCircle className="inline mr-2 w-3 h-3" />}
-                         {testStatus === 'error' && <AlertTriangle className="inline mr-2 w-3 h-3" />}
-                         {testMessage}
-                     </div>
-                 )}
-
-                 <div className="flex gap-2">
-                     <button 
-                        onClick={handleTestConnection}
-                        disabled={testStatus === 'testing'}
-                        className="flex-1 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
-                     >
-                        <RefreshCw size={12} className={testStatus === 'testing' ? 'animate-spin' : ''} />
-                        Test Connection
-                     </button>
-                     <button 
-                        onClick={handleResetCache}
-                        title="Clear local database cache and reload"
-                        className="px-3 py-2 bg-red-900/20 border border-red-900/50 rounded-lg text-xs font-bold text-red-500 hover:bg-red-900/40 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                     >
-                        <Trash2 size={12} />
-                        Reset Cache
-                     </button>
-                 </div>
-             </div>
+          <ConnectionDiagnostics />
         </div>
-        
+
         <div className="px-6 pb-6">
             <button 
                 onClick={onLogout}
@@ -521,8 +425,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
   );
 };
 
-const MenuButton = ({ icon, label }: { icon: React.ReactNode, label: string }) => (
-    <button className="w-full flex items-center gap-4 px-6 py-4 border-b border-zinc-800 hover:bg-zinc-800 transition-colors text-left last:border-0 active:bg-zinc-800">
+const MenuButton = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick?: () => void }) => (
+    <button onClick={onClick} className="w-full flex items-center gap-4 px-6 py-4 border-b border-zinc-800 hover:bg-zinc-800 transition-colors text-left last:border-0 active:bg-zinc-800">
         <div className="text-zinc-500">{icon}</div>
         <span className="text-zinc-300 font-medium">{label}</span>
         <ChevronRight className="ml-auto text-zinc-600" size={16} />

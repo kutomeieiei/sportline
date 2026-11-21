@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Phone, Video, Send, Image as ImageIcon, Smile, Mic, Square, Loader2, LogOut, UserMinus, MoreVertical, Camera } from 'lucide-react';
+import { ArrowLeft, Phone, Video, Send, Image as ImageIcon, Smile, Mic, Square, Loader2, LogOut, UserMinus, MoreVertical, Camera, Pencil, UserPlus } from 'lucide-react';
+import { recordMessage, markChatRead, MessageKind } from '../services/chatMeta';
+import { fallbackAvatar } from '../utils/image';
+import EditGroupModal from './EditGroupModal';
+import AddMembersModal from './AddMembersModal';
 import { useCall } from '../services/callContext';
 import { CallType } from '../services/callService';
 import CameraCapture from './CameraCapture';
@@ -10,6 +14,7 @@ import { db, storage, firebase } from '../firebase'; // Import db and storage
 interface ChatDetailViewProps {
   chatUser: ChatUser;
   currentUser: User;
+  friends?: User[];
   onBack: () => void;
   onViewVenue: (venue: Venue) => void;
 }
@@ -19,13 +24,13 @@ interface Message {
   text: string;
   senderId: string;
   timestamp: firebase.firestore.Timestamp | Date | string | number | null;
-  type?: 'text' | 'venue_share' | 'image' | 'audio';
+  type?: 'text' | 'venue_share' | 'image' | 'audio' | 'system';
   venue?: Venue;
   imageUrl?: string;
   audioUrl?: string;
 }
 
-const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, onBack, onViewVenue }) => {
+const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, friends = [], onBack, onViewVenue }) => {
   const handleViewOnMap = (venue: Venue) => {
     // This will be handled by App.tsx
     onViewVenue(venue);
@@ -47,14 +52,35 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [memberIds, setMemberIds] = useState<string[]>([]);
+  const [groupInfo, setGroupInfo] = useState<{ name: string; avatarUrl: string } | null>(null);
+  const [isEditGroupOpen, setIsEditGroupOpen] = useState(false);
+  const [isAddMembersOpen, setIsAddMembersOpen] = useState(false);
+  const myName = currentUser.display_name || currentUser.displayName || currentUser.username || 'Someone';
   const { startCall, joinCall, activeCalls, currentCall } = useCall();
 
   const chatId = chatUser.isGroup ? chatUser.id : [currentUser.uid, chatUser.id].sort().join('_');
+  const headerName = groupInfo?.name || chatUser.name;
+  const headerAvatar = groupInfo?.avatarUrl || chatUser.avatarUrl || fallbackAvatar(headerName);
+
+  // Saves a message and updates the chat list preview + unread badges.
+  const sendMessage = async (message: Record<string, unknown>, kind: MessageKind, text: string) => {
+    await db.collection('chats').doc(chatId).collection('messages').add({
+      ...message,
+      text,
+      type: kind,
+      senderId: currentUser.uid,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    const members = chatUser.isGroup ? memberIds : [currentUser.uid, chatUser.id];
+    await recordMessage(chatId, members.length ? members : [currentUser.uid], currentUser.uid, kind, text)
+      .catch((e) => console.warn('Could not update chat preview', e));
+  };
 
   const handleLeaveGroup = async () => {
     if (!window.confirm("Are you sure you want to leave this group?")) return;
     
     try {
+      await sendMessage({}, 'system', `${myName} left the group`).catch(() => {});
       // Remove from chat members
       await db.collection('chats').doc(chatId).update({
         members: firebase.firestore.FieldValue.arrayRemove(currentUser.uid)
@@ -103,39 +129,30 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
     const unsubscribe = db.collection('chats').doc(chatId).collection('messages').orderBy('timestamp', 'asc').onSnapshot(snapshot => {
       const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
       setMessages(msgs);
+      // I'm looking at this chat, so everything in it is read.
+      markChatRead(chatId, currentUser.uid);
     });
 
     return () => unsubscribe();
   }, [currentUser, chatUser, chatId]);
 
+  // Group info (name, photo, members) - live, so edits by anyone show up right away.
   useEffect(() => {
     if (!chatUser.isGroup || !db) return;
+    return db.collection('chats').doc(chatId).onSnapshot(async (chatDoc) => {
+      if (!chatDoc.exists) return;
+      const data = chatDoc.data() || {};
+      const ids: string[] = data.members || [];
+      setMemberIds(ids);
+      setGroupInfo({ name: data.name || 'Group Chat', avatarUrl: data.avatarUrl || '' });
 
-    const fetchMembers = async () => {
-        const chatDoc = await db.collection('chats').doc(chatId).get();
-        if (!chatDoc.exists) return;
-
-        const memberIds: string[] = chatDoc.data()?.members || [];
-        setMemberIds(memberIds);
-        if (memberIds.length === 0) return;
-
-        const memberPromises = memberIds.map((id: string) => 
-            db.collection('users').doc(id).get()
-        );
-
-        const memberDocs = await Promise.all(memberPromises);
-        
-        const membersData: Record<string, User> = {};
-        memberDocs.forEach(doc => {
-            if (doc.exists) {
-                membersData[doc.id] = { uid: doc.id, ...doc.data() } as User;
-            }
-        });
-        setChatMembers(membersData);
-    };
-
-    fetchMembers();
-
+      const memberDocs = await Promise.all(ids.map((id) => db.collection('users').doc(id).get()));
+      const membersData: Record<string, User> = {};
+      memberDocs.forEach(doc => {
+        if (doc.exists) membersData[doc.id] = { uid: doc.id, ...doc.data() } as User;
+      });
+      setChatMembers(membersData);
+    });
   }, [chatId, chatUser.isGroup]);
 
   const scrollToBottom = () => {
@@ -152,15 +169,15 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
       return;
     }
 
-    const newMessage: Omit<Message, 'id'> = {
-      text: inputValue,
-      senderId: currentUser.uid,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-      type: 'text'
-    };
-
-    await db.collection('chats').doc(chatId).collection('messages').add(newMessage);
+    const text = inputValue.trim();
     setInputValue('');
+    try {
+      await sendMessage({}, 'text', text);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      setInputValue(text);
+      alert("Message not sent. Please try again.");
+    }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,15 +204,7 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
       await fileRef.put(file, { contentType: file.type });
       const downloadUrl = await fileRef.getDownloadURL();
 
-      const newMessage: Omit<Message, 'id'> = {
-        text: 'Sent an image',
-        senderId: currentUser.uid,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        type: 'image',
-        imageUrl: downloadUrl,
-      };
-
-      await db.collection('chats').doc(chatId).collection('messages').add(newMessage);
+      await sendMessage({ imageUrl: downloadUrl }, 'image', 'Sent an image');
     } catch (error) {
       console.error("Error uploading image:", error);
       alert("Failed to upload image.");
@@ -207,8 +216,15 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+        alert("Voice messages aren't supported in this browser.");
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      // iPhone/Safari can't record webm, so pick the first format this browser supports.
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/aac', 'audio/ogg;codecs=opus']
+        .find((t) => MediaRecorder.isTypeSupported?.(t));
+      const mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -219,9 +235,11 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        await uploadAudio(audioBlob);
         stream.getTracks().forEach(track => track.stop());
+        const type = (mediaRecorder.mimeType || 'audio/webm').split(';')[0];
+        const audioBlob = new Blob(audioChunksRef.current, { type });
+        if (audioBlob.size < 1500) return; // too short / empty recording
+        await uploadAudio(audioBlob);
       };
 
       mediaRecorder.start();
@@ -232,7 +250,7 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
       }, 1000);
     } catch (error) {
       console.error("Error accessing microphone:", error);
-      alert("Could not access microphone. Please check permissions.");
+      alert("Could not access the microphone. Please allow microphone access in your browser settings.");
     }
   };
 
@@ -250,19 +268,12 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
     setIsUploading(true);
     try {
       const storageRef = storage.ref();
-      const fileRef = storageRef.child(`chats/${chatId}/audio_${Date.now()}.webm`);
-      await fileRef.put(blob);
+      const ext = blob.type.includes('mp4') || blob.type.includes('aac') ? 'm4a' : blob.type.includes('ogg') ? 'ogg' : 'webm';
+      const fileRef = storageRef.child(`chats/${chatId}/audio_${Date.now()}.${ext}`);
+      await fileRef.put(blob, { contentType: blob.type || 'audio/webm' });
       const downloadUrl = await fileRef.getDownloadURL();
 
-      const newMessage: Omit<Message, 'id'> = {
-        text: 'Sent a voice message',
-        senderId: currentUser.uid,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        type: 'audio',
-        audioUrl: downloadUrl,
-      };
-
-      await db.collection('chats').doc(chatId).collection('messages').add(newMessage);
+      await sendMessage({ audioUrl: downloadUrl }, 'audio', 'Sent a voice message');
     } catch (error) {
       console.error("Error uploading audio:", error);
       alert("Failed to send audio message.");
@@ -305,16 +316,16 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
             <ArrowLeft size={24} />
           </button>
           <div className="relative">
-             <img src={chatUser.avatarUrl} alt={chatUser.name} className="w-10 h-10 rounded-full object-cover border border-zinc-800" />
+             <img src={headerAvatar} alt={headerName} className="w-10 h-10 rounded-full object-cover border border-zinc-800" />
              {chatUser.isOnline && !chatUser.isGroup && (
                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-zinc-900 rounded-full"></div>
              )}
           </div>
           <div>
-            <h3 className="font-bold text-white leading-none">{chatUser.name}</h3>
+            <h3 className="font-bold text-white leading-none truncate max-w-[45vw]">{headerName}</h3>
             <p className="text-xs text-zinc-500 mt-0.5">
               {chatUser.isGroup 
-                ? `${chatUser.members || 2} members` 
+                ? `${memberIds.length || chatUser.members || 2} members` 
                 : (chatUser.isOnline ? 'Active now' : chatUser.statusText)}
             </p>
           </div>
@@ -333,6 +344,21 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
           {isMenuOpen && (
             <div className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 rounded-xl shadow-lg border border-zinc-800 py-1 z-50">
               {chatUser.isGroup ? (
+                <>
+                <button
+                  onClick={() => { setIsMenuOpen(false); setIsEditGroupOpen(true); }}
+                  className="w-full px-4 py-3 text-left text-zinc-200 hover:bg-zinc-800 flex items-center gap-3 transition-colors"
+                >
+                  <Pencil size={18} />
+                  <span className="font-medium text-sm">Edit Group</span>
+                </button>
+                <button
+                  onClick={() => { setIsMenuOpen(false); setIsAddMembersOpen(true); }}
+                  className="w-full px-4 py-3 text-left text-zinc-200 hover:bg-zinc-800 flex items-center gap-3 transition-colors"
+                >
+                  <UserPlus size={18} />
+                  <span className="font-medium text-sm">Add Members</span>
+                </button>
                 <button 
                   onClick={handleLeaveGroup}
                   className="w-full px-4 py-3 text-left text-red-500 hover:bg-zinc-800 flex items-center gap-3 transition-colors"
@@ -340,6 +366,7 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
                   <LogOut size={18} />
                   <span className="font-medium text-sm">Leave Group</span>
                 </button>
+                </>
               ) : (
                 <button 
                   onClick={handleRemoveFriend}
@@ -373,6 +400,13 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
         {messages.map((msg) => {
           const isMe = msg.senderId === currentUser.uid;
           const sender = chatMembers[msg.senderId];
+          if (msg.type === 'system') {
+            return (
+              <div key={msg.id} className="flex justify-center">
+                <span className="px-3 py-1 rounded-full bg-zinc-900 text-zinc-500 text-xs border border-zinc-800">{msg.text}</span>
+              </div>
+            );
+          }
           return (
             <div 
               key={msg.id} 
@@ -491,6 +525,26 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
           </button>
         )}
       </div>
+
+      {isEditGroupOpen && (
+        <EditGroupModal
+          chatId={chatId}
+          currentName={headerName}
+          currentAvatar={groupInfo?.avatarUrl || ''}
+          onSaved={(summary) => sendMessage({}, 'system', `${myName} ${summary}`).catch(() => {})}
+          onClose={() => setIsEditGroupOpen(false)}
+        />
+      )}
+
+      {isAddMembersOpen && (
+        <AddMembersModal
+          chatId={chatId}
+          friends={friends}
+          memberIds={memberIds}
+          onAdded={(names) => sendMessage({}, 'system', `${myName} added ${names}`).catch(() => {})}
+          onClose={() => setIsAddMembersOpen(false)}
+        />
+      )}
 
       {isCameraOpen && (
         <CameraCapture

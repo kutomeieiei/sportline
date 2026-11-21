@@ -9,6 +9,7 @@ import LoginView from './components/LoginView';
 import ChatListView, { ChatUser } from './components/ChatListView';
 import ChatDetailView from './components/ChatDetailView';
 import CallProvider from './components/CallProvider';
+import { recordMessage, directChatId } from './services/chatMeta';
 import { Party, SportType, User, DiscoveryResult, Venue } from './types';
 import { INITIAL_USER, DEFAULT_CENTER } from './constants';
 import { Crosshair, Loader2, Radio, Search, Activity, X, Users } from 'lucide-react';
@@ -69,6 +70,7 @@ function App() {
   const [broadcastingSport, setBroadcastingSport] = useState<SportType | undefined>(undefined);
   const [sportConfigs, setSportConfigs] = useState<SportConfig[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [unreadTotal, setUnreadTotal] = useState(0);
 
   // Rate limiting for distance matrix
   const lastMatrixCall = useRef<number>(0);
@@ -148,6 +150,21 @@ function App() {
       .then(snap => setIsAdmin(snap.exists))
       .catch(() => setIsAdmin(false));
   }, [authUser]);
+
+  // --- Unread messages across all chats (red badge on the Chat tab) ---
+  useEffect(() => {
+    if (!authUser || !db) { setUnreadTotal(0); return; }
+    return db.collection('chats').where('members', 'array-contains', authUser.uid).onSnapshot((snap) => {
+      let total = 0;
+      snap.docs.forEach((d) => { total += Number(d.data().unread?.[authUser.uid] || 0); });
+      setUnreadTotal(total);
+    }, () => setUnreadTotal(0));
+  }, [authUser]);
+
+  // Show unread count in the browser tab title, like most chat apps.
+  useEffect(() => {
+    document.title = unreadTotal > 0 ? `(${unreadTotal}) SportSphere` : 'SportSphere';
+  }, [unreadTotal]);
 
   // --- 3. Real-time Parties Listener ---
   useEffect(() => {
@@ -509,25 +526,37 @@ function App() {
     setDiscoveredUsers([]);
   };
 
-  const handleAddFriend = async (friendUsername: string) => {
+  const handleAddFriend = async (usernameOrEmail: string) => {
     if (!authUser || !db) return;
-    if (friendUsername === user.username) {
+    const input = usernameOrEmail.trim().toLowerCase().replace(/^@/, '');
+    const isEmail = input.includes('@');
+    if (input === user.username || (isEmail && input === (authUser.email || '').toLowerCase())) {
       alert("You can't add yourself as a friend.");
       return;
     }
 
     try {
-      // 1. Find the user by username
+      // 1. Find the user by username, or by Gmail address
       const usersRef = db.collection('users');
-      const querySnapshot = await usersRef.where('username', '==', friendUsername).limit(1).get();
+      let querySnapshot = await usersRef.where(isEmail ? 'email' : 'username', '==', input).limit(1).get();
+      if (querySnapshot.empty && isEmail && input !== usernameOrEmail.trim()) {
+        // Emails are saved as Google gives them; try the exact text too.
+        querySnapshot = await usersRef.where('email', '==', usernameOrEmail.trim()).limit(1).get();
+      }
 
       if (querySnapshot.empty) {
-        alert('User not found.');
+        alert(isEmail
+          ? 'No player found with that Gmail. They need to sign in to SportSphere once first.'
+          : 'User not found. Check the username, or try their Gmail address.');
         return;
       }
 
       const friendDoc = querySnapshot.docs[0];
       const friendId = friendDoc.id;
+      if (friendId === authUser.uid) {
+        alert("You can't add yourself as a friend.");
+        return;
+      }
 
       // Check if already friends or request sent
       const myFriendDoc = await usersRef.doc(authUser.uid).collection('friends').doc(friendId).get();
@@ -626,12 +655,15 @@ function App() {
     try {
       const batch = db.batch();
       selectedFriendIds.forEach(friendId => {
-        const chatRoomId = [authUser.uid, friendId].sort().join('_');
+        const chatRoomId = directChatId(authUser.uid, friendId);
         const messageRef = db.collection('chats').doc(chatRoomId).collection('messages').doc();
         batch.set(messageRef, message);
       });
 
       await batch.commit();
+      await Promise.all(selectedFriendIds.map(friendId =>
+        recordMessage(directChatId(authUser.uid, friendId), [authUser.uid, friendId], authUser.uid, 'venue_share', message.text).catch(() => {})
+      ));
       alert(`Venue shared with ${selectedFriendIds.length} ${selectedFriendIds.length === 1 ? 'friend' : 'friends'}!`)
     } catch (error) {
       console.error("Error sharing venue with friends:", error);
@@ -806,6 +838,7 @@ function App() {
                 <ChatDetailView 
                     chatUser={selectedChatUser} 
                     currentUser={user}
+                    friends={friends}
                     onBack={() => setSelectedChatUser(null)} 
                     onViewVenue={handleViewVenue}
                 />
@@ -824,7 +857,7 @@ function App() {
       )}
 
       {/* Bottom Navigation */}
-      {!selectedChatUser && <BottomNav currentTab={currentTab} onChangeTab={handleTabChange} />}
+      {!selectedChatUser && <BottomNav currentTab={currentTab} onChangeTab={handleTabChange} chatBadge={unreadTotal + friendRequests.length} />}
 
     </div>
     </CallProvider>
