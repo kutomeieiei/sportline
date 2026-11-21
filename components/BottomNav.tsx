@@ -4,9 +4,11 @@ import { Map, PlusCircle, Settings, MessageCircle } from 'lucide-react';
 interface BottomNavProps {
   currentTab: string;
   onChangeTab: (tab: 'explore' | 'create' | 'settings' | 'chat') => void;
+  /** Unread messages + friend requests, shown as a red badge on Chat. */
+  chatBadge?: number;
 }
 
-const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onChangeTab }) => {
+const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onChangeTab, chatBadge = 0 }) => {
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-zinc-900/90 backdrop-blur-lg border-t border-zinc-800 pb-safe pt-2 px-4 shadow-[0_-8px_30px_-15px_rgba(0,0,0,0.5)] z-[1000] flex justify-between items-end h-[72px]">
       
@@ -24,8 +26,16 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onChangeTab }) => {
         onClick={() => onChangeTab('chat')}
         className={`flex flex-col items-center gap-1 pb-3 flex-1 transition-all duration-300 ease-in-out active:scale-95 ${currentTab === 'chat' ? 'text-red-500 scale-105' : 'text-zinc-500 hover:text-zinc-300'}`}
       >
-        <div className={`p-1.5 rounded-2xl transition-all duration-300 ${currentTab === 'chat' ? 'bg-red-500/10' : ''}`}>
+        <div className={`relative p-1.5 rounded-2xl transition-all duration-300 ${currentTab === 'chat' ? 'bg-red-500/10' : ''}`}>
             <MessageCircle size={24} strokeWidth={currentTab === 'chat' ? 2.5 : 2} />
+            {chatBadge > 0 && (
+              <span
+                aria-label={`${chatBadge} unread`}
+                className="absolute -top-1 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-zinc-900"
+              >
+                {chatBadge > 99 ? '99+' : chatBadge}
+              </span>
+            )}
         </div>
         <span className="text-[10px] font-semibold tracking-wide">Chat</span>
       </button>

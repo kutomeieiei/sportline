@@ -21,6 +21,11 @@ export const APP_CONFIG = {
   headerLogoUrl: parseGoogleDriveLink(""), 
 
   appName: "SportSphere",
+
+  // ✨ CONFIGURATION: Shown in the Privacy Policy so people can contact you about their data.
+  // Replace with your real contact email before publishing.
+  contactEmail: "[your contact email]",
+  privacyPolicyUpdated: "November 21, 2026",
   primaryGradient: "bg-gradient-to-r from-red-600 to-red-800",
   textGradient: "bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-red-700"
 };

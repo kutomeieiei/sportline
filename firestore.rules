@@ -95,13 +95,27 @@ service cloud.firestore {
     // ---------- Chats ----------
     // Direct chats use the id "<uidA>_<uidB>". Group/party chats have a `members` list.
     match /chats/{chatId} {
+      // Direct chats have ids like "uidA_uidB"; group/party chats have random ids.
+      function isDirectChat() {
+        return chatId.split('_').size() == 2;
+      }
       function isDirectParticipant() {
-        return isSignedIn() && request.auth.uid in chatId.split('_');
+        return isSignedIn() && isDirectChat() && request.auth.uid in chatId.split('_');
       }
       function isMember() {
         return isSignedIn()
+          && !isDirectChat()
           && exists(/databases/$(database)/documents/chats/$(chatId))
           && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members;
+      }
+      // A direct chat's members must be exactly the two people in its id.
+      // Group name/photo must be a sensible size.
+      function validChat(d) {
+        return d.members is list
+          && d.members.size() <= 50
+          && (!isDirectChat() || d.members.toSet() == chatId.split('_').toSet())
+          && (!('name' in d) || (d.name is string && d.name.size() <= 50))
+          && (!('avatarUrl' in d) || (d.avatarUrl is string && d.avatarUrl.size() <= 300000));
       }
       function canAccessChat() {
         return isDirectParticipant() || isMember();
@@ -110,12 +124,17 @@ service cloud.firestore {
       allow read: if isSignedIn() && (
         request.auth.uid in chatId.split('_') || request.auth.uid in resource.data.members
       );
-      allow create: if isSignedIn() && request.auth.uid in request.resource.data.members;
-      allow update: if isSignedIn() && (
-        // Members can rename the group, change avatar, add people, etc.
+      allow create: if isSignedIn()
+        && request.auth.uid in request.resource.data.members
+        && validChat(request.resource.data);
+      allow update: if isSignedIn() && validChat(request.resource.data) && (
+        // Members can rename the group, change its photo, add friends,
+        // update the last-message preview and unread counts, etc.
         request.auth.uid in resource.data.members
-        // Anyone can join (add only themselves) - used when joining a party.
-        || (changedOnly(['members'])
+        // Joining a party adds you to its chat (only yourself, only party chats).
+        || (!isDirectChat()
+          && exists(/databases/$(database)/documents/parties/$(chatId))
+          && changedOnly(['members'])
           && request.resource.data.members.toSet()
                .difference(resource.data.members.toSet()).hasOnly([request.auth.uid]))
       );
