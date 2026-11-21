@@ -37,10 +37,16 @@ export interface CallDoc {
 export const MAX_CALL_SIZE = 6;
 // How long a call rings before it counts as missed.
 export const RING_TIMEOUT_MS = 45_000;
+// If two people can't reach each other within this time, the network is
+// blocking the call (usually needs a TURN relay), so stop trying.
+export const CONNECT_TIMEOUT_MS = 20_000;
+
+/** Why a call ended on this device. */
+export type CallEndReason = 'ended' | 'connection-failed';
 
 // Free public STUN servers. Optional TURN relay (for strict networks) can be
 // added with VITE_TURN_URL / VITE_TURN_USERNAME / VITE_TURN_CREDENTIAL.
-const buildIceServers = (): RTCIceServer[] => {
+export const buildIceServers = (): RTCIceServer[] => {
   const servers: RTCIceServer[] = [
     { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
   ];
@@ -54,6 +60,8 @@ const buildIceServers = (): RTCIceServer[] => {
   }
   return servers;
 };
+
+export const hasTurnRelay = () => !!import.meta.env.VITE_TURN_URL;
 
 export const callsRef = () => db.collection('calls');
 
@@ -142,6 +150,8 @@ export interface RemotePeer {
   uid: string;
   stream: MediaStream;
   state: RTCPeerConnectionState;
+  /** How loud the sound arriving from this person is right now (0 to 1). */
+  audioLevel: number;
 }
 
 type SignalType = 'offer' | 'answer' | 'candidate';
@@ -151,7 +161,17 @@ interface SignalDoc {
   type: SignalType;
   sdp?: string;
   candidate?: RTCIceCandidateInit;
+  createdAt?: firebase.firestore.Timestamp | null;
 }
+
+// Signals must be handled in the order they were sent (offer before its
+// candidates). Firestore returns them by document id, which is random.
+const signalOrder = (s: SignalDoc) => [s.createdAt?.toMillis?.() ?? Number.MAX_SAFE_INTEGER, s.type === 'candidate' ? 1 : 0];
+const bySentOrder = (a: SignalDoc, b: SignalDoc) => {
+  const [ta, ka] = signalOrder(a);
+  const [tb, kb] = signalOrder(b);
+  return ta - tb || ka - kb;
+};
 
 /**
  * One person's side of a call. Create it after `getLocalMedia`, then `join()`.
@@ -162,15 +182,24 @@ export class CallSession {
   private pendingCandidates = new Map<string, RTCIceCandidateInit[]>();
   private unsubscribers: Array<() => void> = [];
   private failTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private connectTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private audioLevels = new Map<string, number>();
+  private lastAudioEnergy = new Map<string, { energy: number; duration: number }>();
+  private statsTimer: ReturnType<typeof setInterval> | null = null;
+  private signalQueue: Promise<void> = Promise.resolve();
   private iceServers = buildIceServers();
   private left = false;
+  private everConnected = false;
+  private triedToConnect = false;
+  private connectionFailed = false;
+  private leftOnPurpose = false;
 
   constructor(
     private callId: string,
     private myUid: string,
     public localStream: MediaStream,
     private onPeersChanged: (peers: RemotePeer[]) => void,
-    private onCallEnded: () => void,
+    private onCallEnded: (reason: CallEndReason) => void,
   ) {}
 
   private get callRef() { return callsRef().doc(this.callId); }
@@ -178,17 +207,20 @@ export class CallSession {
 
   /** Joins the call. `alreadyJoined` is true for the caller (added at creation). */
   async join(alreadyJoined: boolean) {
-    // 1. Listen for signals sent to me.
+    // 1. Listen for signals sent to me, and handle them one at a time in the
+    //    order they were sent (handling a candidate before its offer loses it).
     this.unsubscribers.push(
       this.signalsRef.where('to', '==', this.myUid).onSnapshot((snap) => {
-        snap.docChanges().forEach((change) => {
-          if (change.type !== 'added') return;
-          const signal = change.doc.data() as SignalDoc;
-          change.doc.ref.delete().catch(() => {});
-          this.handleSignal(signal).catch((e) => console.warn('Call signal failed', e));
+        const added = snap.docChanges().filter((change) => change.type === 'added');
+        added.forEach((change) => change.doc.ref.delete().catch(() => {}));
+        added.map((change) => change.doc.data() as SignalDoc).sort(bySentOrder).forEach((signal) => {
+          this.signalQueue = this.signalQueue
+            .then(() => this.handleSignal(signal))
+            .catch((e) => console.warn('Call signal failed', e));
         });
       }, (err) => console.error('Call signal listener failed', err)),
     );
+    this.statsTimer = setInterval(() => { this.pollAudioLevels(); }, 500);
 
     // 2. Join: add myself, and remember who was already there (I call them).
     let existing: string[] = [];
@@ -232,7 +264,12 @@ export class CallSession {
   private emit() {
     const list: RemotePeer[] = [];
     this.peers.forEach((pc, uid) => {
-      list.push({ uid, stream: this.remoteStreams.get(uid) || new MediaStream(), state: pc.connectionState });
+      list.push({
+        uid,
+        stream: this.remoteStreams.get(uid) || new MediaStream(),
+        state: pc.connectionState,
+        audioLevel: this.audioLevels.get(uid) || 0,
+      });
     });
     this.onPeersChanged(list);
   }
@@ -242,11 +279,20 @@ export class CallSession {
     await this.signalsRef.add({ ...data, from: this.myUid, to, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
   }
 
-  private createPeer(uid: string): RTCPeerConnection {
+  private createPeer(uid: string, keepQueuedCandidates = false): RTCPeerConnection {
+    // Candidates that arrived just before this person's offer belong to it.
+    const queued = keepQueuedCandidates ? this.pendingCandidates.get(uid) : undefined;
     this.closePeer(uid, false);
+    if (queued) this.pendingCandidates.set(uid, queued);
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     this.peers.set(uid, pc);
     this.remoteStreams.set(uid, new MediaStream());
+    this.triedToConnect = true;
+    // Give up on this person if we can't reach them in time.
+    this.connectTimers.set(uid, setTimeout(() => {
+      this.connectTimers.delete(uid);
+      if (pc.connectionState !== 'connected') this.handlePeerLost(uid);
+    }, CONNECT_TIMEOUT_MS));
 
     this.localStream.getTracks().forEach((track) => pc.addTrack(track, this.localStream));
 
@@ -264,6 +310,11 @@ export class CallSession {
       const state = pc.connectionState;
       const pending = this.failTimers.get(uid);
       if (pending) { clearTimeout(pending); this.failTimers.delete(uid); }
+      if (state === 'connected') {
+        this.everConnected = true;
+        const t = this.connectTimers.get(uid);
+        if (t) { clearTimeout(t); this.connectTimers.delete(uid); }
+      }
       // If someone's connection drops for good (app closed, lost signal), stop waiting for them.
       if (state === 'failed' || state === 'disconnected') {
         this.failTimers.set(uid, setTimeout(() => this.handlePeerLost(uid), state === 'failed' ? 3_000 : 15_000));
@@ -285,7 +336,7 @@ export class CallSession {
     if (this.left) return;
     const uid = signal.from;
     if (signal.type === 'offer') {
-      const pc = this.createPeer(uid);
+      const pc = this.createPeer(uid, true);
       await pc.setRemoteDescription({ type: 'offer', sdp: signal.sdp });
       await this.flushCandidates(uid);
       const answer = await pc.createAnswer();
@@ -324,7 +375,38 @@ export class CallSession {
     // In a group call, just drop that one connection and keep talking.
     const snap = await this.callRef.get().catch(() => null);
     const call = snap?.exists ? (snap.data() as CallDoc) : null;
-    if (call && !call.isGroup) await this.leave();
+    if (call && !call.isGroup) {
+      if (!this.everConnected) this.connectionFailed = true;
+      await this.leave(false);
+    }
+  }
+
+  /** Reads how loud each person's incoming sound is, from WebRTC stats. */
+  private async pollAudioLevels() {
+    if (this.left) return;
+    let changed = false;
+    await Promise.all(Array.from(this.peers.entries()).map(async ([uid, pc]) => {
+      if (pc.connectionState !== 'connected') return;
+      try {
+        const report = await pc.getStats();
+        let level: number | undefined;
+        report.forEach((r: Record<string, unknown>) => {
+          if (r.type !== 'inbound-rtp' || r.kind !== 'audio') return;
+          if (typeof r.audioLevel === 'number') {
+            level = r.audioLevel;
+          } else if (typeof r.totalAudioEnergy === 'number' && typeof r.totalSamplesDuration === 'number') {
+            const prev = this.lastAudioEnergy.get(uid);
+            this.lastAudioEnergy.set(uid, { energy: r.totalAudioEnergy, duration: r.totalSamplesDuration });
+            if (prev && r.totalSamplesDuration > prev.duration) {
+              level = Math.sqrt((r.totalAudioEnergy - prev.energy) / (r.totalSamplesDuration - prev.duration));
+            }
+          }
+        });
+        const rounded = Math.round(Math.min(1, level || 0) * 100) / 100;
+        if (this.audioLevels.get(uid) !== rounded) { this.audioLevels.set(uid, rounded); changed = true; }
+      } catch { /* stats not available; no level shown */ }
+    }));
+    if (changed && !this.left) this.emit();
   }
 
   private closePeer(uid: string, notify = true) {
@@ -336,8 +418,12 @@ export class CallSession {
     this.peers.delete(uid);
     this.remoteStreams.delete(uid);
     this.pendingCandidates.delete(uid);
+    this.audioLevels.delete(uid);
+    this.lastAudioEnergy.delete(uid);
     const t = this.failTimers.get(uid);
     if (t) { clearTimeout(t); this.failTimers.delete(uid); }
+    const c = this.connectTimers.get(uid);
+    if (c) { clearTimeout(c); this.connectTimers.delete(uid); }
     if (notify) this.emit();
   }
 
@@ -366,8 +452,9 @@ export class CallSession {
   }
 
   /** Leaves the call. Ends it for everyone if it's 1-to-1 or I'm the last one. */
-  async leave() {
+  async leave(onPurpose = true) {
     if (this.left) return;
+    if (onPurpose) this.leftOnPurpose = true;
     try {
       await db.runTransaction(async (tx) => {
         const snap = await tx.get(this.callRef);
@@ -395,11 +482,15 @@ export class CallSession {
   private finish() {
     if (this.left) return;
     this.left = true;
+    // "Couldn't connect" = we started connecting to someone but never reached
+    // anyone, and it wasn't me hanging up.
+    const failed = this.connectionFailed || (this.triedToConnect && !this.everConnected && !this.leftOnPurpose);
+    if (this.statsTimer) { clearInterval(this.statsTimer); this.statsTimer = null; }
     this.unsubscribers.forEach((u) => u());
     this.unsubscribers = [];
     Array.from(this.peers.keys()).forEach((uid) => this.closePeer(uid, false));
     this.localStream.getTracks().forEach((t) => t.stop());
     this.onPeersChanged([]);
-    this.onCallEnded();
+    this.onCallEnded(failed ? 'connection-failed' : 'ended');
   }
 }

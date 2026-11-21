@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Phone, PhoneOff, Video, VideoOff, Mic, MicOff, SwitchCamera, Minimize2, Users, Loader2,
+  Phone, PhoneOff, Video, VideoOff, Mic, MicOff, SwitchCamera, Minimize2, Users, Loader2, VolumeX,
 } from 'lucide-react';
 import { db } from '../firebase';
 import { User } from '../types';
 import { fallbackAvatar } from '../utils/image';
 import {
-  CallDoc, CallSession, CallType, RemotePeer, MAX_CALL_SIZE, RING_TIMEOUT_MS,
+  CallDoc, CallEndReason, CallSession, CallType, RemotePeer, MAX_CALL_SIZE, RING_TIMEOUT_MS,
   callAgeMs, callsRef, createCall, declineCall, endUnansweredCall, getLocalMedia, toCallDoc,
 } from '../services/callService';
 import { CallContext, StartCallOptions } from '../services/callContext';
@@ -55,31 +55,128 @@ function useRingtone(active: boolean) {
   }, [active]);
 }
 
-const MediaTile: React.FC<{
-  stream: MediaStream | null; muted?: boolean; mirrored?: boolean; showVideo: boolean;
-  profile: Profile; label?: string; className?: string; status?: string;
-}> = ({ stream, muted, mirrored, showVideo, profile, label, className = '', status }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
+// Above this loudness (0 to 1) we show that the person is talking.
+const SPEAKING_LEVEL = 0.02;
+
+/**
+ * Plays one person's voice. It stays mounted for the whole call, even while
+ * the call screen is minimized, so the sound never cuts out. Video tiles are
+ * always muted, so there's exactly one place the sound comes from.
+ */
+const RemoteAudio: React.FC<{
+  stream: MediaStream;
+  register: (el: HTMLAudioElement | null, uid: string) => void;
+  uid: string;
+  onBlocked: () => void;
+}> = ({ stream, register, uid, onBlocked }) => {
+  const ref = useRef<HTMLAudioElement>(null);
+  const streamRef = useRef(stream);
+  streamRef.current = stream;
+  const onBlockedRef = useRef(onBlocked);
+  onBlockedRef.current = onBlocked;
+  // Only restart playback when the sound track itself changes (not when video arrives).
+  const audioKey = stream.getAudioTracks().map((t) => t.id).join(',');
+
   useEffect(() => {
-    if (videoRef.current && videoRef.current.srcObject !== stream) videoRef.current.srcObject = stream;
-    if (audioRef.current && audioRef.current.srcObject !== stream) audioRef.current.srcObject = stream;
+    register(ref.current, uid);
+    return () => register(null, uid);
+  }, [register, uid]);
+
+  useEffect(() => {
+    const el = ref.current;
+    const tracks = streamRef.current.getAudioTracks();
+    if (!el || tracks.length === 0) return;
+    el.srcObject = new MediaStream(tracks);
+    el.play().catch((err: DOMException) => {
+      // The browser wants a tap before it plays sound.
+      if (err?.name === 'NotAllowedError') onBlockedRef.current();
+    });
+  }, [audioKey]);
+
+  return <audio ref={ref} autoPlay className="hidden" />;
+};
+
+const MediaTile: React.FC<{
+  stream: MediaStream | null; mirrored?: boolean; showVideo: boolean; speaking?: boolean;
+  profile: Profile; label?: string; className?: string; status?: string;
+}> = ({ stream, mirrored, showVideo, speaking, profile, label, className = '', status }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    // Muted on purpose: sound plays through RemoteAudio. Muted video is also
+    // always allowed to autoplay, even on iPhone.
+    el.muted = true;
+    if (el.srcObject !== stream) el.srcObject = stream;
+    el.play().catch(() => {});
   }, [stream, showVideo]);
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl bg-zinc-900 border border-zinc-800 ${className}`}>
+    <div className={`relative overflow-hidden rounded-2xl bg-zinc-900 border-2 transition-colors duration-150 ${speaking ? 'border-green-500' : 'border-zinc-800'} ${className}`}>
       {showVideo ? (
-        <video ref={videoRef} autoPlay playsInline muted={muted}
+        <video ref={videoRef} autoPlay playsInline muted
           className={`w-full h-full object-cover ${mirrored ? '-scale-x-100' : ''}`} />
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-4">
-          <img src={profile.avatar} alt={profile.name} className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border-2 border-zinc-700" />
-          {!muted && <audio ref={audioRef} autoPlay />}
+          <img
+            src={profile.avatar}
+            alt={profile.name}
+            className={`w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border-2 transition-shadow duration-150 ${speaking ? 'border-green-500 ring-4 ring-green-500/40' : 'border-zinc-700'}`}
+          />
         </div>
       )}
       <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-2">
         <span className="px-2 py-1 rounded-lg bg-black/60 text-white text-xs font-semibold truncate">{label || profile.name}</span>
         {status && <span className="px-2 py-1 rounded-lg bg-black/60 text-amber-300 text-[10px] font-semibold">{status}</span>}
+      </div>
+    </div>
+  );
+};
+
+/** How loud my own microphone is (0 to 1), so I can see it's working. */
+function useMicLevel(stream: MediaStream | null, enabled: boolean) {
+  const [level, setLevel] = useState(0);
+  useEffect(() => {
+    const track = stream?.getAudioTracks()[0];
+    if (!track || !enabled) { setLevel(0); return; }
+    let ctx: AudioContext | null = null;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      ctx = new AudioCtx();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      ctx.createMediaStreamSource(new MediaStream([track])).connect(analyser);
+      const buf = new Uint8Array(analyser.fftSize);
+      timer = setInterval(() => {
+        analyser.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+        setLevel(Math.min(1, Math.round(Math.sqrt(sum / buf.length) * 4 * 20) / 20));
+      }, 120);
+      ctx.resume?.().catch(() => {});
+    } catch { /* level meter not available in this browser */ }
+    return () => { if (timer) clearInterval(timer); ctx?.close().catch(() => {}); };
+  }, [stream, enabled]);
+  return level;
+}
+
+/** Mute button with a green ring that grows when my mic picks up sound. */
+const MicButton: React.FC<{ stream: MediaStream | null; on: boolean; onToggle: () => void }> = ({ stream, on, onToggle }) => {
+  const level = useMicLevel(stream, on);
+  return (
+    <div className="relative">
+      {on && (
+        <span
+          aria-hidden
+          className="absolute inset-0 rounded-full bg-green-500/50 transition-transform duration-100"
+          style={{ transform: `scale(${1 + Math.min(level, 1) * 0.45})`, opacity: level > 0.05 ? 1 : 0 }}
+        />
+      )}
+      <div className="relative">
+        <RoundButton onClick={onToggle} label={on ? 'Mute microphone' : 'Unmute microphone'} off={!on}>
+          {on ? <Mic size={24} /> : <MicOff size={24} />}
+        </RoundButton>
       </div>
     </div>
   );
@@ -122,8 +219,49 @@ const CallProvider: React.FC<{ currentUser: User; children: React.ReactNode }> =
   const [now, setNow] = useState(Date.now());
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
+  const [soundBlocked, setSoundBlocked] = useState(false);
+  const [micIssue, setMicIssue] = useState<string | null>(null);
+  const [connectingSince, setConnectingSince] = useState<number | null>(null);
+
   const sessionRef = useRef<CallSession | null>(null);
   const lastCallRef = useRef<CallDoc | null>(null);
+  const audioEls = useRef(new Map<string, HTMLAudioElement>());
+
+  const registerAudio = useCallback((el: HTMLAudioElement | null, uid: string) => {
+    if (el) audioEls.current.set(uid, el); else audioEls.current.delete(uid);
+  }, []);
+  const onSoundBlocked = useCallback(() => setSoundBlocked(true), []);
+
+  // Must run straight from a tap, so the browser lets the sound play.
+  const unlockSound = () => {
+    let stillBlocked = false;
+    audioEls.current.forEach((el) => {
+      el.play().catch((err: DOMException) => { if (err?.name === 'NotAllowedError') stillBlocked = true; })
+        .finally(() => setSoundBlocked(stillBlocked));
+    });
+    if (audioEls.current.size === 0) setSoundBlocked(false);
+  };
+
+  // Tell me if my microphone stops sending sound (unplugged, or taken by another app).
+  useEffect(() => {
+    if (!localStream) { setMicIssue(null); return; }
+    const track = localStream.getAudioTracks()[0];
+    if (!track) { setMicIssue('No microphone found.'); return; }
+    const update = () => setMicIssue(
+      track.readyState === 'ended' ? 'Your microphone was disconnected.'
+        : track.muted ? 'Your microphone is paused by your device or another app.'
+          : null,
+    );
+    update();
+    track.addEventListener('mute', update);
+    track.addEventListener('unmute', update);
+    track.addEventListener('ended', update);
+    return () => {
+      track.removeEventListener('mute', update);
+      track.removeEventListener('unmute', update);
+      track.removeEventListener('ended', update);
+    };
+  }, [localStream]);
 
   // Calls that include me and are still going.
   useEffect(() => {
@@ -187,18 +325,24 @@ const CallProvider: React.FC<{ currentUser: User; children: React.ReactNode }> =
     return () => window.removeEventListener('pagehide', onUnload);
   }, []);
 
-  const showNotice = (text: string) => {
+  const showNotice = (text: string, ms = 4000) => {
     setNotice(text);
-    setTimeout(() => setNotice((n) => (n === text ? null : n)), 4000);
+    setTimeout(() => setNotice((n) => (n === text ? null : n)), ms);
   };
 
-  const handleEnded = useCallback(() => {
+  const handleEnded = useCallback((reason: CallEndReason) => {
     const last = lastCallRef.current;
     sessionRef.current = null;
     setLocalStream(null);
     setPeers([]);
     setCurrentCallId(null);
     setMinimized(false);
+    setSoundBlocked(false);
+    setConnectingSince(null);
+    if (reason === 'connection-failed') {
+      showNotice("Couldn't connect the call. One of your networks may be blocking calls. Check Settings › Connection Diagnostics.", 8000);
+      return;
+    }
     if (!last) return;
     // Read the final state so we can say why the call ended.
     callsRef().doc(last.id).get().then((snap) => {
@@ -274,8 +418,8 @@ const CallProvider: React.FC<{ currentUser: User; children: React.ReactNode }> =
 
   const hangUp = () => { sessionRef.current?.leave(); };
 
-  const toggleMic = () => { const on = !micOn; sessionRef.current?.setMicEnabled(on); setMicOn(on); };
-  const toggleCam = () => { const on = !camOn; sessionRef.current?.setCameraEnabled(on); setCamOn(on); };
+  const toggleMic = () => { unlockSound(); const on = !micOn; sessionRef.current?.setMicEnabled(on); setMicOn(on); };
+  const toggleCam = () => { unlockSound(); const on = !camOn; sessionRef.current?.setCameraEnabled(on); setCamOn(on); };
   const flipCamera = async () => {
     const next = facing === 'user' ? 'environment' : 'user';
     try {
@@ -303,9 +447,19 @@ const CallProvider: React.FC<{ currentUser: User; children: React.ReactNode }> =
   const isVideo = currentCall?.type === 'video';
   const others = currentCall ? currentCall.participants.filter((u) => u !== myUid) : [];
   const answeredAt = currentCall?.answeredAt?.toMillis?.();
+  const anyConnected = peers.some((p) => p.state === 'connected');
+
+  // Remember when we started trying to connect, to warn if it's slow.
+  const tryingToConnect = peers.length > 0 && !anyConnected;
+  useEffect(() => {
+    setConnectingSince((since) => (tryingToConnect ? since ?? Date.now() : null));
+  }, [tryingToConnect]);
+  const slowToConnect = connectingSince !== null && now - connectingSince > 8000;
+
   const statusText = !currentCall ? ''
     : currentCall.status === 'ringing' ? (currentCall.isGroup ? 'Ringing the group…' : 'Calling…')
     : peers.length === 0 ? (currentCall.isGroup ? 'Waiting for others to join…' : 'Connecting…')
+    : !anyConnected ? (slowToConnect ? 'Still connecting…' : 'Connecting…')
     : answeredAt ? formatClock(now - answeredAt) : 'Connected';
   const title = currentCall
     ? (currentCall.isGroup ? currentCall.title : profileOf(others[0] || '').name)
@@ -320,10 +474,15 @@ const CallProvider: React.FC<{ currentUser: User; children: React.ReactNode }> =
 
       {/* Short messages like "Call ended" */}
       {notice && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[6000] px-4 py-2 rounded-full bg-zinc-800 text-white text-sm font-semibold shadow-xl border border-zinc-700">
+        <div role="status" className="fixed top-4 left-1/2 -translate-x-1/2 z-[6000] w-max max-w-[calc(100vw-32px)] px-4 py-2 rounded-2xl bg-zinc-800 text-white text-sm font-semibold text-center shadow-xl border border-zinc-700 animate-in fade-in slide-in-from-top">
           {notice}
         </div>
       )}
+
+      {/* Everyone's voice. Outside the call screen so it keeps playing when minimized. */}
+      {currentCallId && peers.map((p) => (
+        <RemoteAudio key={p.uid} uid={p.uid} stream={p.stream} register={registerAudio} onBlocked={onSoundBlocked} />
+      ))}
 
       {busy && !inCall && (
         <div className="fixed inset-0 z-[5500] bg-black/60 flex items-center justify-center">
@@ -374,10 +533,10 @@ const CallProvider: React.FC<{ currentUser: User; children: React.ReactNode }> =
       {/* Minimized call bar */}
       {inCall && minimized && (
         <button
-          onClick={() => setMinimized(false)}
+          onClick={() => { unlockSound(); setMinimized(false); }}
           className="fixed top-3 left-1/2 -translate-x-1/2 z-[5500] flex items-center gap-2 px-4 py-2 rounded-full bg-green-600 text-white text-sm font-bold shadow-xl"
         >
-          {isVideo ? <Video size={16} /> : <Phone size={16} />}
+          {soundBlocked ? <VolumeX size={16} /> : isVideo ? <Video size={16} /> : <Phone size={16} />}
           <span className="truncate max-w-[160px]">{title}</span>
           <span className="opacity-80">· {statusText}</span>
         </button>
@@ -391,7 +550,7 @@ const CallProvider: React.FC<{ currentUser: User; children: React.ReactNode }> =
               <h2 className="text-white font-bold text-lg truncate">{title}</h2>
               <p className="text-zinc-400 text-sm">{statusText}</p>
             </div>
-            <button onClick={() => setMinimized(true)} aria-label="Minimize call" className="p-2 rounded-full bg-zinc-800 text-white hover:bg-zinc-700">
+            <button onClick={() => { unlockSound(); setMinimized(true); }} aria-label="Minimize call" className="p-2 rounded-full bg-zinc-800 text-white hover:bg-zinc-700">
               <Minimize2 size={20} />
             </button>
           </div>
@@ -416,6 +575,7 @@ const CallProvider: React.FC<{ currentUser: User; children: React.ReactNode }> =
                     key={p.uid}
                     stream={p.stream}
                     showVideo={!!isVideo && p.stream.getVideoTracks().length > 0}
+                    speaking={p.state === 'connected' && p.audioLevel > SPEAKING_LEVEL}
                     profile={profileOf(p.uid)}
                     status={p.state === 'connected' ? undefined : p.state === 'failed' || p.state === 'disconnected' ? 'Reconnecting…' : 'Connecting…'}
                     className="w-full h-full min-h-[140px]"
@@ -429,7 +589,6 @@ const CallProvider: React.FC<{ currentUser: User; children: React.ReactNode }> =
               <div className="absolute bottom-5 right-5 w-28 h-40 md:w-40 md:h-56 shadow-2xl z-10">
                 <MediaTile
                   stream={localStream}
-                  muted
                   mirrored={facing === 'user'}
                   showVideo={camOn}
                   profile={profileOf(myUid)}
@@ -440,10 +599,28 @@ const CallProvider: React.FC<{ currentUser: User; children: React.ReactNode }> =
             )}
           </div>
 
+          {/* Problems the person can act on */}
+          <div className="flex flex-col items-center gap-2 px-4 empty:hidden">
+            {soundBlocked && (
+              <button
+                onClick={unlockSound}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white text-zinc-900 text-sm font-semibold shadow-lg active:scale-95 animate-in fade-in slide-in-from-bottom"
+              >
+                <VolumeX size={18} /> Tap to turn on sound
+              </button>
+            )}
+            {micIssue && (
+              <p className="px-3 py-1.5 rounded-full bg-amber-500/15 text-amber-300 text-xs font-medium text-center">{micIssue}</p>
+            )}
+            {slowToConnect && (
+              <p className="max-w-sm px-3 py-1.5 rounded-2xl bg-zinc-800 text-zinc-300 text-xs text-center">
+                This is taking longer than usual. If it doesn't connect, try switching between Wi-Fi and mobile data.
+              </p>
+            )}
+          </div>
+
           <div className="flex items-center justify-center gap-4 md:gap-6 px-4 pt-3 pb-8">
-            <RoundButton onClick={toggleMic} label={micOn ? 'Mute microphone' : 'Unmute microphone'} off={!micOn}>
-              {micOn ? <Mic size={24} /> : <MicOff size={24} />}
-            </RoundButton>
+            <MicButton stream={localStream} on={micOn} onToggle={toggleMic} />
             {isVideo && (
               <RoundButton onClick={toggleCam} label={camOn ? 'Turn camera off' : 'Turn camera on'} off={!camOn}>
                 {camOn ? <Video size={24} /> : <VideoOff size={24} />}

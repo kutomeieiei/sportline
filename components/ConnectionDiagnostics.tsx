@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Activity, CheckCircle, AlertTriangle, XCircle, Loader2, RefreshCw, Trash2, Copy, Circle } from 'lucide-react';
 import { db, auth, storage, firebase } from '../firebase';
+import { buildIceServers, hasTurnRelay } from '../services/callService';
 
 type CheckState = 'idle' | 'running' | 'ok' | 'warn' | 'fail';
 interface CheckResult { state: CheckState; detail: string }
@@ -38,27 +39,65 @@ async function permissionState(name: 'camera' | 'microphone'): Promise<CheckResu
   }
 }
 
-/** Checks whether calls can reach the internet directly (STUN). */
+/**
+ * Checks how well calls can connect from this network.
+ * - Asks two public STUN servers for our public address. If each one sees a
+ *   different port, this is a "strict" network (symmetric NAT): direct calls
+ *   with people on other networks usually fail without a relay (TURN).
+ * - If a TURN relay is set up, checks that it answers.
+ */
 function checkCallNetwork(): Promise<CheckResult> {
   return new Promise((resolve) => {
     if (typeof RTCPeerConnection === 'undefined') { resolve(fail('This browser does not support calls.')); return; }
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-    let foundPublic = false;
-    const finish = (r: CheckResult) => { try { pc.close(); } catch { /* ignore */ } resolve(r); };
-    const timer = setTimeout(() => finish(foundPublic
-      ? ok('Calls can connect directly.')
-      : warn('Could not reach the call server. Calls may fail on this network (strict Wi-Fi or mobile data). A relay (TURN) server would fix this.')), 6000);
+    const turn = hasTurnRelay();
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        ...buildIceServers().filter((s) => JSON.stringify(s.urls).includes('turn')),
+      ],
+    });
+    const publicPorts = new Map<string, Set<string>>();
+    let relayFound = false;
+    let done = false;
+
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try { pc.close(); } catch { /* ignore */ }
+      const strict = Array.from(publicPorts.values()).some((ports) => ports.size > 1);
+      const relayNote = turn ? (relayFound ? ' The relay (TURN) server works.' : ' The relay (TURN) server did not answer. Check its settings.') : '';
+      if (publicPorts.size === 0 && !relayFound) {
+        resolve(warn('Could not reach the call server. Calls will probably fail on this network (strict Wi-Fi or mobile data). A relay (TURN) server would fix this.' + relayNote));
+      } else if (strict && !relayFound) {
+        resolve(warn('This network is strict about connections, so calls with people on other networks may connect but stay silent, or fail. Try Wi-Fi instead of mobile data (or the other way), or add a relay (TURN) server.' + relayNote));
+      } else if (turn && !relayFound) {
+        resolve(warn('Calls can connect directly.' + relayNote));
+      } else {
+        resolve(ok((strict ? 'Strict network, but calls can use the relay.' : 'Calls can connect directly.') + relayNote));
+      }
+    };
+    const timer = setTimeout(finish, 7000);
+
     pc.onicecandidate = (e) => {
-      if (e.candidate && / typ srflx /.test(e.candidate.candidate)) {
-        foundPublic = true;
-        clearTimeout(timer);
-        finish(ok('Calls can connect directly.'));
+      if (!e.candidate) { finish(); return; } // gathering finished
+      const m = /^candidate:\S+ \d+ (\S+) \d+ (\S+) (\d+) typ (\S+)/i.exec(e.candidate.candidate);
+      if (!m) return;
+      const [, protocol, ip, port, type] = m;
+      if (type === 'relay') relayFound = true;
+      if (type === 'srflx' && protocol.toLowerCase() === 'udp') {
+        const ports = publicPorts.get(ip) || new Set<string>();
+        ports.add(port);
+        publicPorts.set(ip, ports);
       }
     };
     pc.createDataChannel('diag');
     pc.createOffer().then((o) => pc.setLocalDescription(o)).catch(() => {
+      done = true;
       clearTimeout(timer);
-      finish(fail('Could not start a test connection.'));
+      try { pc.close(); } catch { /* ignore */ }
+      resolve(fail('Could not start a test connection.'));
     });
   });
 }
