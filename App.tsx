@@ -67,6 +67,7 @@ function App() {
   const [isPlaySportModalOpen, setIsPlaySportModalOpen] = useState(false);
   const [broadcastingSport, setBroadcastingSport] = useState<SportType | undefined>(undefined);
   const [sportConfigs, setSportConfigs] = useState<SportConfig[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Rate limiting for distance matrix
   const lastMatrixCall = useRef<number>(0);
@@ -90,6 +91,11 @@ function App() {
     }
 
     const unsubscribeAuth = auth.onAuthStateChanged((currentUser) => {
+      // Only Google accounts are allowed. Sign out any old email/password session.
+      if (currentUser && !currentUser.providerData.some(p => p?.providerId === 'google.com')) {
+        auth.signOut();
+        return;
+      }
       setAuthUser(currentUser);
       
       if (currentUser) {
@@ -129,6 +135,17 @@ function App() {
 
         return () => unsubscribeUser();
     }
+  }, [authUser]);
+
+  // --- Admin check: admins are listed in the `admins` collection (edited only in Firebase Console) ---
+  useEffect(() => {
+    if (!authUser || !db) {
+      setIsAdmin(false);
+      return;
+    }
+    db.collection('admins').doc(authUser.uid).get()
+      .then(snap => setIsAdmin(snap.exists))
+      .catch(() => setIsAdmin(false));
   }, [authUser]);
 
   // --- 3. Real-time Parties Listener ---
@@ -738,19 +755,20 @@ function App() {
           onUpdateUser={() => {}} 
           onClose={() => setCurrentTab('explore')}
           onLogout={handleLogout}
+          isAdmin={isAdmin}
           onOpenVenueAdmin={() => setIsVenueAdminOpen(true)}
           onOpenSportAdmin={() => setIsSportAdminOpen(true)}
         />
       )}
 
-      {isVenueAdminOpen && (
+      {isAdmin && isVenueAdminOpen && (
         <VenueAdminView 
           onClose={() => setIsVenueAdminOpen(false)}
           onAddVenue={handleAddVenue}
         />
       )}
 
-      {isSportAdminOpen && (
+      {isAdmin && isSportAdminOpen && (
         <SportAdminView 
           onClose={() => setIsSportAdminOpen(false)}
           onUpdate={async () => {

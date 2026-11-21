@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { Loader2, ArrowLeft, Menu, Flame, AlertCircle } from 'lucide-react';
+import { Loader2, Flame, AlertCircle } from 'lucide-react';
 import { APP_CONFIG } from '../constants';
 import { auth, googleProvider, db } from '../firebase';
 
@@ -30,16 +30,8 @@ const GoogleIcon = () => (
 );
 
 const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
-  const [viewMode, setViewMode] = useState<'landing' | 'login' | 'signup'>('landing');
   const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  // Additional fields for signup
-  const [username, setUsername] = useState('');
-
-  const displayHeaderLogo = APP_CONFIG.headerLogoUrl || APP_CONFIG.logoUrl;
 
   // Helper to ensure user document exists in Firestore
   const ensureUserDocument = async (authUser: firebase.User, additionalData: { username?: string } = {}) => {
@@ -117,305 +109,110 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     const error = err as { code?: string; message?: string };
 
     if (error.code === 'auth/unauthorized-domain') {
-      return "Domain not allowed. Go to Firebase Console -> Authentication -> Settings -> Authorized Domains and add this domain.";
+      return "This website isn't allowed to sign in yet. Add its domain in Firebase Console > Authentication > Settings > Authorized domains.";
     }
-    if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/user-cancelled') {
-      return "Login cancelled. If you did not close the popup, you likely need to add this domain/IP (e.g., 127.0.0.1) to Firebase Console > Authentication > Settings > Authorized Domains.";
-    }
-    if (error.code === 'auth/email-already-in-use') {
-      return "This email is already registered. Please log in.";
-    }
-    if (error.code === 'auth/invalid-credential') {
-      return "Invalid email or password.";
+    if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request' || error.code === 'auth/user-cancelled') {
+      return "Sign-in was cancelled. Please try again.";
     }
     if (error.code === 'auth/popup-blocked') {
-        return "Popup blocked. Please allow popups for this site.";
+      return "Popup blocked. Please allow popups for this site and try again.";
     }
     if (error.code === 'auth/operation-not-allowed') {
-        return "Google Sign-In is not enabled. Go to Firebase Console > Authentication > Sign-in method and enable Google.";
+      return "Google Sign-In is not enabled. Go to Firebase Console > Authentication > Sign-in method and enable Google.";
     }
     if (error.message && error.message.includes('offline')) {
-        return "You are offline. Please check your internet connection.";
+      return "You are offline. Please check your internet connection.";
     }
     return error.message ? error.message.replace('Firebase: ', '') : "An unknown error occurred.";
   };
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-    
-    if (!auth) {
-        setError("Firebase configuration missing. Cannot log in.");
-        setIsLoading(false);
-        return;
-    }
-
-    try {
-      const userCredential = await auth.signInWithEmailAndPassword(email, password);
-      if (userCredential.user) {
-          const userProfile = await ensureUserDocument(userCredential.user);
-          onLogin(userProfile);
-      }
-    } catch (err: unknown) {
-      setError(formatError(err));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSignupSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    if (!auth) {
-        setError("Firebase configuration missing. Cannot sign up.");
-        setIsLoading(false);
-        return;
-    }
-
-    try {
-      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-      // Update Auth Profile
-      await userCredential.user?.updateProfile({
-        displayName: username
-      });
-      
-      if (userCredential.user) {
-        const userProfile = await ensureUserDocument(userCredential.user, { username });
-        onLogin(userProfile);
-      }
-    } catch (err: unknown) {
-      setError(formatError(err));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Google is the only sign-in method. Email/password sign-up was removed because
+  // it let anyone create accounts with made-up emails.
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     setError(null);
 
     if (!auth || !googleProvider) {
-        setError("Firebase configuration missing.");
-        setIsLoading(false);
-        return;
+      setError("Firebase configuration missing.");
+      setIsLoading(false);
+      return;
     }
 
     try {
-        const result = await auth.signInWithPopup(googleProvider);
-        if (result.user) {
-            const userProfile = await ensureUserDocument(result.user);
-            onLogin(userProfile);
-        }
-    } catch (err: unknown) {
-        setError(formatError(err));
+      const result = await auth.signInWithPopup(googleProvider);
+      const signedInWithGoogle = result.additionalUserInfo?.providerId === 'google.com'
+        || result.credential?.providerId === 'google.com';
+      if (result.user && signedInWithGoogle) {
+        const userProfile = await ensureUserDocument(result.user);
+        onLogin(userProfile);
+      } else {
+        await auth.signOut();
+        setError("Please sign in with a Google account.");
         setIsLoading(false);
+      }
+    } catch (err: unknown) {
+      setError(formatError(err));
+      setIsLoading(false);
     }
   };
 
-  const resetForm = () => {
-    setError(null);
-    setEmail('');
-    setPassword('');
-    setUsername('');
-  };
+  return (
+    <div className="relative w-full h-full min-h-screen overflow-hidden flex flex-col font-sans bg-black">
 
-  // --- LANDING SCREEN (First View) ---
-  if (viewMode === 'landing') {
-    return (
-      <div className="relative w-full h-full min-h-screen overflow-hidden flex flex-col font-sans bg-black">
-        
-        {/* Background Video */}
-        <video 
-          autoPlay 
-          loop 
-          muted 
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover opacity-60 z-0"
-        >
-          {/* 
-            HOW TO USE YOUR OWN VIDEO:
-            
-            Option 1: Local File (Recommended for best performance)
-            1. Create a folder named "public" in the root of your project if it doesn't exist.
-            2. Place your video file (e.g., "my-background.mp4") inside the "public" folder.
-            3. Change the src below to: src="/my-background.mp4"
-            
-            Option 2: Direct URL (Like Firebase Storage, AWS S3, or Pixabay)
-            1. Upload your video to a hosting service that provides direct .mp4 links.
-            2. Paste the direct link below.
-            
-            NOTE ON GOOGLE DRIVE: 
-            Google Drive links (like drive.google.com/file/d/...) DO NOT WORK directly in <video> tags 
-            because Google blocks direct streaming. You must use Option 1 or a proper video host.
-          */}
-          <source src="https://pixabay.com/videos/download/video-336704_source.mp4" type="video/mp4" />
-        </video>
+      {/* Background Video */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none z-0"
+      >
+        <source src="https://pixabay.com/videos/download/video-336704_source.mp4" type="video/mp4" />
+      </video>
 
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
+        <div className="bg-zinc-900/90 backdrop-blur-md p-8 rounded-[2rem] shadow-2xl w-full max-w-md flex flex-col items-center animate-in zoom-in duration-500 border border-zinc-800">
+          {APP_CONFIG.logoUrl ? (
+            <img
+              src={APP_CONFIG.logoUrl}
+              alt={APP_CONFIG.appName}
+              className="w-64 md:w-80 h-auto object-contain drop-shadow-xl mb-8"
+            />
+          ) : (
+            <>
+              <div className={`w-24 h-24 rounded-2xl flex items-center justify-center shadow-xl mb-6 transform -rotate-6 ${APP_CONFIG.primaryGradient}`}>
+                <Flame className="text-white fill-white" size={48} />
+              </div>
+              <h1 className="text-4xl font-black text-white tracking-tighter uppercase drop-shadow-sm mb-8">
+                Sport<span className="text-red-500">Sphere</span>
+              </h1>
+            </>
+          )}
 
+          <div className="w-full space-y-4">
+            {error && (
+              <div className="bg-red-900/30 p-3 rounded-lg flex items-start gap-2 text-red-500 text-sm border border-red-900/50 text-left">
+                <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
 
-        {/* Middle Content */}
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
-            <div className="bg-zinc-900/90 backdrop-blur-md p-8 rounded-[2rem] shadow-2xl w-full max-w-md flex flex-col items-center animate-in zoom-in duration-500 border border-zinc-800">
-                {APP_CONFIG.logoUrl ? (
-                   <img 
-                      src={APP_CONFIG.logoUrl} 
-                      alt={APP_CONFIG.appName} 
-                      className="w-64 md:w-80 h-auto object-contain drop-shadow-xl mb-8"
-                   />
-                ) : (
-                   <>
-                     <div className={`w-24 h-24 rounded-2xl flex items-center justify-center shadow-xl mb-6 transform -rotate-6 ${APP_CONFIG.primaryGradient}`}>
-                          <Flame className="text-white fill-white" size={48} />
-                     </div>
-                     <h1 className="text-4xl font-black text-white tracking-tighter uppercase drop-shadow-sm mb-8">
-                         Sport<span className="text-red-500">Sphere</span>
-                     </h1>
-                   </>
-                )}
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+              className="w-full py-3.5 rounded-full bg-white text-zinc-900 font-bold text-base shadow-lg hover:bg-zinc-100 disabled:opacity-60 flex items-center justify-center gap-3 transition-all active:scale-95 duration-200"
+            >
+              {isLoading ? <Loader2 className="animate-spin" size={20} /> : <GoogleIcon />}
+              <span>{isLoading ? 'Signing in...' : 'Continue with Google'}</span>
+            </button>
 
-                {/* Actions inside the box */}
-                <div className="w-full space-y-4">
-                    <button 
-                        onClick={() => { setViewMode('signup'); resetForm(); }}
-                        className={`w-full py-3.5 rounded-full text-white font-bold text-lg tracking-wide shadow-lg transform active:scale-95 transition-all duration-200 ${APP_CONFIG.primaryGradient}`}
-                    >
-                        Create Account
-                    </button>
-
-                    <button 
-                        onClick={() => { setViewMode('login'); resetForm(); }}
-                        className="w-full py-3.5 rounded-full bg-transparent border-2 border-zinc-700 text-zinc-300 font-bold text-lg tracking-wide hover:bg-zinc-800 transform active:scale-95 transition-all duration-200"
-                    >
-                        Log In
-                    </button>
-                </div>
-            </div>
+            <p className="text-xs text-zinc-500">
+              Sign in with your Google (Gmail) account to continue.
+            </p>
+          </div>
         </div>
       </div>
-    );
-  }
-
-  // --- LOGIN / SIGNUP FORM (Overlay) ---
-  return (
-    <div className="relative w-full h-full min-h-screen overflow-hidden bg-black flex flex-col font-sans">
-       
-       {/* Video Background */}
-       <video 
-          autoPlay 
-          loop 
-          muted 
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none z-0"
-        >
-          <source src="https://pixabay.com/videos/download/video-336704_source.mp4" type="video/mp4" />
-        </video>
-
-       <div className="px-4 py-4 flex items-center relative z-10">
-            <button 
-                onClick={() => setViewMode('landing')}
-                className="p-2 -ml-2 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm"
-            >
-                <ArrowLeft size={28} />
-            </button>
-       </div>
-
-       <div className="flex-1 px-6 flex flex-col items-center justify-center pt-4 overflow-y-auto relative z-10 pb-12">
-            <div className="bg-zinc-900/90 backdrop-blur-md p-8 rounded-[2rem] shadow-2xl w-full max-w-md flex flex-col items-center animate-in zoom-in duration-500 border border-zinc-800">
-                <div className="mb-4">
-                    {APP_CONFIG.logoUrl ? (
-                        <img src={APP_CONFIG.logoUrl} alt="Logo" className="h-24 w-auto object-contain drop-shadow-md" />
-                    ) : (
-                        <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg ${APP_CONFIG.primaryGradient}`}>
-                            <Flame className="text-white fill-white" size={32} />
-                        </div>
-                    )}
-                </div>
-
-                <h2 className="text-2xl font-bold text-white mb-6">
-                    {viewMode === 'login' ? 'Welcome Back!' : 'Create Account'}
-                </h2>
-
-                <div className="w-full space-y-6">
-                    <button
-                        type="button"
-                        onClick={handleGoogleLogin}
-                        disabled={isLoading}
-                        className="w-full py-3.5 rounded-full border border-zinc-700 bg-zinc-800 text-white font-bold text-base shadow-sm hover:bg-zinc-700 flex items-center justify-center gap-3 transition-all active:scale-95 duration-200"
-                    >
-                        <GoogleIcon />
-                        <span>Continue with Google</span>
-                    </button>
-
-                    <div className="relative flex items-center justify-center">
-                        <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-zinc-800"></div>
-                        </div>
-                        <span className="relative bg-zinc-900 px-4 text-sm text-zinc-500 font-medium">or</span>
-                    </div>
-
-                    {error && (
-                        <div className="bg-red-900/30 p-3 rounded-lg flex items-start gap-2 text-red-500 text-sm border border-red-900/50">
-                            <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                            <span>{error}</span>
-                        </div>
-                    )}
-
-                    <form onSubmit={viewMode === 'login' ? handleLoginSubmit : handleSignupSubmit} className="space-y-4">
-                        
-                        {viewMode === 'signup' && (
-                            <div>
-                                <label className="block text-sm font-semibold text-zinc-400 mb-2">Display Name</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-900 transition-all text-white font-medium placeholder-zinc-500"
-                                    placeholder="e.g. John Doe"
-                                />
-                            </div>
-                        )}
-
-                        <div>
-                            <label className="block text-sm font-semibold text-zinc-400 mb-2">Email</label>
-                            <input
-                                type="email"
-                                required
-                                autoFocus
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-900 transition-all text-white font-medium placeholder-zinc-500"
-                                placeholder="name@example.com"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-semibold text-zinc-400 mb-2">Password</label>
-                            <input
-                                type="password"
-                                required
-                                minLength={6}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl outline-none focus:border-red-500 focus:ring-2 focus:ring-red-900 transition-all text-white font-medium placeholder-zinc-500"
-                                placeholder="••••••"
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className={`w-full py-3.5 rounded-full text-white font-bold text-lg tracking-wide shadow-lg transform active:scale-95 transition-all duration-200 ${APP_CONFIG.primaryGradient}`}
-                        >
-                            {isLoading ? <Loader2 className="animate-spin mx-auto" /> : (viewMode === 'login' ? 'Log In' : 'Create Account')}
-                        </button>
-                    </form>
-                </div>
-            </div>
-       </div>
     </div>
   );
 };
