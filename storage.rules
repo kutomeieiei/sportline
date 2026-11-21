@@ -1,0 +1,32 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+
+    // Chat images and voice messages: only people in that chat.
+    match /chats/{chatId}/{fileName} {
+      function inChat() {
+        return isSignedIn() && (
+          request.auth.uid in chatId.split('_')
+          || request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.members
+        );
+      }
+
+      allow read: if inChat();
+      allow create: if inChat()
+        && request.resource.size < 10 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*')
+            || request.resource.contentType.matches('audio/.*'));
+      allow update, delete: if false;
+    }
+
+    // Everything else is closed.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

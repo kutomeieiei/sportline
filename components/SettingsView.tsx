@@ -11,9 +11,10 @@ interface SettingsViewProps {
   onLogout: () => void;
   onOpenVenueAdmin: () => void;
   onOpenSportAdmin: () => void;
+  isAdmin?: boolean;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose, onLogout, onOpenVenueAdmin, onOpenSportAdmin }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose, onLogout, onOpenVenueAdmin, onOpenSportAdmin, isAdmin = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<User>(user);
@@ -370,6 +371,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
             <MenuButton icon={<HelpCircle size={20} />} label="Support" />
         </div>
 
+        {isAdmin && (
         <div className="px-6 mb-6">
              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 shadow-sm">
                  <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
@@ -391,6 +393,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
                  </button>
              </div>
         </div>
+        )}
 
         {/* Diagnostic Tool */}
         <div className="px-6 mb-6">

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+
+# Secrets / local config - never commit
+.env
+.env.*
+!.env.example
+
+# Firebase
+.firebase/
+*-debug.log
