@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { LIGHT_MAP_STYLE } from '../utils/mapStyle';
 import { User } from '../types';
 import { GoogleMap, MarkerF, InfoWindowF, OverlayViewF, OverlayView } from '@react-google-maps/api';
 import { Party, SportType, DiscoveryResult, Venue, SportConfig } from '../types';
@@ -50,29 +51,7 @@ const mapOptions: google.maps.MapOptions = {
   streetViewControl: false,
   fullscreenControl: false,
   clickableIcons: false, // Prevents clicking on generic Google Maps places
-  styles: [
-    { elementType: "geometry", stylers: [{ color: "#212121" }] },
-    { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-    { elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#212121" }] },
-    { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#757575" }] },
-    { featureType: "administrative.country", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
-    { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] },
-    { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#bdbdbd" }] },
-    { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
-    { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#181818" }] },
-    { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
-    { featureType: "poi.park", elementType: "labels.text.stroke", stylers: [{ color: "#1b1b1b" }] },
-    { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#2c2c2c" }] },
-    { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#8a8a8a" }] },
-    { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#373737" }] },
-    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#3c3c3c" }] },
-    { featureType: "road.highway.controlled_access", elementType: "geometry", stylers: [{ color: "#4e4e4e" }] },
-    { featureType: "road.local", elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
-    { featureType: "transit", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
-    { featureType: "water", elementType: "geometry", stylers: [{ color: "#000000" }] },
-    { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#3d3d3d" }] }
-  ]
+  styles: LIGHT_MAP_STYLE
 };
 
 // Helper to generate SVG Data URI for markers based on sport color
@@ -245,7 +224,7 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
     return (
       <div className="h-full w-full flex items-center justify-center bg-gray-100 p-4">
         <div className="flex flex-col items-center gap-2 text-center max-w-md bg-white p-6 rounded-xl shadow-lg">
-          <AlertTriangle className="text-red-500" size={32} />
+          <AlertTriangle className="text-red-600" size={32} />
           <p className="text-gray-800 font-bold text-lg">Map Failed to Load</p>
           <div className="bg-red-50 p-3 rounded-lg w-full text-left border border-red-100">
             <p className="text-xs text-red-800 font-mono break-all">
@@ -257,7 +236,7 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
           </p>
           <button 
              onClick={() => window.location.reload()}
-             className="mt-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium"
+             className="mt-2 px-4 py-2 bg-gray-900 text-gray-900 rounded-lg text-sm font-medium"
           >
              Reload App
           </button>
@@ -270,7 +249,7 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
     return (
       <div className="h-full w-full flex items-center justify-center bg-gray-100">
         <div className="flex flex-col items-center gap-2">
-            <Loader2 className="animate-spin text-blue-600" size={32} />
+            <Loader2 className="animate-spin text-red-700" size={32} />
             <p className="text-gray-500 font-medium">Loading Map...</p>
         </div>
       </div>
@@ -292,7 +271,7 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
     if (isFull) {
         return { text: "Full", disabled: true, className: "bg-gray-300 text-gray-500 cursor-not-allowed" };
     }
-    return { text: "Join Party", disabled: false, className: "bg-blue-600 text-white hover:bg-blue-700" };
+    return { text: "Join Party", disabled: false, className: "bg-red-600 text-white hover:bg-red-700" };
   };
 
   const handleNavigate = (item: Party | Venue) => {
@@ -483,7 +462,7 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
                     return (
                         <div className="flex flex-wrap gap-1">
                             {sports.map((s: string) => (
-                                <span key={s} className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded-full font-medium">
+                                <span key={s} className="text-[10px] bg-red-50 text-red-700 border border-red-100 px-2 py-0.5 rounded-full font-medium">
                                     {s}
                                 </span>
                             ))}
@@ -499,7 +478,7 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
                         onAddFriend(selectedUser.user!.username!);
                         setSelectedUser(null);
                     }}
-                    className="w-full mt-1 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+                    className="w-full mt-1 py-2 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition-colors shadow-sm"
                 >
                     Add Friend
                 </button>
@@ -544,7 +523,7 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
                 <div className="mt-4 flex flex-col gap-2">
                   <button 
                     onClick={() => onShareVenue(selectedVenue)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-900 bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   >
                     <Send size={16} />
                     Share Venue
@@ -580,7 +559,7 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
             )}
             
             <div className="flex items-center justify-between mb-2 mt-2">
-                 <div className="flex items-center gap-1 text-xs font-semibold text-blue-600 uppercase tracking-wider">
+                 <div className="flex items-center gap-1 text-xs font-semibold text-red-700 uppercase tracking-wider">
                     {selectedParty.sport}
                  </div>
                  

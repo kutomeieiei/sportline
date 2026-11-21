@@ -1,1 +1,151 @@
 @import "tailwindcss";
+
+/* ------------------------------------------------------------------
+   SportSphere design system: light, minimal, Google Maps-inspired.
+   ------------------------------------------------------------------ */
+
+@theme {
+  --font-sans: "Roboto", "Inter", system-ui, -apple-system, "Segoe UI", "Noto Sans Thai", sans-serif;
+
+  /* Soft Google-style elevation */
+  --shadow-elev-1: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  --shadow-elev-2: 0 1px 2px rgba(60, 64, 67, 0.3), 0 2px 6px 2px rgba(60, 64, 67, 0.15);
+  --shadow-elev-3: 0 4px 8px 3px rgba(60, 64, 67, 0.15), 0 1px 3px rgba(60, 64, 67, 0.3);
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
+}
+
+html, body {
+  background: #ffffff;
+  color: #1f1f1f;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection { background: rgba(220, 38, 38, 0.15); }
+
+/* Hide scrollbars on horizontal chip rows */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Thin, quiet scrollbars elsewhere (desktop) */
+* { scrollbar-width: thin; scrollbar-color: #dadce0 transparent; }
+
+/* Smooth color/shadow changes on everything you can press */
+button, a, input, textarea, select, [role="button"] {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: var(--ease-standard);
+}
+
+/* Clear, accessible focus ring for keyboard users only */
+:focus-visible {
+  outline: 2px solid #dc2626;
+  outline-offset: 2px;
+}
+input:focus-visible, textarea:focus-visible { outline: none; }
+
+/* ------------------------------------------------------------------
+   Enter / exit animations (used as: animate-in fade-in slide-in-from-bottom ...)
+   ------------------------------------------------------------------ */
+@keyframes ss-enter {
+  from {
+    opacity: var(--ss-enter-opacity, 1);
+    transform: translate3d(var(--ss-enter-x, 0), var(--ss-enter-y, 0), 0) scale(var(--ss-enter-scale, 1));
+  }
+}
+
+@utility animate-in {
+  animation: ss-enter 260ms var(--ease-emphasized) both;
+}
+@utility fade-in { --ss-enter-opacity: 0; }
+@utility zoom-in { --ss-enter-scale: 0.94; --ss-enter-opacity: 0; }
+@utility slide-in-from-bottom { --ss-enter-y: 24px; --ss-enter-opacity: 0; }
+@utility slide-in-from-top { --ss-enter-y: -12px; --ss-enter-opacity: 0; }
+@utility slide-in-from-right { --ss-enter-x: 32px; --ss-enter-opacity: 0; }
+@utility slide-in-from-left { --ss-enter-x: -32px; --ss-enter-opacity: 0; }
+
+/* Bottom sheets / dialogs */
+@keyframes ss-sheet-up {
+  from { transform: translate3d(0, 100%, 0); }
+}
+@keyframes ss-backdrop {
+  from { opacity: 0; }
+}
+@utility sheet-up { animation: ss-sheet-up 320ms var(--ease-emphasized) both; }
+@utility backdrop-in { animation: ss-backdrop 200ms var(--ease-standard) both; }
+
+/* List items appear one after another */
+@keyframes ss-rise {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+}
+@utility stagger {
+  & > * { animation: ss-rise 280ms var(--ease-emphasized) both; }
+  & > *:nth-child(1) { animation-delay: 0ms; }
+  & > *:nth-child(2) { animation-delay: 30ms; }
+  & > *:nth-child(3) { animation-delay: 60ms; }
+  & > *:nth-child(4) { animation-delay: 90ms; }
+  & > *:nth-child(5) { animation-delay: 120ms; }
+  & > *:nth-child(6) { animation-delay: 150ms; }
+  & > *:nth-child(7) { animation-delay: 180ms; }
+  & > *:nth-child(n + 8) { animation-delay: 210ms; }
+}
+
+/* New chat message pops in */
+@keyframes ss-pop {
+  0% { opacity: 0; transform: translate3d(0, 6px, 0) scale(0.96); }
+  100% { opacity: 1; transform: none; }
+}
+@utility pop-in { animation: ss-pop 220ms var(--ease-emphasized) both; }
+
+/* Badge bump when a new unread arrives */
+@keyframes ss-bump {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+@utility bump { animation: ss-bump 300ms var(--ease-emphasized) both; }
+
+/* Material-style ripple (added by utils/ripple.ts to elements with .ripple) */
+.ripple { position: relative; overflow: hidden; isolation: isolate; }
+.ripple-wave {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: currentColor;
+  opacity: 0.16;
+  transform: scale(0);
+  animation: ss-ripple 520ms var(--ease-standard) forwards;
+  z-index: -1;
+}
+@keyframes ss-ripple {
+  to { transform: scale(1); opacity: 0; }
+}
+
+/* Gentle press feedback */
+@utility press {
+  transition: transform 120ms var(--ease-standard), background-color 150ms, box-shadow 150ms;
+  &:active { transform: scale(0.97); }
+}
+
+/* Skeleton shimmer for loading placeholders */
+@keyframes ss-shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+@utility skeleton {
+  background: linear-gradient(90deg, #f1f3f4 25%, #e8eaed 37%, #f1f3f4 63%);
+  background-size: 400% 100%;
+  animation: ss-shimmer 1.4s ease infinite;
+}
+
+/* People who prefer less motion get instant changes */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}

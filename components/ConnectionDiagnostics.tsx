@@ -154,11 +154,11 @@ const CHECKS: CheckDef[] = [
 
 const StateIcon: React.FC<{ state: CheckState }> = ({ state }) => {
   switch (state) {
-    case 'running': return <Loader2 size={16} className="animate-spin text-zinc-400 shrink-0" />;
+    case 'running': return <Loader2 size={16} className="animate-spin text-gray-600 shrink-0" />;
     case 'ok': return <CheckCircle size={16} className="text-green-500 shrink-0" />;
     case 'warn': return <AlertTriangle size={16} className="text-amber-400 shrink-0" />;
-    case 'fail': return <XCircle size={16} className="text-red-500 shrink-0" />;
-    default: return <Circle size={16} className="text-zinc-700 shrink-0" />;
+    case 'fail': return <XCircle size={16} className="text-red-600 shrink-0" />;
+    default: return <Circle size={16} className="text-gray-300 shrink-0" />;
   }
 };
 
@@ -209,16 +209,16 @@ const ConnectionDiagnostics: React.FC = () => {
   const warnings = Object.values(results).filter((r) => r.state === 'warn').length;
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 shadow-sm">
-      <h3 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
-        <Activity size={16} className="text-red-500" /> Connection Diagnostics
+    <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+      <h3 className="text-sm font-bold text-gray-900 mb-1 flex items-center gap-2">
+        <Activity size={16} className="text-red-600" /> Connection Diagnostics
       </h3>
-      <p className="text-xs text-zinc-500 mb-3">Checks every part of the app if something isn't working.</p>
+      <p className="text-xs text-gray-500 mb-3">Checks every part of the app if something isn't working.</p>
 
       {hasRun && (
         <>
           {!running && (
-            <div className={`text-xs p-2 rounded-lg mb-3 border ${failures ? 'bg-red-900/30 text-red-400 border-red-900/50' : warnings ? 'bg-amber-900/20 text-amber-300 border-amber-900/40' : 'bg-green-900/30 text-green-400 border-green-900/50'}`}>
+            <div className={`text-xs p-2 rounded-lg mb-3 border ${failures ? 'bg-red-50 text-red-600 border-red-200' : warnings ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
               {failures ? `${failures} problem${failures > 1 ? 's' : ''} found. See below.` : warnings ? 'Working, with a few notes below.' : 'Everything is working.'}
             </div>
           )}
@@ -229,8 +229,8 @@ const ConnectionDiagnostics: React.FC = () => {
                 <li key={c.id} className="flex items-start gap-2">
                   <span className="mt-0.5"><StateIcon state={r.state} /></span>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-zinc-200">{c.label}</p>
-                    <p className={`text-[11px] break-words ${r.state === 'fail' ? 'text-red-400' : r.state === 'warn' ? 'text-amber-300' : 'text-zinc-500'}`}>{r.detail}</p>
+                    <p className="text-xs font-semibold text-gray-800">{c.label}</p>
+                    <p className={`text-[11px] break-words ${r.state === 'fail' ? 'text-red-600' : r.state === 'warn' ? 'text-amber-700' : 'text-gray-500'}`}>{r.detail}</p>
                   </div>
                 </li>
               );
@@ -243,7 +243,7 @@ const ConnectionDiagnostics: React.FC = () => {
         <button
           onClick={runAll}
           disabled={running}
-          className="flex-1 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
+          className="flex-1 py-2 bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-200 flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
         >
           <RefreshCw size={12} className={running ? 'animate-spin' : ''} />
           {hasRun ? 'Run Again' : 'Run Diagnostics'}
@@ -252,7 +252,7 @@ const ConnectionDiagnostics: React.FC = () => {
           <button
             onClick={copyReport}
             title="Copy results to send to support"
-            className="px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-bold text-zinc-300 hover:bg-zinc-700 flex items-center justify-center gap-2 active:scale-95"
+            className="px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-200 flex items-center justify-center gap-2 active:scale-95"
           >
             <Copy size={12} /> {copied ? 'Copied!' : 'Copy'}
           </button>
@@ -260,7 +260,7 @@ const ConnectionDiagnostics: React.FC = () => {
         <button
           onClick={resetCache}
           title="Clear the app's offline data and reload"
-          className="px-3 py-2 bg-red-900/20 border border-red-900/50 rounded-lg text-xs font-bold text-red-500 hover:bg-red-900/40 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+          className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs font-bold text-red-600 hover:bg-red-100 flex items-center justify-center gap-2 active:scale-95 transition-transform"
         >
           <Trash2 size={12} /> Reset
         </button>
