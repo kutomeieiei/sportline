@@ -7,6 +7,7 @@ import AddMembersModal from './AddMembersModal';
 import { useCall } from '../services/callContext';
 import { CallType } from '../services/callService';
 import CameraCapture from './CameraCapture';
+import VoiceMessage from './VoiceMessage';
 import { ChatUser } from './ChatListView';
 import { User, Venue } from '../types'; // Import User and Venue types
 import { db, storage, firebase } from '../firebase'; // Import db and storage
@@ -28,6 +29,8 @@ interface Message {
   venue?: Venue;
   imageUrl?: string;
   audioUrl?: string;
+  /** Length of a voice message in seconds. */
+  audioDuration?: number;
 }
 
 const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, friends = [], onBack, onViewVenue }) => {
@@ -47,6 +50,7 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
   const [recordingDuration, setRecordingDuration] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const recordingStartRef = useRef(0);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -221,8 +225,9 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
         return;
       }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-      // iPhone/Safari can't record webm, so pick the first format this browser supports.
-      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/aac', 'audio/ogg;codecs=opus']
+      // Prefer MP4/AAC: it plays on every phone (iPhones can't always play webm).
+      // Fall back to whatever this browser can record.
+      const mimeType = ['audio/mp4;codecs=mp4a.40.2', 'audio/mp4', 'audio/aac', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
         .find((t) => MediaRecorder.isTypeSupported?.(t));
       const mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
@@ -239,10 +244,12 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
         const type = (mediaRecorder.mimeType || 'audio/webm').split(';')[0];
         const audioBlob = new Blob(audioChunksRef.current, { type });
         if (audioBlob.size < 1500) return; // too short / empty recording
-        await uploadAudio(audioBlob);
+        const seconds = Math.max(1, Math.round((Date.now() - recordingStartRef.current) / 1000));
+        await uploadAudio(audioBlob, seconds);
       };
 
       mediaRecorder.start();
+      recordingStartRef.current = Date.now();
       setIsRecording(true);
       setRecordingDuration(0);
       recordingIntervalRef.current = setInterval(() => {
@@ -262,7 +269,7 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
     }
   };
 
-  const uploadAudio = async (blob: Blob) => {
+  const uploadAudio = async (blob: Blob, seconds: number) => {
     if (!currentUser || !currentUser.uid || !chatUser.id) return;
 
     setIsUploading(true);
@@ -273,7 +280,7 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
       await fileRef.put(blob, { contentType: blob.type || 'audio/webm' });
       const downloadUrl = await fileRef.getDownloadURL();
 
-      await sendMessage({ audioUrl: downloadUrl }, 'audio', 'Sent a voice message');
+      await sendMessage({ audioUrl: downloadUrl, audioDuration: seconds }, 'audio', 'Sent a voice message');
     } catch (error) {
       console.error("Error uploading audio:", error);
       alert("Failed to send audio message.");
@@ -420,7 +427,7 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
                  />
               )}
               <div className={`max-w-[70%] px-4 py-2 rounded-2xl text-[15px] ${
-                  msg.type === 'venue_share' || msg.type === 'image' || msg.type === 'audio'
+                  msg.type === 'venue_share' || msg.type === 'image'
                   ? `bg-white text-gray-900 border border-gray-200 ${isMe ? 'rounded-br-md' : 'rounded-bl-md'}`
                   : (isMe 
                       ? 'bg-red-600 text-white rounded-br-md' 
@@ -441,9 +448,7 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
                     <img src={msg.imageUrl} alt="Shared image" className="w-full max-w-xs rounded-lg object-contain" />
                   </div>
                 ) : msg.type === 'audio' && msg.audioUrl ? (
-                  <div className="w-full">
-                    <audio controls src={msg.audioUrl} className="w-full max-w-[200px] h-10" />
-                  </div>
+                  <VoiceMessage url={msg.audioUrl} duration={msg.audioDuration} isMe={isMe} />
                 ) : (
                   msg.text
                 )}
@@ -519,6 +524,8 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
         ) : (
           <button 
               onClick={isRecording ? stopRecording : startRecording}
+              aria-label={isRecording ? 'Stop and send voice message' : 'Record voice message'}
+              title={isRecording ? 'Stop and send' : 'Record voice message'}
               className={`ripple press shrink-0 w-11 h-11 flex items-center justify-center rounded-full ${isRecording ? 'text-white bg-red-600 animate-pulse' : 'text-gray-600 hover:bg-gray-100'}`}
           >
               <Mic size={24} />
