@@ -4,6 +4,7 @@ import { SPORTS_LIST } from '../constants';
 import { Camera, ArrowLeft, LogOut, Shield, Bell, HelpCircle, ChevronRight, Loader2, Mail, Database, CheckCircle, AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
 import { db, auth, firebase } from '../firebase';
 import { resizeImageToDataUrl, fallbackAvatar } from '../utils/image';
+import CameraCapture from './CameraCapture';
 import { usernameError, isUsernameTaken, normalizeUsername } from '../utils/username';
 
 // Fill old/new field names so the form and profile always show something.
@@ -35,6 +36,16 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testMessage, setTestMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+
+  const handleCameraPhoto = async (file: File) => {
+    try {
+      const resized = await resizeImageToDataUrl(file, 256);
+      setFormData(prev => ({ ...prev, profile_img_url: resized }));
+    } catch (err) {
+      alert((err as Error).message || "Could not use this photo.");
+    }
+  };
 
   // Load the latest profile into the form only when editing starts,
   // so background updates don't wipe what the user is typing.
@@ -260,12 +271,29 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
                  <Camera className="text-white" size={32} />
               </div>
             </div>
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="mt-3 text-sm font-semibold text-red-500 hover:text-red-400 transition-colors"
-            >
-              Change Photo
-            </button>
+            <div className="mt-3 flex items-center gap-4">
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="text-sm font-semibold text-red-500 hover:text-red-400 transition-colors"
+              >
+                Choose Photo
+              </button>
+              <span className="text-zinc-700">|</span>
+              <button 
+                onClick={() => setIsCameraOpen(true)}
+                className="text-sm font-semibold text-red-500 hover:text-red-400 transition-colors flex items-center gap-1"
+              >
+                <Camera size={16} /> Take Photo
+              </button>
+            </div>
+            {isCameraOpen && (
+              <CameraCapture
+                title="Profile photo"
+                initialFacing="user"
+                onCapture={handleCameraPhoto}
+                onClose={() => setIsCameraOpen(false)}
+              />
+            )}
             <input 
               ref={fileInputRef}
               type="file"

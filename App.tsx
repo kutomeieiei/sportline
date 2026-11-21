@@ -8,6 +8,7 @@ import SettingsView from './components/SettingsView';
 import LoginView from './components/LoginView';
 import ChatListView, { ChatUser } from './components/ChatListView';
 import ChatDetailView from './components/ChatDetailView';
+import CallProvider from './components/CallProvider';
 import { Party, SportType, User, DiscoveryResult, Venue } from './types';
 import { INITIAL_USER, DEFAULT_CENTER } from './constants';
 import { Crosshair, Loader2, Radio, Search, Activity, X, Users } from 'lucide-react';
@@ -669,6 +670,7 @@ function App() {
   }
 
   return (
+    <CallProvider currentUser={{ ...user, uid: authUser?.uid || user.uid }}>
     <div className="relative w-full h-screen overflow-hidden bg-zinc-950 flex flex-col font-sans">
       
       {/* Map Layer */}
@@ -825,6 +827,7 @@ function App() {
       {!selectedChatUser && <BottomNav currentTab={currentTab} onChangeTab={handleTabChange} />}
 
     </div>
+    </CallProvider>
   );
 }
 
