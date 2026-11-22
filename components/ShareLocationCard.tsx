@@ -32,7 +32,7 @@ const ShareLocationCard: React.FC<ShareLocationCardProps> = ({ name, avatar, isL
   const changed = isLive && sport !== (liveSport || 'All');
 
   return (
-    <div className="w-[268px] font-sans">
+    <div className="w-full sm:w-[268px] font-sans">
       {/* Who + status */}
       <div className="flex items-center gap-3">
         <span className="relative shrink-0">

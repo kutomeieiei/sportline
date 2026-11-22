@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { LIGHT_MAP_STYLE } from '../utils/mapStyle';
 import { User } from '../types';
-import { GoogleMap, MarkerF, InfoWindowF, OverlayViewF, OverlayView } from '@react-google-maps/api';
+import { GoogleMap, MarkerF, OverlayViewF, OverlayView } from '@react-google-maps/api';
 import { Party, DiscoveryResult, Venue, SportConfig } from '../types';
 import { Users, Calendar, Clock, Loader2, AlertTriangle, MapPin, CheckCircle, Navigation, Car, Trash2, Send, X, Plus, MessageCircle, LogOut, UsersRound } from 'lucide-react';
 import { sportIconFor } from '../constants';
@@ -11,7 +11,8 @@ import { db } from '../firebase';
 import { useProfiles } from '../hooks/useProfiles';
 import { fallbackAvatar } from '../utils/image';
 import { isPartyOver, partyWhen, sportEmoji } from '../utils/party';
-import { isTouchDevice } from '../utils/device';
+import { isTouchDevice, useIsPhone } from '../utils/device';
+import MapCard from './MapCard';
 
 interface MapViewProps {
   parties: Party[];
@@ -43,6 +44,8 @@ interface MapViewProps {
   onOpenPartyChat?: (party: Party) => void;
   /** The "Share my location" card, shown at my position. */
   shareCard?: { position: google.maps.LatLngLiteral; content: React.ReactNode; onClose: () => void } | null;
+  /** False while another screen (Chat, Settings) covers the map: close its cards. */
+  active?: boolean;
 }
 
 const containerStyle = {
@@ -111,7 +114,7 @@ const getMyMarkerIcon = (): google.maps.Icon => {
   };
 };
 
-const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = [], center, currentUser, currentUserUid, onJoinParty, onShareVenue, onAddFriend, isLoaded, loadError, isLive, userLocation, sportConfigs, focusPartyId, onFocusHandled, onCreateAt, onOpenProfile, onStartGroupAt, onLeaveParty, onOpenPartyChat, shareCard }) => {
+const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = [], center, currentUser, currentUserUid, onJoinParty, onShareVenue, onAddFriend, isLoaded, loadError, isLive, userLocation, sportConfigs, focusPartyId, onFocusHandled, onCreateAt, onOpenProfile, onStartGroupAt, onLeaveParty, onOpenPartyChat, shareCard, active = true }) => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
   const [selectedUser, setSelectedUser] = useState<DiscoveryResult | null>(null);
@@ -178,16 +181,45 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
   const upcomingParties = parties.filter((p) => !isPartyOver(p));
   const hostProfiles = useProfiles(upcomingParties.map((p) => p.hostUid));
 
-  // Share card: put my position in the lower part of the screen so the card fits above it.
+  // Phones show details as a sheet at the bottom of the screen (map popups get too narrow).
+  const isPhone = useIsPhone();
+
+  // Share card: PC - put my position low so the popup fits above it;
+  // phone - put it high so it isn't hidden behind the bottom sheet.
   const shareOpen = !!shareCard;
   const sharePos = shareCard?.position;
   useEffect(() => {
     if (!map || !shareOpen || !sharePos) return;
     map.panTo(sharePos);
     const lift = Math.round(map.getDiv().clientHeight * 0.25);
-    const t = setTimeout(() => map.panBy(0, -lift), 80);
+    const t = setTimeout(() => map.panBy(0, isPhone ? lift : -lift), 80);
     return () => clearTimeout(t);
-  }, [map, shareOpen, sharePos]);
+  }, [map, shareOpen, sharePos, isPhone]);
+
+  // Phone: move what you tapped into the top part of the map, above the sheet.
+  const sheetLat = !isPhone ? undefined : selectedVenue?.latitude ?? selectedParty?.latitude ?? selectedUser?.location.l[0];
+  const sheetLng = !isPhone ? undefined : selectedVenue?.longitude ?? selectedParty?.longitude ?? selectedUser?.location.l[1];
+  // How tall the tapped marker is: game bubbles are tall, pins are short.
+  const sheetMarkerHeight = selectedParty ? 115 : 60;
+  useEffect(() => {
+    if (!map || sheetLat === undefined || sheetLng === undefined) return;
+    map.panTo({ lat: sheetLat, lng: sheetLng });
+    // Put the point just under the search bar + sport chips (about 120px), leaving
+    // room for the marker above it, so the sheet below doesn't cover it.
+    const target = 120 + sheetMarkerHeight;
+    const shift = Math.max(0, Math.round(map.getDiv().clientHeight / 2 - target));
+    const t = setTimeout(() => map.panBy(0, shift), 80);
+    return () => clearTimeout(t);
+  }, [map, sheetLat, sheetLng, sheetMarkerHeight]);
+
+  // Another screen covers the map: close its cards (sheets would otherwise float on top).
+  useEffect(() => {
+    if (active) return;
+    setSelectedParty(null);
+    setSelectedUser(null);
+    setSelectedVenue(null);
+    setDroppedPin(null);
+  }, [active]);
 
   // Keep an open party's details live (players, members) after joining/leaving.
   useEffect(() => {
@@ -408,13 +440,9 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
       {shareCard && (
         <>
           {!isLive && <MarkerF position={shareCard.position} icon={getMyMarkerIcon()} zIndex={1000} title="You are here" />}
-          <InfoWindowF
-            position={shareCard.position}
-            onCloseClick={shareCard.onClose}
-            options={{ pixelOffset: new google.maps.Size(0, -18) }}
-          >
+          <MapCard isPhone={isPhone} position={shareCard.position} offsetY={-18} onClose={shareCard.onClose} label="Share my location">
             {shareCard.content}
-          </InfoWindowF>
+          </MapCard>
         </>
       )}
 
@@ -558,15 +586,14 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
         })}
 
       {selectedUser && (
-        <InfoWindowF
+        <MapCard
+          isPhone={isPhone}
           position={{ lat: selectedUser.location.l[0], lng: selectedUser.location.l[1] }}
-          onCloseClick={() => setSelectedUser(null)}
-          options={{
-             pixelOffset: new google.maps.Size(0, -30),
-             disableAutoPan: false
-          }}
+          offsetY={-30}
+          onClose={() => setSelectedUser(null)}
+          label="Player"
         >
-          <div className="p-3 min-w-[220px] max-w-[260px] flex flex-col gap-3">
+          <div className="p-1 sm:p-3 w-full sm:w-auto sm:min-w-[220px] sm:max-w-[260px] flex flex-col gap-3">
             <button
               type="button"
               onClick={() => onOpenProfile?.({
@@ -649,18 +676,20 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
                 </button>
             )}
           </div>
-        </InfoWindowF>
+        </MapCard>
       )}
 
         {/* Venue details */}
         {selectedVenue && (
-          <InfoWindowF
+          <MapCard
+            isPhone={isPhone}
             position={{ lat: selectedVenue.latitude, lng: selectedVenue.longitude }}
-            onCloseClick={() => setSelectedVenue(null)}
-            options={{ pixelOffset: new google.maps.Size(0, -46) }}
+            offsetY={-46}
+            onClose={() => setSelectedVenue(null)}
+            label={selectedVenue.name}
           >
-            <div className="w-[264px] font-sans">
-              <VenuePhoto venue={selectedVenue} className="w-full h-32 rounded-xl" />
+            <div className="w-full sm:w-[264px] font-sans">
+              <VenuePhoto venue={selectedVenue} className="w-full h-36 sm:h-32 rounded-xl" />
               <div className="pt-3">
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="font-semibold text-[15px] text-gray-900 leading-snug">{selectedVenue.name}</h3>
@@ -726,19 +755,18 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
                 </div>
               </div>
             </div>
-          </InfoWindowF>
+          </MapCard>
         )}
 
       {selectedParty && (
-        <InfoWindowF
+        <MapCard
+          isPhone={isPhone}
           position={{ lat: selectedParty.latitude, lng: selectedParty.longitude }}
-          onCloseClick={() => setSelectedParty(null)}
-          options={{
-             pixelOffset: new google.maps.Size(0, -100),
-             disableAutoPan: false
-          }}
+          offsetY={-100}
+          onClose={() => setSelectedParty(null)}
+          label={selectedParty.title}
         >
-          <div className="p-1 min-w-[200px] max-w-[240px]">
+          <div className="p-1 w-full sm:min-w-[200px] sm:max-w-[240px]">
             <h3 className="font-bold text-lg mb-0.5 text-gray-800 leading-tight">{selectedParty.title}</h3>
             {selectedParty.venueName && (
                 <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
@@ -868,7 +896,7 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
               </div>
             )}
           </div>
-        </InfoWindowF>
+        </MapCard>
       )}
     </GoogleMap>
   );
