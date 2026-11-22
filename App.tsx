@@ -930,7 +930,7 @@ function App() {
               <MousePointerClick size={18} className="text-red-600 shrink-0 mt-0.5" />
               <p className="flex-1">
                 {isTouchDevice()
-                  ? <>Tap the map to plan a game there. Use two fingers to move the map.</>
+                  ? <>Tap the map to plan a game there. Drag to move the map, pinch to zoom.</>
                   : <>Click the map to plan a game there. Drag with the right mouse button to move the map.</>}
               </p>
               <button onClick={dismissMapTip} aria-label="Dismiss tip" className="text-gray-400 hover:text-gray-700 shrink-0">
