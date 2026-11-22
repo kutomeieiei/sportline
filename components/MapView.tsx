@@ -73,6 +73,13 @@ const mapOptions: google.maps.MapOptions = {
   styles: LIGHT_MAP_STYLE
 };
 
+// Venue pins have a fixed size on the ground, like the buildings on the map:
+// 36px wide at zoom 15, twice as big for each step you zoom in, half for each
+// step out. Kept between 12px (still visible) and 96px (doesn't hide the map).
+const VENUE_PIN_REF_ZOOM = 15;
+const venuePinWidth = (zoom: number) =>
+  Math.round(Math.min(96, Math.max(12, 36 * 2 ** (zoom - VENUE_PIN_REF_ZOOM))));
+
 // Admin-set sport icons can be Google Drive links; turn them into direct image links.
 const directImageUrl = (url?: string) => {
   if (!url) return undefined;
@@ -131,7 +138,7 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
   // Where the left button went down, so a drag isn't treated as a click.
   const leftDownAt = useRef<{ x: number; y: number } | null>(null);
 
-  // Computer: drag with the right mouse button to move the map.
+  // Computer: drag with the right mouse button to move the map, wheel to zoom.
   useEffect(() => {
     if (!map || TOUCH) return;
     const el = map.getDiv();
@@ -165,15 +172,44 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
       el.style.cursor = '';
     };
     const noMenu = (e: MouseEvent) => e.preventDefault();
+
+    // Mouse wheel zoom. Google turns its own wheel zoom off when left-drag is
+    // off, so do it here: one step per wheel notch, keeping the spot under the
+    // mouse in place (like Google Maps).
+    let lastWheel = 0;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const now = Date.now();
+      if (now - lastWheel < 160 || e.deltaY === 0) return;
+      lastWheel = now;
+      const zoomNow = map.getZoom() ?? 14;
+      const zoomNext = Math.max(3, Math.min(21, zoomNow + (e.deltaY < 0 ? 1 : -1)));
+      if (zoomNext === zoomNow) return;
+      const projection = map.getProjection();
+      const c = map.getCenter();
+      const point = c && projection?.fromLatLngToPoint(c);
+      if (!projection || !point) { map.setZoom(zoomNext); return; }
+      const rect = el.getBoundingClientRect();
+      const offX = e.clientX - rect.left - rect.width / 2;
+      const offY = e.clientY - rect.top - rect.height / 2;
+      // Map spot under the mouse, then the centre that keeps it under the mouse after zooming.
+      const under = new google.maps.Point(point.x + offX / 2 ** zoomNow, point.y + offY / 2 ** zoomNow);
+      const centre = projection.fromPointToLatLng(new google.maps.Point(under.x - offX / 2 ** zoomNext, under.y - offY / 2 ** zoomNext));
+      if (centre) map.moveCamera({ center: centre, zoom: zoomNext });
+      else map.setZoom(zoomNext);
+    };
+
     el.addEventListener('mousedown', onDown, true);
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     el.addEventListener('contextmenu', noMenu);
+    el.addEventListener('wheel', onWheel, { capture: true, passive: false });
     return () => {
       el.removeEventListener('mousedown', onDown, true);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       el.removeEventListener('contextmenu', noMenu);
+      el.removeEventListener('wheel', onWheel, { capture: true });
     };
   }, [map]);
 
@@ -256,8 +292,12 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
     }
   };
 
+  // Current zoom level (venue pins grow and shrink with it).
+  const [zoom, setZoom] = useState(14);
   const onLoad = useCallback((mapInstance: google.maps.Map) => {
     setMap(mapInstance);
+    setZoom(mapInstance.getZoom() ?? 14);
+    mapInstance.addListener('zoom_changed', () => setZoom(mapInstance.getZoom() ?? 14));
   }, []);
 
   const onUnmount = useCallback(() => {
@@ -530,10 +570,14 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
           </OverlayViewF>
         ))}
 
-        {/* Venues: green droplet pins with the main sport's icon. Hover for a photo + name. */}
+        {/* Venues: green droplet pins (sized to the map) with the main sport's icon. Hover for a photo + name. */}
         {venues.map((venue) => {
           const sports = Array.from(new Set(venue.courts.map((c) => c.sport)));
           const hovered = hoveredVenueId === venue.id && selectedVenue?.id !== venue.id;
+          const pinW = venuePinWidth(zoom);
+          const pinH = Math.round(pinW * 44 / 36);
+          const ring = Math.round(pinW * 26 / 36);
+          const showIcon = pinW >= 24;
           return (
             <OverlayViewF
               key={venue.id}
@@ -571,13 +615,31 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
                     setSelectedVenue(venue);
                   }}
                   aria-label={venue.name}
-                  className={`relative block w-9 h-11 transition-transform duration-150 origin-bottom ${hovered || selectedVenue?.id === venue.id ? 'scale-110' : 'hover:scale-110'}`}
+                  // Small pins still get a finger-sized tap area; the tip stays on the spot.
+                  className="flex items-end justify-center"
+                  style={{ minWidth: 28, minHeight: 28 }}
                 >
-                  <svg viewBox="0 0 36 44" className="absolute inset-0 w-full h-full drop-shadow-md" aria-hidden>
-                    <path d="M18 1C8.6 1 1 8.6 1 18c0 12 15.4 23.9 16.1 24.4.5.4 1.3.4 1.8 0C19.6 41.9 35 30 35 18 35 8.6 27.4 1 18 1z" fill="#16a34a" stroke="white" strokeWidth="2" />
-                  </svg>
-                  <span className="absolute top-[5px] left-1/2 -translate-x-1/2 w-[26px] h-[26px] rounded-full bg-white flex items-center justify-center text-gray-700 [&_img]:w-4 [&_img]:h-4 [&_svg]:w-4 [&_svg]:h-4">
-                    {sportIconFor(sports[0])}
+                  <span
+                    className={`relative block origin-bottom transition-[width,height,transform] duration-200 ${hovered || selectedVenue?.id === venue.id ? 'scale-110' : 'hover:scale-110'}`}
+                    style={{ width: pinW, height: pinH }}
+                  >
+                    <svg viewBox="0 0 36 44" className="absolute inset-0 w-full h-full drop-shadow-md" aria-hidden>
+                      <path d="M18 1C8.6 1 1 8.6 1 18c0 12 15.4 23.9 16.1 24.4.5.4 1.3.4 1.8 0C19.6 41.9 35 30 35 18 35 8.6 27.4 1 18 1z" fill="#16a34a" stroke="white" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                    </svg>
+                    {showIcon ? (
+                      <span
+                        className="absolute left-1/2 -translate-x-1/2 rounded-full bg-white flex items-center justify-center text-gray-700 [&_img]:w-[62%] [&_img]:h-[62%] [&_svg]:w-[62%] [&_svg]:h-[62%]"
+                        style={{ top: Math.round(pinW * 5 / 36), width: ring, height: ring }}
+                      >
+                        {sportIconFor(sports[0])}
+                      </span>
+                    ) : (
+                      // Too small for an icon: just a white dot, like a map pin.
+                      <span
+                        className="absolute left-1/2 -translate-x-1/2 rounded-full bg-white"
+                        style={{ top: Math.round(pinW * 11 / 36), width: Math.max(3, Math.round(pinW * 0.36)), height: Math.max(3, Math.round(pinW * 0.36)) }}
+                      />
+                    )}
                   </span>
                 </button>
               </div>
@@ -684,7 +746,7 @@ const MapView: React.FC<MapViewProps> = ({ parties, venues, discoveredUsers = []
           <MapCard
             isPhone={isPhone}
             position={{ lat: selectedVenue.latitude, lng: selectedVenue.longitude }}
-            offsetY={-46}
+            offsetY={-(Math.round(venuePinWidth(zoom) * 44 / 36) + 4)}
             onClose={() => setSelectedVenue(null)}
             label={selectedVenue.name}
           >
