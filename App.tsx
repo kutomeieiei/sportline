@@ -854,6 +854,7 @@ function App() {
               setIsComposeOpen(true);
             }}
             onLeaveParty={handleLeaveParty}
+            active={currentTab === 'explore'}
             onOpenPartyChat={handleOpenPartyChat}
             shareCard={currentTab === 'explore' && isShareCardOpen ? {
               position: userLocation || mapCenter,
