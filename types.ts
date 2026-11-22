@@ -1,4 +1,4 @@
-export type SportType = 'All' | 'Football' | 'Basketball' | 'Badminton' | 'Tennis' | 'Running' | 'Cycling' | 'Yoga';
+export type SportType = 'All' | 'Football' | 'Basketball' | 'Badminton' | 'Tennis' | 'Volleyball' | 'Running' | 'Cycling' | 'Swimming' | 'Gym' | 'Yoga';
 
 export interface SportConfig {
   id: string; // usually same as type
@@ -130,4 +130,11 @@ export interface Venue {
   latitude: number;
   longitude: number;
   courts: Court[];
+  /** Google Maps place, used to show its photo. */
+  placeId?: string;
+  /** Google rating (1-5) and number of reviews. */
+  rating?: number;
+  ratingCount?: number;
+  /** Distance from you in km (added at runtime). */
+  distance?: number;
 }

@@ -17,5 +17,7 @@ export function installRipple() {
     wave.style.top = `${event.clientY - rect.top - size / 2}px`;
     target.appendChild(wave);
     wave.addEventListener('animationend', () => wave.remove(), { once: true });
+    // If the element gets hidden mid-ripple (e.g. the screen changes), drop the wave.
+    wave.addEventListener('animationcancel', () => wave.remove(), { once: true });
   }, { passive: true });
 }

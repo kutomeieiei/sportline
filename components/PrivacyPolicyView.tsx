@@ -21,7 +21,7 @@ const PrivacyPolicyView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const contactIsEmail = contact.includes('@') && !contact.startsWith('[');
 
   return (
-    <div className="fixed inset-0 bg-white z-[2500] flex flex-col animate-in slide-in-from-right duration-300">
+    <div className="fixed inset-0 md:left-20 bg-white z-[2500] flex flex-col animate-in slide-in-from-right duration-300">
       <div className="px-4 py-4 border-b border-gray-200 flex items-center gap-3 bg-white/95 backdrop-blur-md sticky top-0 z-10">
         <button onClick={onClose} aria-label="Back" className="p-1 -ml-1 text-red-600 rounded-full hover:bg-gray-100 active:scale-95">
           <ArrowLeft size={24} />

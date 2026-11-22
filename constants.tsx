@@ -79,6 +79,11 @@ export const SPORTS_LIST: { type: SportType; label: string; icon: React.ReactNod
     icon: <SportIcon src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f3be.png" /> 
   },
   { 
+    type: 'Volleyball', 
+    label: 'Volleyball', 
+    icon: <SportIcon src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f3d0.png" /> 
+  },
+  { 
     type: 'Running', 
     label: 'Running', 
     icon: <Footprints size={16}/> 
@@ -89,11 +94,25 @@ export const SPORTS_LIST: { type: SportType; label: string; icon: React.ReactNod
     icon: <Bike size={16} /> 
   },
   { 
+    type: 'Swimming', 
+    label: 'Swimming', 
+    icon: <SportIcon src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f3ca.png" /> 
+  },
+  { 
+    type: 'Gym', 
+    label: 'Gym', 
+    icon: <SportIcon src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f3cb.png" /> 
+  },
+  { 
     type: 'Yoga', 
     label: 'Yoga', 
     icon: <PersonStanding size={16} /> 
   },
 ];
+
+/** The same icon as the sport's chip under the search bar. */
+export const sportIconFor = (sport: string): React.ReactNode =>
+  SPORTS_LIST.find((s) => s.type === sport)?.icon ?? SPORTS_LIST[0].icon;
 
 export const INITIAL_PARTIES: Party[] = [
   {

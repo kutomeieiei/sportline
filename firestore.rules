@@ -25,6 +25,12 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
     }
 
+    // Friends = both sides accepted (old entries without a status count as friends).
+    function areFriends(a, b) {
+      return exists(/databases/$(database)/documents/users/$(a)/friends/$(b))
+        && get(/databases/$(database)/documents/users/$(a)/friends/$(b)).data.get('status', 'accepted') == 'accepted';
+    }
+
     // ---------- Admins (read-only from the app) ----------
     match /admins/{uid} {
       allow read: if isSelf(uid);
@@ -120,14 +126,36 @@ service cloud.firestore {
       function canAccessChat() {
         return isDirectParticipant() || isMember();
       }
+      // The other person in a direct chat.
+      function otherPerson() {
+        return chatId.split('_')[0] == request.auth.uid ? chatId.split('_')[1] : chatId.split('_')[0];
+      }
+      function chatDoc() {
+        return /databases/$(database)/documents/chats/$(chatId);
+      }
+      // People who aren't friends can send each other ONE text message (a request).
+      // Sending it must also mark `intro.<me> = true` on the chat in the same write.
+      function usedIntro() {
+        return exists(chatDoc()) && get(chatDoc()).data.get('intro', {}).get(request.auth.uid, false) == true;
+      }
+      function sendsIntroNow() {
+        return getAfter(chatDoc()).data.get('intro', {}).get(request.auth.uid, false) == true;
+      }
+      // `intro`: you may only mark your own, and never un-mark it.
+      function validIntroChange() {
+        return request.resource.data.get('intro', {}).diff(resource.data.get('intro', {})).affectedKeys().hasOnly([request.auth.uid])
+          && !(resource.data.get('intro', {}).get(request.auth.uid, false) == true
+               && request.resource.data.get('intro', {}).get(request.auth.uid, false) != true);
+      }
 
       allow read: if isSignedIn() && (
         request.auth.uid in chatId.split('_') || request.auth.uid in resource.data.members
       );
       allow create: if isSignedIn()
         && request.auth.uid in request.resource.data.members
-        && validChat(request.resource.data);
-      allow update: if isSignedIn() && validChat(request.resource.data) && (
+        && validChat(request.resource.data)
+        && request.resource.data.get('intro', {}).keys().hasOnly([request.auth.uid]);
+      allow update: if isSignedIn() && validChat(request.resource.data) && validIntroChange() && (
         // Members can rename the group, change its photo, add friends,
         // update the last-message preview and unread counts, etc.
         request.auth.uid in resource.data.members
@@ -142,7 +170,10 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read: if canAccessChat();
-        allow create: if canAccessChat() && request.resource.data.senderId == request.auth.uid;
+        allow create: if canAccessChat() && request.resource.data.senderId == request.auth.uid
+          && (!isDirectChat()
+              || areFriends(request.auth.uid, otherPerson())
+              || (request.resource.data.type == 'text' && !usedIntro() && sendsIntroNow()));
         allow update, delete: if isSignedIn() && resource.data.senderId == request.auth.uid;
       }
     }
@@ -184,7 +215,11 @@ service cloud.firestore {
         && request.resource.data.activeFor.toSet() == request.resource.data.participants.toSet()
         && request.resource.data.status == 'ringing'
         && request.resource.data.type in ['audio', 'video']
-        && matchesChat(request.resource.data);
+        && matchesChat(request.resource.data)
+        // 1-to-1 calls only between friends, so strangers can't ring you.
+        && (request.resource.data.isGroup == true
+            || areFriends(request.auth.uid, request.resource.data.participants[0] == request.auth.uid
+                 ? request.resource.data.participants[1] : request.resource.data.participants[0]));
       // Participants can join/leave themselves, decline, mark it active/ended,
       // and remove people from activeFor (never add). Nothing else changes.
       allow update: if isSignedIn()

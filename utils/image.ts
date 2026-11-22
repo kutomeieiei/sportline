@@ -30,5 +30,8 @@ export const resizeImageToDataUrl = (file: File, maxSize = 256, quality = 0.8): 
   });
 
 // Default avatar when a user has no photo.
-export const fallbackAvatar = (name?: string) =>
-  `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=random`;
+export const fallbackAvatar = (name?: string) => {
+  // Letters only, so "KKU Sports (กองการกีฬา)" gives "KS", not "K(".
+  const clean = (name || '').replace(/[^\p{L}\p{M}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(clean || 'User')}&background=random`;
+};

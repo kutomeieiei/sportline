@@ -24,7 +24,7 @@ const UserSelectionView: React.FC<UserSelectionViewProps> = ({ friends, onShare,
   };
 
   return (
-    <div className="fixed inset-0 bg-white z-[2000] flex flex-col animate-in slide-in-from-bottom duration-300">
+    <div className="fixed inset-0 md:left-20 bg-white z-[2000] flex flex-col animate-in slide-in-from-bottom duration-300">
       <div className="px-4 py-4 border-b border-gray-200 flex items-center justify-between bg-white shadow-sm">
         <h2 className="text-xl font-bold text-gray-900 tracking-tight">Share Venue</h2>
         <button onClick={onClose} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors active:scale-95">

@@ -1,0 +1,271 @@
+import { Venue } from '../types';
+
+// Popular places to play sport around Khon Kaen University (KKU), picked from
+// Google Maps by how many people review them (researched Nov 2026).
+// `placeId` is the Google Maps place: photos are loaded from it when shown.
+// Ratings are Google's at the time of research.
+type BuiltInVenue = Omit<Venue, 'imageUrl'> & { imageUrl?: string };
+
+const VENUES: BuiltInVenue[] = [
+  // ---------- Inside KKU ----------
+  {
+    id: 'kku-stadium-50th',
+    name: '50th Anniversary Stadium, KKU',
+    description: "KKU's main stadium in the campus sports zone. Popular for jogging on the athletics track, with distance markings and no entry fee.",
+    placeId: 'ChIJTbqutCOLIjERy-n7nOwGHOw',
+    latitude: 16.476583, longitude: 102.818127, rating: 4.5, ratingCount: 182,
+    courts: [
+      { name: 'Athletics track', sport: 'Running' },
+      { name: 'Football pitch', sport: 'Football' },
+    ],
+  },
+  {
+    id: 'kku-pe-building',
+    name: 'Physical Education Building, KKU',
+    description: 'Indoor sports hall in the KKU sports zone, popular with students for basketball and other indoor games. Open 7:30–21:00.',
+    placeId: 'ChIJK2ACo4-KIjERZMqvTwAaMmA',
+    latitude: 16.476995, longitude: 102.818598, rating: 4.3, ratingCount: 199,
+    courts: [
+      { name: 'Indoor basketball court', sport: 'Basketball' },
+      { name: 'Indoor badminton courts', sport: 'Badminton' },
+      { name: 'Indoor volleyball court', sport: 'Volleyball' },
+    ],
+  },
+  {
+    id: 'kku-sports-division',
+    name: 'KKU Sports Division (กองการกีฬา)',
+    description: 'Indoor hall with well-kept badminton courts, free for KKU students.',
+    placeId: 'ChIJAQAAVYSKIjERdcl8hSOlLfI',
+    latitude: 16.476876, longitude: 102.813309, rating: 4.3, ratingCount: 110,
+    courts: [
+      { name: 'Badminton courts', sport: 'Badminton' },
+      { name: 'Futsal court', sport: 'Football' },
+    ],
+  },
+  {
+    id: 'kku-fitness',
+    name: 'FITNESS KKU',
+    description: 'Air-conditioned three-floor university gym with showers. About 40 THB for KKU students/staff, 80 THB for visitors. Open 7:00–21:00.',
+    placeId: 'ChIJ5Qsrns6LIjER92E_V1lkqbU',
+    latitude: 16.477263, longitude: 102.818672, rating: 4.2, ratingCount: 14,
+    courts: [{ name: 'Gym (3 floors)', sport: 'Gym' }],
+  },
+  {
+    id: 'kku-four-basketball-courts',
+    name: 'KKU Basketball Courts (สนามบาสสี่สนาม)',
+    description: 'Four outdoor basketball courts, busy with students and locals in the mornings and evenings. Open 7:30–21:00.',
+    placeId: 'ChIJ-xI-vkqLIjERt-sHunW1i6c',
+    latitude: 16.476293, longitude: 102.816761, rating: 4.8, ratingCount: 29,
+    courts: [{ name: '4 outdoor courts', sport: 'Basketball' }],
+  },
+  {
+    id: 'kku-beach-volleyball',
+    name: 'KKU Beach Volleyball Court',
+    description: 'Sand volleyball court next to the KKU Sports Division.',
+    placeId: 'ChIJUUY6RrWLIjERx6Eg39mOHwo',
+    latitude: 16.477134, longitude: 102.814879,
+    courts: [{ name: 'Beach volleyball court', sport: 'Volleyball' }],
+  },
+  {
+    id: 'kku-si-than-lake',
+    name: 'Si Than Lake Activity Yard (บึงสีฐาน)',
+    description: "Lakeside park on KKU's south side, one of the most popular running and cycling spots near campus.",
+    placeId: 'ChIJD6r5nQCLIjERkG-gVryPTOY',
+    latitude: 16.444344, longitude: 102.815217, rating: 4.7, ratingCount: 345,
+    courts: [
+      { name: 'Lakeside running path', sport: 'Running' },
+      { name: 'Cycling path', sport: 'Cycling' },
+    ],
+  },
+  {
+    id: 'kku-si-than-tennis',
+    name: 'Si Than Tennis Courts, KKU',
+    description: 'University tennis courts by Si Than, popular with people who exercise regularly.',
+    placeId: 'ChIJa8ftw2-KIjERs1m-Hpms5pM',
+    latitude: 16.454483, longitude: 102.817981, rating: 4.5, ratingCount: 14,
+    courts: [{ name: 'Tennis courts', sport: 'Tennis' }],
+  },
+
+  // ---------- Around KKU ----------
+  {
+    id: 'kk-srichaphan-tennis',
+    name: 'Srichaphan Tennis Academy',
+    description: 'Tennis academy with courts for lessons and play. Open 6:00–21:00.',
+    placeId: 'ChIJDaloh3KLIjERtvY3uhmF7vc',
+    latitude: 16.453398, longitude: 102.821964, rating: 4.5, ratingCount: 24,
+    courts: [{ name: 'Tennis courts', sport: 'Tennis' }],
+  },
+  {
+    id: 'kk-gz-wembley',
+    name: 'Gz_Wembley Futsal & Club House',
+    description: 'Artificial-grass futsal pitches, open late (8:00–02:00).',
+    placeId: 'ChIJvaiLMG-KIjERy7y9xc1S11Y',
+    latitude: 16.454151, longitude: 102.822186, rating: 4.0, ratingCount: 23,
+    courts: [{ name: 'Futsal pitches', sport: 'Football' }],
+  },
+  {
+    id: 'kk-so-soccer',
+    name: 'So Soccer',
+    description: 'Artificial-grass football pitches for small-sided games.',
+    placeId: 'ChIJPQ7CXv6LIjERo37Bf_X8Ync',
+    latitude: 16.455492, longitude: 102.824318, rating: 4.5, ratingCount: 25,
+    courts: [{ name: 'Artificial-grass pitches', sport: 'Football' }],
+  },
+  {
+    id: 'kk-winner-arena',
+    name: 'Winner Arena (สนามฟุตบอลหญ้าเทียม)',
+    description: 'Artificial-grass football pitches. Open 8:00–23:30.',
+    placeId: 'ChIJWWH2egCLIjER3NsHRg7CY_s',
+    latitude: 16.461033, longitude: 102.823929, rating: 4.0, ratingCount: 42,
+    courts: [{ name: 'Artificial-grass pitches', sport: 'Football' }],
+  },
+  {
+    id: 'kk-soccer-camp',
+    name: 'Soccer Camp Khon Kaen',
+    description: 'Artificial-grass football pitches just north of KKU.',
+    placeId: 'ChIJ9xBf9miLIjEReZP5ILYnPSU',
+    latitude: 16.487735, longitude: 102.824033, rating: 3.9, ratingCount: 28,
+    courts: [{ name: 'Artificial-grass pitches', sport: 'Football' }],
+  },
+  {
+    id: 'kk-jetts-central-campus',
+    name: 'Jetts 24 Hour Fitness, Central Khon Kaen Campus',
+    description: 'Gym open 24 hours a day at Central Khon Kaen Campus.',
+    placeId: 'ChIJCzHuljeLIjERIUz_AG3h7Ws',
+    latitude: 16.462878, longitude: 102.82981, rating: 4.9, ratingCount: 131,
+    courts: [{ name: 'Gym (24 hours)', sport: 'Gym' }],
+  },
+  {
+    id: 'kk-the-boys-gymclub',
+    name: 'THE BOYS GYMCLUB',
+    description: 'Popular local gym. Open 9:00–23:00.',
+    placeId: 'ChIJd40Tl9mLIjERu3LuadKifmA',
+    latitude: 16.459252, longitude: 102.823027, rating: 5.0, ratingCount: 67,
+    courts: [{ name: 'Gym', sport: 'Gym' }],
+  },
+  {
+    id: 'kk-diamond-gym',
+    name: 'Diamond Private Gym',
+    description: 'Private gym just north of KKU. Open 6:00–21:00.',
+    placeId: 'ChIJPf-Z5lWLIjERpZqMXQPoUlE',
+    latitude: 16.481354, longitude: 102.819005, rating: 5.0, ratingCount: 63,
+    courts: [{ name: 'Gym', sport: 'Gym' }],
+  },
+  {
+    id: 'kk-columbo-gym',
+    name: 'Columbo GYM',
+    description: 'Neighbourhood gym west of KKU. Open 8:00–22:30.',
+    placeId: 'ChIJ4yYb4ydgIjER66gUkwFsX9I',
+    latitude: 16.480303, longitude: 102.80485, rating: 4.5, ratingCount: 41,
+    courts: [{ name: 'Gym', sport: 'Gym' }],
+  },
+  {
+    id: 'kk-omega-fitness',
+    name: 'Omega Fitness Studio',
+    description: 'Fitness studio open early to late (6:00–23:30).',
+    placeId: 'ChIJR4-uTE6LIjEROil5qv0BKVk',
+    latitude: 16.457901, longitude: 102.8305, rating: 4.5, ratingCount: 20,
+    courts: [{ name: 'Gym', sport: 'Gym' }],
+  },
+  {
+    id: 'kk-blue-zone-badminton',
+    name: 'Blue Zone Badminton',
+    description: 'Indoor badminton courts north of KKU, open until midnight.',
+    placeId: 'ChIJ-VqsAgCLIjER2L081qLE5Tk',
+    latitude: 16.49112, longitude: 102.825194, rating: 4.7, ratingCount: 15,
+    courts: [{ name: 'Badminton courts', sport: 'Badminton' }],
+  },
+  {
+    id: 'kk-gg-badminton',
+    name: 'GG Badminton',
+    description: 'Indoor badminton courts. Open 11:00–23:00.',
+    placeId: 'ChIJwTgcPWJhIjERDzwC4BVh_Ik',
+    latitude: 16.448892, longitude: 102.789318, rating: 4.7, ratingCount: 68,
+    courts: [{ name: 'Badminton courts', sport: 'Badminton' }],
+  },
+  {
+    id: 'kk-khonkaenram-sport-complex',
+    name: 'KhonkaenRam Sport Complex',
+    description: 'Sports complex with bookable courts (call ahead). Mostly students. Open 9:00–21:00.',
+    placeId: 'ChIJR9PivBCKIjEReaP4tk_8v3M',
+    latitude: 16.434284, longitude: 102.821716, rating: 4.7, ratingCount: 115,
+    courts: [
+      { name: 'Badminton courts', sport: 'Badminton' },
+      { name: 'Tennis courts', sport: 'Tennis' },
+      { name: 'Football pitch', sport: 'Football' },
+    ],
+  },
+  {
+    id: 'kk-wellz-fitness',
+    name: "The Well'z Fitness",
+    description: 'Gym with a salt-water swimming pool and plenty of parking. Open 9:00–21:00.',
+    placeId: 'ChIJdw69789hIjERMBn382-0Sn8',
+    latitude: 16.458675, longitude: 102.792308, rating: 4.2, ratingCount: 41,
+    courts: [
+      { name: 'Gym', sport: 'Gym' },
+      { name: 'Salt-water pool', sport: 'Swimming' },
+    ],
+  },
+  {
+    id: 'kk-fitness-first-central',
+    name: 'Fitness First, Central Khon Kaen',
+    description: 'Large gym with group classes at Central Khon Kaen. Open 6:00–22:00.',
+    placeId: 'ChIJhy8M1xmKIjERc-0yYfI4OCE',
+    latitude: 16.432771, longitude: 102.825513, rating: 4.5, ratingCount: 136,
+    courts: [
+      { name: 'Gym', sport: 'Gym' },
+      { name: 'Group class studio', sport: 'Yoga' },
+    ],
+  },
+  {
+    id: 'kk-a-well-yoga',
+    name: 'A Well Yoga and Sound',
+    description: 'Yoga and sound-healing studio.',
+    placeId: 'ChIJtfM9v3WLIjER4EYAVXMJfTw',
+    latitude: 16.457609, longitude: 102.834313, rating: 5.0, ratingCount: 20,
+    courts: [{ name: 'Yoga studio', sport: 'Yoga' }],
+  },
+  {
+    id: 'kk-bueng-thung-sang',
+    name: 'Bueng Thung Sang (บึงทุ่งสร้าง)',
+    description: 'Big lake park east of KKU, a favourite for evening runs and rides.',
+    placeId: 'ChIJhwXYibaLIjERHrDUd76ibjE',
+    latitude: 16.44923, longitude: 102.851366, rating: 4.5, ratingCount: 276,
+    courts: [
+      { name: 'Lakeside running path', sport: 'Running' },
+      { name: 'Cycling path', sport: 'Cycling' },
+    ],
+  },
+  {
+    id: 'kk-bueng-thung-sang-basketball',
+    name: 'Bueng Thung Sang Basketball Court',
+    description: 'Outdoor basketball court in Bueng Thung Sang park.',
+    placeId: 'ChIJkdUd5EqKIjERkkn3bsOvmKg',
+    latitude: 16.445237, longitude: 102.849687, rating: 4.6, ratingCount: 26,
+    courts: [{ name: 'Outdoor court', sport: 'Basketball' }],
+  },
+  {
+    id: 'kk-bueng-nong-khot',
+    name: 'Bueng Nong Khot (บึงหนองโคตร)',
+    description: 'Lake park west of the city centre, popular for running and cycling around the water.',
+    placeId: 'ChIJ89dnBcVhIjERyDBrxGmmz_0',
+    latitude: 16.43495, longitude: 102.802491, rating: 4.6, ratingCount: 260,
+    courts: [
+      { name: 'Lakeside running path', sport: 'Running' },
+      { name: 'Cycling path', sport: 'Cycling' },
+    ],
+  },
+  {
+    id: 'kk-sport-stadium',
+    name: 'Khon Kaen Sport Stadium',
+    description: "The province's main stadium, with a football ground and an athletics track that's busy with runners.",
+    placeId: 'ChIJlenk2IyJIjERauEq8Zz9Z2c',
+    latitude: 16.412908, longitude: 102.827652, rating: 4.4, ratingCount: 1132,
+    courts: [
+      { name: 'Football stadium', sport: 'Football' },
+      { name: 'Athletics track', sport: 'Running' },
+    ],
+  },
+];
+
+export const KKU_VENUES: Venue[] = VENUES.map((v) => ({ imageUrl: '', ...v }));

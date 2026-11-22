@@ -7,7 +7,7 @@ interface VenueAdminViewProps {
   onAddVenue: (venue: Omit<Venue, 'id'>) => Promise<void>;
 }
 
-const SPORT_TYPES: SportType[] = ['Football', 'Basketball', 'Badminton', 'Tennis', 'Running', 'Cycling', 'Yoga'];
+const SPORT_TYPES: SportType[] = ['Football', 'Basketball', 'Badminton', 'Tennis', 'Volleyball', 'Running', 'Cycling', 'Swimming', 'Gym', 'Yoga'];
 
 const VenueAdminView: React.FC<VenueAdminViewProps> = ({ onClose, onAddVenue }) => {
   const [name, setName] = useState('');

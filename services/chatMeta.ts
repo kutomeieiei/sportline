@@ -25,7 +25,10 @@ export const previewText = (kind: MessageKind, text: string) => {
  * Updates the chat summary after a message is sent: sets the preview and adds
  * 1 to everyone else's unread count. `members` must include the sender.
  */
-export async function recordMessage(chatId: string, members: string[], senderId: string, kind: MessageKind, text: string) {
+export async function recordMessage(
+  chatId: string, members: string[], senderId: string, kind: MessageKind, text: string,
+  opts: { batch?: firebase.firestore.WriteBatch; intro?: boolean } = {},
+) {
   const unread: Record<string, firebase.firestore.FieldValue> = {};
   members.filter((m) => m !== senderId).forEach((m) => {
     unread[m] = firebase.firestore.FieldValue.increment(1);
@@ -44,7 +47,11 @@ export async function recordMessage(chatId: string, members: string[], senderId:
     data.members = chatId.split('_');
     data.isGroup = false;
   }
-  await db.collection('chats').doc(chatId).set(data, { merge: true });
+  // Not friends yet: the sender's one allowed message is now used.
+  if (opts.intro) data.intro = { [senderId]: true };
+  const ref = db.collection('chats').doc(chatId);
+  if (opts.batch) { opts.batch.set(ref, data, { merge: true }); return; }
+  await ref.set(data, { merge: true });
 }
 
 /** Clears my unread badge for a chat. */
