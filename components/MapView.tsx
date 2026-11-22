@@ -54,14 +54,16 @@ const containerStyle = {
 };
 
 // How you move the map:
-// - Phone/tablet: one finger taps (to plan a game), two fingers move and zoom.
+// - Phone/tablet (like Google Maps): a quick tap selects / plans a game, press
+//   and drag with one finger to move, two fingers to zoom and move.
 // - Computer: left click plans a game, drag with the RIGHT mouse button to move,
 //   scroll wheel zooms.
 const TOUCH = isTouchDevice();
 
 // Map styles to remove default POIs for a cleaner look
 const mapOptions: google.maps.MapOptions = {
-  gestureHandling: TOUCH ? 'cooperative' : 'greedy',
+  // 'greedy': one finger moves the map (a drag never counts as a tap).
+  gestureHandling: 'greedy',
   // Left-drag is turned off on computers so a left click always means "plan a game here".
   draggable: TOUCH ? undefined : false,
   disableDefaultUI: true, // Hides standard Google Maps controls
