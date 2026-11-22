@@ -3,7 +3,8 @@ import { useJsApiLoader } from '@react-google-maps/api';
 import MapView from './components/MapView';
 import TopBar from './components/TopBar';
 import BottomNav from './components/BottomNav';
-import CreatePartyView from './components/CreatePartyView';
+import NewGameSheet from './components/NewGameSheet';
+import UserProfileSheet, { ProfileTarget } from './components/UserProfileSheet';
 import SettingsView from './components/SettingsView';
 import LoginView from './components/LoginView';
 import ChatListView, { ChatUser } from './components/ChatListView';
@@ -12,13 +13,15 @@ import CallProvider from './components/CallProvider';
 import { recordMessage, directChatId } from './services/chatMeta';
 import { Party, SportType, User, DiscoveryResult, Venue } from './types';
 import { INITIAL_USER, DEFAULT_CENTER } from './constants';
-import { Crosshair, Loader2, Radio, Search, Activity, X, Users } from 'lucide-react';
+import { Loader2, Radio, Search, X, Users, MessageCircle, MousePointerClick, MapPin } from 'lucide-react';
+import ShareLocationCard from './components/ShareLocationCard';
+import { isTouchDevice } from './utils/device';
 import { auth, db, firebase } from './firebase'; // Import firebase for compat utilities
 import { User as FirebaseUser } from 'firebase/auth';
 import { calculateHaversineDistance } from './utils/geospatial';
 import { discoverUsers } from './services/discoveryService';
 import { updateLocation } from './services/locationService';
-import { getVenues, addVenue } from './services/venueService';
+import { getVenues, addVenue, mergeWithBuiltInVenues } from './services/venueService';
 import VenueAdminView from './components/VenueAdminView';
 import PlaySportModal from './components/PlaySportModal';
 import UserSelectionView from './components/UserSelectionView';
@@ -47,12 +50,32 @@ function App() {
   // Store travel times separately to avoid re-rendering loops
   const [travelTimes, setTravelTimes] = useState<Record<string, string>>({});
 
-  const [currentTab, setCurrentTab] = useState<'explore' | 'create' | 'settings' | 'chat'>('explore');
+  const [currentTab, setCurrentTab] = useState<'explore' | 'settings' | 'chat'>('explore');
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
   const [userLocation, setUserLocation] = useState<google.maps.LatLngLiteral | null>(null);
   
   // Chat Navigation State
   const [selectedChatUser, setSelectedChatUser] = useState<ChatUser | null>(null);
+  const [isComposeOpen, setIsComposeOpen] = useState(false);
+  // "Start a group here" from a venue: the new-message sheet opens for this venue.
+  const [composeVenue, setComposeVenue] = useState<Venue | null>(null);
+  // "Share my location" card on the map.
+  const [isShareCardOpen, setIsShareCardOpen] = useState(false);
+  const [hasRealLocation, setHasRealLocation] = useState(false);
+  // A party to open on the map (e.g. after tapping someone's note in Chat).
+  const [focusPartyId, setFocusPartyId] = useState<string | null>(null);
+  // Whose profile page is open (from the map, a party, or a chat).
+  const [profileTarget, setProfileTarget] = useState<ProfileTarget | null>(null);
+  // Spot picked on the map for a new game (opens Create with it filled in).
+  const [createAt, setCreateAt] = useState<{ lat: number; lng: number; placeName?: string } | null>(null);
+  // One-time tip about clicking the map, hidden once dismissed.
+  const [showMapTip, setShowMapTip] = useState(() => {
+    try { return localStorage.getItem('ss-map-tip-seen') !== '1'; } catch { return true; }
+  });
+  const dismissMapTip = () => {
+    setShowMapTip(false);
+    try { localStorage.setItem('ss-map-tip-seen', '1'); } catch { /* private mode */ }
+  };
 
   // Discovery & Live Location State
   const [discoveredUsers, setDiscoveredUsers] = useState<DiscoveryResult[]>([]);
@@ -74,6 +97,8 @@ function App() {
 
   // Rate limiting for distance matrix
   const lastMatrixCall = useRef<number>(0);
+  // Last position sent while sharing location.
+  const lastSharedPos = useRef<{ lat: number; lng: number } | null>(null);
 
   // --- GOOGLE MAPS LOADER (Centralized) ---
   const rawApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
@@ -240,6 +265,21 @@ function App() {
     fetchInitialData();
   }, [isAuthenticated]);
 
+  // If I was still sharing my location when I last closed the app, show that
+  // (so I can see it and stop it), instead of silently staying visible.
+  useEffect(() => {
+    if (!isAuthenticated || !authUser || !db) return;
+    db.collection('active_locations').doc(authUser.uid).get().then((snap) => {
+      const d = snap.data();
+      if (!d || d.vis !== true) return;
+      const t = d.t?.toMillis?.() ?? 0;
+      if (Date.now() - t > 60 * 60_000) return; // too old: nobody can see it anyway
+      lastSharedPos.current = Array.isArray(d.l) ? { lat: d.l[0], lng: d.l[1] } : null;
+      setIsLive(true);
+      setBroadcastingSport((d.sport as SportType) || 'All');
+    }).catch(() => {});
+  }, [isAuthenticated, authUser]);
+
   // Live Location Update Loop
   useEffect(() => {
     if (!isAuthenticated || !authUser || !isLive) return;
@@ -252,7 +292,8 @@ function App() {
           const { latitude, longitude } = position.coords;
           const newPos = { lat: latitude, lng: longitude };
           setUserLocation(newPos);
-          
+          lastSharedPos.current = newPos;
+
           // Update server
           updateLocation(
             authUser.uid,
@@ -273,8 +314,16 @@ function App() {
       );
     }
 
+    // Found-players lists hide people whose location is over an hour old, so
+    // refresh it every few minutes even when you're standing still.
+    const refresh = setInterval(() => {
+      const pos = lastSharedPos.current;
+      if (pos) updateLocation(authUser.uid, pos.lat, pos.lng, 'live', true).catch(console.error);
+    }, 5 * 60_000);
+
     return () => {
       if (watchId) navigator.geolocation.clearWatch(watchId);
+      clearInterval(refresh);
     };
   }, [isAuthenticated, authUser, isLive]);
 
@@ -325,9 +374,12 @@ function App() {
     return withDistance.sort((a, b) => a.distance - b.distance);
   }, [parties, selectedSport, mapCenter, travelTimes, userLocation]);
 
+  // Admin venues + popular places around KKU; with a sport chip picked, only places for that sport.
   const venuesWithDistance = useMemo(() => {
     const calculationCenter = userLocation || mapCenter;
-    return venues.map(venue => ({
+    const all = mergeWithBuiltInVenues(venues)
+      .filter((v) => selectedSport === 'All' || v.courts.some((c) => c.sport === selectedSport));
+    return all.map(venue => ({
       ...venue,
       distance: calculateHaversineDistance(
         calculationCenter.lat,
@@ -336,7 +388,7 @@ function App() {
         venue.longitude
       )
     }));
-  }, [venues, userLocation, mapCenter]);
+  }, [venues, userLocation, mapCenter, selectedSport]);
 
   // --- 5. TIER 3: Distance Matrix (Travel Time) Logic ---
   useEffect(() => {
@@ -397,8 +449,9 @@ function App() {
     setIsServerDataLoaded(false);
   };
 
-  const handleTabChange = (tab: 'explore' | 'create' | 'settings' | 'chat') => {
+  const handleTabChange = (tab: 'explore' | 'settings' | 'chat') => {
     setCurrentTab(tab);
+    setCreateAt(null);
     if (tab !== 'chat') {
         setSelectedChatUser(null);
     }
@@ -406,6 +459,9 @@ function App() {
 
   const handleCreateParty = (newParty: Party) => {
     setCurrentTab('explore');
+    setCreateAt(null);
+    setSelectedSport('All');
+    setFocusPartyId(newParty.id);
     setMapCenter({ lat: newParty.latitude, lng: newParty.longitude });
   };
 
@@ -449,6 +505,55 @@ function App() {
     }
   };
 
+  const handleLeaveParty = async (partyId: string) => {
+    if (!db || !user?.uid) return;
+    try {
+      const partyRef = db.collection('parties').doc(partyId);
+      const chatRef = db.collection('chats').doc(partyId);
+      await db.runTransaction(async (transaction) => {
+        const partyDoc = await transaction.get(partyRef);
+        if (!partyDoc.exists) throw "This game no longer exists.";
+        const data = partyDoc.data() || {};
+        if (!(data.members || []).includes(user.username)) throw "You're not in this game.";
+        transaction.update(partyRef, {
+          members: firebase.firestore.FieldValue.arrayRemove(user.username),
+          playersCurrent: Math.max(0, (data.playersCurrent || 1) - 1),
+        });
+      });
+      // Also leave the game's group chat (if there is one).
+      await chatRef.update({ members: firebase.firestore.FieldValue.arrayRemove(user.uid) }).catch(() => {});
+    } catch (error) {
+      console.error('Error leaving party:', error);
+      alert(typeof error === 'string' ? error : "Couldn't leave this game. Please try again.");
+    }
+  };
+
+  const handleOpenPartyChat = (party: Party) => {
+    setSelectedChatUser({
+      id: party.id,
+      name: party.title,
+      avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(party.title)}&background=random`,
+      isGroup: true,
+    });
+    setCurrentTab('chat');
+  };
+
+  // "Share location": find where I am, then show the share card there.
+  const openShareCard = () => {
+    setIsShareCardOpen(true);
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const pos = { lat: position.coords.latitude, lng: position.coords.longitude };
+        setUserLocation(pos);
+        setHasRealLocation(true);
+        setMapCenter(pos);
+      },
+      () => setHasRealLocation(false),
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
+    );
+  };
+
   const handleRecenter = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -481,24 +586,27 @@ function App() {
   };
 
   // Handle "Go Live" Toggle (Now via PlaySportModal)
-  const handleToggleBroadcast = async (sport: SportType) => {
+  // Share my location as "up for" a sport ("All" = any sport). Calling it again changes the sport.
+  const startSharing = async (sport: SportType) => {
     if (!authUser) return;
-    const newStatus = !isLive;
-    setIsLive(newStatus);
-    setBroadcastingSport(newStatus ? sport : undefined);
-    
-    // Immediate update
-    const lat = userLocation?.lat || mapCenter.lat;
-    const lng = userLocation?.lng || mapCenter.lng;
+    const pos = userLocation || mapCenter;
+    lastSharedPos.current = pos;
+    try {
+      await updateLocation(authUser.uid, pos.lat, pos.lng, 'live', true, sport);
+      setIsLive(true);
+      setBroadcastingSport(sport);
+    } catch (e) {
+      console.error('Could not share location', e);
+      alert("Couldn't share your location. Please try again.");
+    }
+  };
 
-    await updateLocation(
-      authUser.uid,
-      lat,
-      lng,
-      newStatus ? 'live' : 'static',
-      newStatus,
-      newStatus ? sport : undefined
-    );
+  const stopSharing = async () => {
+    if (!authUser) return;
+    const pos = lastSharedPos.current || userLocation || mapCenter;
+    setIsLive(false);
+    setBroadcastingSport(undefined);
+    await updateLocation(authUser.uid, pos.lat, pos.lng, 'static', false).catch(console.error);
   };
 
   // Handle Discovery (Now via PlaySportModal)
@@ -674,6 +782,31 @@ function App() {
     setVenueToShare(null);
   };
 
+  // Tapping a note in Chat: show that party on the map, with its details open.
+  const handleOpenParty = (party: Party) => {
+    setSelectedSport('All');
+    setMapCenter({ lat: party.latitude, lng: party.longitude });
+    setFocusPartyId(party.id);
+    setSelectedChatUser(null);
+    setCurrentTab('explore');
+  };
+
+  // "Message" on a profile: open (or start) the 1-to-1 chat.
+  const handleMessageUser = (u: User) => {
+    const name = u.display_name || u.displayName || u.username || 'Player';
+    setProfileTarget(null);
+    setCreateAt(null);
+    setSelectedChatUser({
+      id: u.uid,
+      name,
+      username: u.username,
+      avatarUrl: u.profile_img_url || u.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+      isGroup: false,
+      isOnline: u.isOnline,
+    });
+    setCurrentTab('chat');
+  };
+
   const handleViewVenue = (venue: Venue) => {
     setMapCenter({ lat: venue.latitude, lng: venue.longitude });
     setCurrentTab('explore');
@@ -704,10 +837,39 @@ function App() {
   return (
     <CallProvider currentUser={{ ...user, uid: authUser?.uid || user.uid }}>
     <div className="relative w-full h-screen overflow-hidden bg-white flex flex-col font-sans">
-      
+      {/* Everything except the menu: above the phone bottom bar, right of the PC side menu */}
+      <main className="absolute inset-0 bottom-[72px] md:bottom-0 md:left-20">
+
       {/* Map Layer */}
-      <div className="absolute inset-0 top-0 bottom-[72px] z-0">
+      <div className="absolute inset-0 z-0">
         <MapView 
+            focusPartyId={focusPartyId}
+            onFocusHandled={() => setFocusPartyId(null)}
+            onCreateAt={(loc, placeName) => { dismissMapTip(); setCreateAt({ ...loc, placeName }); }}
+            onOpenProfile={setProfileTarget}
+            onStartGroupAt={(venue) => {
+              setComposeVenue(venue);
+              setSelectedChatUser(null);
+              setCurrentTab('chat');
+              setIsComposeOpen(true);
+            }}
+            onLeaveParty={handleLeaveParty}
+            onOpenPartyChat={handleOpenPartyChat}
+            shareCard={currentTab === 'explore' && isShareCardOpen ? {
+              position: userLocation || mapCenter,
+              onClose: () => setIsShareCardOpen(false),
+              content: (
+                <ShareLocationCard
+                  name={user.display_name || user.displayName || user.username || 'You'}
+                  avatar={user.profile_img_url || user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username || 'Me')}&background=random`}
+                  isLive={isLive}
+                  liveSport={broadcastingSport}
+                  usingMapCenter={!hasRealLocation && !userLocation}
+                  onStart={startSharing}
+                  onStop={stopSharing}
+                />
+              ),
+            } : null}
             parties={sortedParties} 
             venues={venuesWithDistance}
             discoveredUsers={discoveredUsers}
@@ -737,28 +899,48 @@ function App() {
             isLoaded={isMapsLoaded}
           />
 
-          {/* My location + Play Sport (Google Maps style floating buttons) */}
-          <div className="absolute bottom-[88px] right-4 z-[1000] flex flex-col items-end gap-3 animate-in fade-in slide-in-from-bottom">
+          {/* Share location + Find friends (floating buttons) */}
+          <div className="absolute bottom-4 right-4 z-[1000] flex flex-col items-end gap-3 animate-in fade-in slide-in-from-bottom">
             <button
-              onClick={handleRecenter}
-              aria-label="Show my location"
-              title="Show my location"
-              className="ripple press w-12 h-12 rounded-full bg-white text-gray-700 shadow-elev-2 hover:bg-gray-50 flex items-center justify-center"
+              onClick={openShareCard}
+              aria-pressed={isLive}
+              className="ripple press h-12 pl-4 pr-5 rounded-2xl bg-white text-gray-900 shadow-elev-2 hover:bg-gray-50 font-medium text-[15px] flex items-center gap-2"
             >
-              <Crosshair size={22} />
+              {isLive ? (
+                <span className="relative flex w-3 h-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full w-3 h-3 bg-green-500" />
+                </span>
+              ) : <MapPin size={20} className="text-red-600" />}
+              <span>{isLive ? 'Sharing location' : 'Share location'}</span>
             </button>
             <button
               onClick={() => setIsPlaySportModalOpen(true)}
               className="ripple press h-14 pl-4 pr-5 rounded-2xl bg-red-600 text-white shadow-elev-3 hover:bg-red-700 font-medium text-[15px] flex items-center gap-2"
             >
-              <Activity size={20} />
-              <span>Play Sport</span>
+              <Search size={20} />
+              <span>Find friends</span>
             </button>
           </div>
 
+          {/* Tip: how to plan a game on the map (until dismissed or used) */}
+          {showMapTip && !isLiveSearchEnabled && (
+            <div className="absolute bottom-4 left-4 right-44 sm:right-auto sm:max-w-xs z-[1000] flex items-start gap-2 p-3 rounded-2xl bg-white shadow-elev-2 text-[13px] text-gray-700 animate-in fade-in slide-in-from-bottom">
+              <MousePointerClick size={18} className="text-red-600 shrink-0 mt-0.5" />
+              <p className="flex-1">
+                {isTouchDevice()
+                  ? <>Tap the map to plan a game there. Use two fingers to move the map.</>
+                  : <>Click the map to plan a game there. Drag with the right mouse button to move the map.</>}
+              </p>
+              <button onClick={dismissMapTip} aria-label="Dismiss tip" className="text-gray-400 hover:text-gray-700 shrink-0">
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
           {/* Live search controls */}
           {isLiveSearchEnabled && (
-            <div className="absolute bottom-[88px] left-4 flex flex-col gap-2 z-[1000] animate-in fade-in slide-in-from-left">
+            <div className="absolute bottom-4 left-4 flex flex-col gap-2 z-[1000] animate-in fade-in slide-in-from-left">
               <button
                 onClick={() => setIsSidebarOpen(true)}
                 className="ripple press h-10 px-4 rounded-full bg-white text-gray-800 shadow-elev-2 hover:bg-gray-50 text-sm font-medium flex items-center gap-2"
@@ -779,10 +961,7 @@ function App() {
           <PlaySportModal
             isOpen={isPlaySportModalOpen}
             onClose={() => setIsPlaySportModalOpen(false)}
-            isBroadcasting={isLive}
-            onToggleBroadcast={handleToggleBroadcast}
             onFindPlayers={handleFindPlayers}
-            currentSport={broadcastingSport}
           />
 
           <DiscoveredUsersSidebar
@@ -794,13 +973,28 @@ function App() {
       )}
 
       {/* Overlay Views */}
-      {currentTab === 'create' && (
-        <CreatePartyView 
-          onClose={() => setCurrentTab('explore')} 
-          onCreate={handleCreateParty}
-          userLocation={mapCenter}
-          currentUser={user}
-          isLoaded={isMapsLoaded}
+      {profileTarget && (
+        <UserProfileSheet
+          key={profileTarget.uid}
+          {...profileTarget}
+          myUid={authUser?.uid || user.uid}
+          parties={parties}
+          onClose={() => setProfileTarget(null)}
+          onAddFriend={handleAddFriend}
+          onAcceptFriend={handleAcceptFriend}
+          onMessage={handleMessageUser}
+          onOpenParty={(p) => { setProfileTarget(null); handleOpenParty(p); }}
+        />
+      )}
+
+      {createAt && (
+        <NewGameSheet
+          key={`${createAt.lat},${createAt.lng}`}
+          location={createAt}
+          placeName={createAt.placeName}
+          currentUser={{ ...user, uid: authUser?.uid || user.uid }}
+          onClose={() => setCreateAt(null)}
+          onCreated={handleCreateParty}
         />
       )}
 
@@ -843,31 +1037,69 @@ function App() {
       )}
 
       {currentTab === 'chat' && (
-        <div className="absolute inset-0 bottom-[72px] z-[1000] bg-white">
-            {selectedChatUser ? (
-                <ChatDetailView 
-                    chatUser={selectedChatUser} 
-                    currentUser={user}
-                    friends={friends}
-                    onBack={() => setSelectedChatUser(null)} 
-                    onViewVenue={handleViewVenue}
-                />
-            ) : (
-                <ChatListView 
-                    friends={friends}
-                    friendRequests={friendRequests}
-                    currentUser={user}
-                    onAddFriend={handleAddFriend}
-                    onAcceptFriend={handleAcceptFriend}
-                    onRejectFriend={handleRejectFriend}
-                    onSelectChat={setSelectedChatUser} 
-                />
-            )}
+        <div className="absolute inset-0 z-[1000] bg-white flex">
+          {/* Chat list: full screen on phones, left column on PC */}
+          <div className={`${selectedChatUser ? 'hidden md:flex' : 'flex'} w-full md:w-[360px] lg:w-[400px] shrink-0 md:border-r border-gray-200 min-h-0`}>
+            <ChatListView
+              friends={friends}
+              friendRequests={friendRequests}
+              currentUser={{ ...user, uid: authUser?.uid || user.uid }}
+              parties={parties}
+              selectedChatId={selectedChatUser?.id}
+              isComposeOpen={isComposeOpen}
+              onComposeOpenChange={(open) => { setIsComposeOpen(open); if (!open) setComposeVenue(null); }}
+              onAddFriend={handleAddFriend}
+              onAcceptFriend={handleAcceptFriend}
+              onRejectFriend={handleRejectFriend}
+              onSelectChat={setSelectedChatUser}
+              onOpenParty={handleOpenParty}
+              onPlanParty={() => { handleTabChange('explore'); setShowMapTip(true); }}
+              composeVenue={composeVenue}
+            />
+          </div>
+
+          {/* Open chat: full screen on phones, right side on PC */}
+          {selectedChatUser ? (
+            <div className="fixed inset-0 z-[2000] md:static md:z-auto flex-1 min-w-0 flex">
+              <ChatDetailView
+                key={`${selectedChatUser.isGroup ? 'g' : 'u'}_${selectedChatUser.id}`}
+                chatUser={selectedChatUser}
+                currentUser={user}
+                friends={friends}
+                onBack={() => setSelectedChatUser(null)}
+                onViewVenue={handleViewVenue}
+                onOpenProfile={(uid) => setProfileTarget({ uid })}
+                onAddFriend={handleAddFriend}
+                onAcceptFriend={handleAcceptFriend}
+              />
+            </div>
+          ) : (
+            <div className="hidden md:flex flex-1 flex-col items-center justify-center text-center px-6 animate-in fade-in">
+              <span className="w-24 h-24 rounded-full border-2 border-gray-900 flex items-center justify-center">
+                <MessageCircle size={44} strokeWidth={1.5} className="text-gray-900" />
+              </span>
+              <p className="mt-4 text-xl font-semibold text-gray-900">Your messages</p>
+              <p className="mt-1 text-sm text-gray-500">Send a message to a friend or group.</p>
+              <button
+                onClick={() => setIsComposeOpen(true)}
+                className="ripple press mt-4 h-9 px-4 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
+              >
+                Send message
+              </button>
+            </div>
+          )}
         </div>
       )}
 
+      </main>
+
       {/* Bottom Navigation */}
-      {!selectedChatUser && <BottomNav currentTab={currentTab} onChangeTab={handleTabChange} chatBadge={unreadTotal + friendRequests.length} />}
+      <BottomNav
+        currentTab={currentTab}
+        onChangeTab={handleTabChange}
+        chatBadge={unreadTotal + friendRequests.length}
+        hideOnMobile={currentTab === 'chat' && !!selectedChatUser}
+      />
 
     </div>
     </CallProvider>

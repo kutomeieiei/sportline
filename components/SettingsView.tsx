@@ -172,7 +172,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
 
   if (isEditing) {
     return (
-      <div className="fixed inset-0 bg-white z-[2000] flex flex-col animate-in slide-in-from-bottom duration-300">
+      <div className="fixed inset-0 md:left-20 bg-white z-[2000] flex flex-col animate-in slide-in-from-bottom duration-300">
         {/* Edit Header */}
         <div className="px-4 py-4 border-b border-gray-200 flex items-center justify-between bg-white/95 backdrop-blur-md sticky top-0 z-10 shadow-sm">
           <button 
@@ -342,7 +342,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onClose
   }
 
   return (
-    <div className="fixed inset-0 bg-white z-[2000] flex flex-col animate-in slide-in-from-right duration-300">
+    <div className="fixed inset-0 md:left-20 bg-white z-[2000] flex flex-col animate-in slide-in-from-right duration-300">
        <div className="px-4 py-4 border-b border-gray-200 flex items-center gap-4 bg-white/95 backdrop-blur-md sticky top-0 z-10 shadow-sm">
         <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full active:scale-95 transition-transform">
           <ArrowLeft size={24} className="text-gray-600 hover:text-gray-900" />

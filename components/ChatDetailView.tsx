@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Phone, Video, Send, Image as ImageIcon, Smile, Mic, Square, Loader2, LogOut, UserMinus, MoreVertical, Camera, Pencil, UserPlus } from 'lucide-react';
+import { ArrowLeft, Phone, Video, Image as ImageIcon, Mic, Trash2, Loader2, LogOut, UserMinus, Info, Camera, Pencil, UserPlus, MapPin, ShieldCheck, Clock, UserCheck } from 'lucide-react';
+import VenuePhoto from './VenuePhoto';
 import { recordMessage, markChatRead, MessageKind } from '../services/chatMeta';
 import { fallbackAvatar } from '../utils/image';
 import EditGroupModal from './EditGroupModal';
@@ -7,7 +8,9 @@ import AddMembersModal from './AddMembersModal';
 import { useCall } from '../services/callContext';
 import { CallType } from '../services/callService';
 import CameraCapture from './CameraCapture';
+import Portal from './Portal';
 import VoiceMessage from './VoiceMessage';
+import { separatorLabel, toDate } from '../utils/time';
 import { ChatUser } from './ChatListView';
 import { User, Venue } from '../types'; // Import User and Venue types
 import { db, storage, firebase } from '../firebase'; // Import db and storage
@@ -18,6 +21,9 @@ interface ChatDetailViewProps {
   friends?: User[];
   onBack: () => void;
   onViewVenue: (venue: Venue) => void;
+  onOpenProfile?: (uid: string) => void;
+  onAddFriend?: (usernameOrEmail: string) => void;
+  onAcceptFriend?: (uid: string) => void;
 }
 
 interface Message {
@@ -33,7 +39,7 @@ interface Message {
   audioDuration?: number;
 }
 
-const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, friends = [], onBack, onViewVenue }) => {
+const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, friends = [], onBack, onViewVenue, onOpenProfile, onAddFriend, onAcceptFriend }) => {
   const handleViewOnMap = (venue: Venue) => {
     // This will be handled by App.tsx
     onViewVenue(venue);
@@ -51,6 +57,9 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingStartRef = useRef(0);
+  const discardRecordingRef = useRef(false);
+  // How many messages each member hasn't read yet (for "Seen").
+  const [unreadBy, setUnreadBy] = useState<Record<string, number>>({});
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -66,15 +75,44 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
   const headerName = groupInfo?.name || chatUser.name;
   const headerAvatar = groupInfo?.avatarUrl || chatUser.avatarUrl || fallbackAvatar(headerName);
 
+  // ---- Safety: people who aren't friends can send each other one text message ----
+  // My friend list entry for this person: sent / pending / accepted (or none).
+  const [friendStatus, setFriendStatus] = useState<'loading' | 'none' | 'sent' | 'pending' | 'accepted'>('loading');
+  useEffect(() => {
+    if (chatUser.isGroup || !currentUser.uid) return;
+    return db.collection('users').doc(currentUser.uid).collection('friends').doc(chatUser.id).onSnapshot(
+      (snap) => {
+        const st = snap.exists ? (snap.data()?.status as string | undefined) : undefined;
+        setFriendStatus(st === 'sent' || st === 'pending' ? st : snap.exists ? 'accepted' : 'none');
+      },
+      () => setFriendStatus('none'),
+    );
+  }, [chatUser.id, chatUser.isGroup, currentUser.uid]);
+  const isDirect = !chatUser.isGroup;
+  const isFriend = !isDirect || friendStatus === 'accepted' || friends.some((f) => f.uid === chatUser.id);
+  // Who has used their one message (stored on the chat).
+  const [introBy, setIntroBy] = useState<Record<string, boolean>>({});
+  const usedMyMessage = !!introBy[currentUser.uid];
+  const canSend = isFriend || (friendStatus !== 'loading' && !usedMyMessage);
+
   // Saves a message and updates the chat list preview + unread badges.
   const sendMessage = async (message: Record<string, unknown>, kind: MessageKind, text: string) => {
-    await db.collection('chats').doc(chatId).collection('messages').add({
+    const data = {
       ...message,
       text,
       type: kind,
       senderId: currentUser.uid,
       timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-    });
+    };
+    if (isDirect && !isFriend) {
+      // Not friends: send the one allowed message together with the "used" marker.
+      const batch = db.batch();
+      batch.set(db.collection('chats').doc(chatId).collection('messages').doc(), data);
+      await recordMessage(chatId, [currentUser.uid, chatUser.id], currentUser.uid, kind, text, { batch, intro: true });
+      await batch.commit();
+      return;
+    }
+    await db.collection('chats').doc(chatId).collection('messages').add(data);
     const members = chatUser.isGroup ? memberIds : [currentUser.uid, chatUser.id];
     await recordMessage(chatId, members.length ? members : [currentUser.uid], currentUser.uid, kind, text)
       .catch((e) => console.warn('Could not update chat preview', e));
@@ -139,6 +177,18 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
 
     return () => unsubscribe();
   }, [currentUser, chatUser, chatId]);
+
+  // Read receipts: the chat keeps how many messages each member hasn't seen.
+  useEffect(() => {
+    if (!db) return;
+    return db.collection('chats').doc(chatId).onSnapshot(
+      (snap) => {
+        setUnreadBy((snap.data()?.unread as Record<string, number>) || {});
+        setIntroBy((snap.data()?.intro as Record<string, boolean>) || {});
+      },
+      () => {},
+    );
+  }, [chatId]);
 
   // Group info (name, photo, members) - live, so edits by anyone show up right away.
   useEffect(() => {
@@ -243,6 +293,7 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
         stream.getTracks().forEach(track => track.stop());
         const type = (mediaRecorder.mimeType || 'audio/webm').split(';')[0];
         const audioBlob = new Blob(audioChunksRef.current, { type });
+        if (discardRecordingRef.current) { discardRecordingRef.current = false; return; } // cancelled
         if (audioBlob.size < 1500) return; // too short / empty recording
         const seconds = Math.max(1, Math.round((Date.now() - recordingStartRef.current) / 1000));
         await uploadAudio(audioBlob, seconds);
@@ -267,6 +318,11 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
       setIsRecording(false);
       if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
     }
+  };
+
+  const cancelRecording = () => {
+    discardRecordingRef.current = true;
+    stopRecording();
   };
 
   const uploadAudio = async (blob: Blob, seconds: number) => {
@@ -314,40 +370,67 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // ---- Message list helpers (grouping like most chat apps) ----
+  const timeOf = (m?: Message) => (m ? toDate(m.timestamp as never)?.getTime() ?? null : null);
+  const SEPARATOR_GAP = 15 * 60_000; // show the time when 15+ minutes passed
+  const GROUP_GAP = 5 * 60_000; // bubbles closer than 5 minutes stick together
+  const needsSeparator = (i: number) => {
+    const t = timeOf(messages[i]);
+    const prev = timeOf(messages[i - 1]);
+    return t !== null && (prev === null || t - prev > SEPARATOR_GAP);
+  };
+  const joinsPrevious = (i: number) => {
+    const m = messages[i];
+    const prev = messages[i - 1];
+    if (!prev || prev.type === 'system' || m.type === 'system' || prev.senderId !== m.senderId || needsSeparator(i)) return false;
+    const t = timeOf(m);
+    const pt = timeOf(prev);
+    return t === null || pt === null || t - pt < GROUP_GAP;
+  };
+  const lastMessage = messages[messages.length - 1];
+  const seen = !chatUser.isGroup && lastMessage?.senderId === currentUser.uid && lastMessage.type !== 'system'
+    && unreadBy[chatUser.id] === 0;
+  const subtitleText = chatUser.isGroup
+    ? `${memberIds.length || chatUser.members || 2} members`
+    : chatUser.isOnline ? 'Active now' : (chatUser.username ? `@${chatUser.username}` : chatUser.statusText || '');
+
   return (
-    <div className="fixed inset-0 bg-white z-[2000] flex flex-col">
+    <div className="w-full h-full bg-white flex flex-col min-w-0">
       {/* Header */}
-      <div className="flex items-center justify-between pl-2 pr-2 h-16 border-b border-gray-100 bg-white sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} aria-label="Back" className="ripple press w-10 h-10 flex items-center justify-center text-gray-700 rounded-full hover:bg-gray-100">
+      <div className="flex items-center justify-between gap-2 pl-1 md:pl-4 pr-2 h-16 md:h-[72px] border-b border-gray-200 bg-white shrink-0">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+          <button onClick={onBack} aria-label="Back" className="md:hidden ripple press w-10 h-10 shrink-0 flex items-center justify-center text-gray-800 rounded-full hover:bg-gray-100">
             <ArrowLeft size={24} />
           </button>
-          <div className="relative">
-             <img src={headerAvatar} alt={headerName} className="w-10 h-10 rounded-full object-cover border border-gray-200" />
-             {chatUser.isOnline && !chatUser.isGroup && (
-               <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-gray-100 rounded-full"></div>
-             )}
-          </div>
-          <div>
-            <h3 className="font-bold text-gray-900 leading-none truncate max-w-[45vw]">{headerName}</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {chatUser.isGroup 
-                ? `${memberIds.length || chatUser.members || 2} members` 
-                : (chatUser.isOnline ? 'Active now' : chatUser.statusText)}
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() => !chatUser.isGroup && onOpenProfile?.(chatUser.id)}
+            disabled={chatUser.isGroup}
+            title={chatUser.isGroup ? undefined : 'View profile'}
+            className="flex items-center gap-2 md:gap-3 min-w-0 text-left rounded-xl pr-2 enabled:hover:bg-gray-50"
+          >
+            <span className="relative shrink-0">
+              <img src={headerAvatar} alt="" className="w-10 h-10 md:w-11 md:h-11 rounded-full object-cover bg-gray-100" />
+              {chatUser.isOnline && !chatUser.isGroup && (
+                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+              )}
+            </span>
+            <span className="min-w-0">
+              <h3 className="font-semibold text-[16px] text-gray-900 leading-tight truncate">{headerName}</h3>
+              {subtitleText && <p className="text-xs text-gray-500 truncate">{subtitleText}</p>}
+            </span>
+          </button>
         </div>
-        <div className="flex items-center gap-1 text-gray-700 relative">
-          <button onClick={() => handleCall('audio')} disabled={isInThisCall} aria-label="Voice call" title="Voice call" className="ripple press w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full disabled:opacity-40">
+        <div className="flex items-center gap-0.5 text-gray-900 relative shrink-0">
+          <button onClick={() => handleCall('audio')} disabled={isInThisCall || !isFriend} aria-label="Voice call" title={isFriend ? 'Voice call' : 'Calls are for friends'} className="ripple press w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full disabled:opacity-40">
             <Phone size={24} />
           </button>
-          <button onClick={() => handleCall('video')} disabled={isInThisCall} aria-label="Video call" title="Video call" className="ripple press w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full disabled:opacity-40">
-            <Video size={24} />
+          <button onClick={() => handleCall('video')} disabled={isInThisCall || !isFriend} aria-label="Video call" title={isFriend ? 'Video call' : 'Calls are for friends'} className="ripple press w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full disabled:opacity-40">
+            <Video size={26} />
           </button>
-          <button onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="More options" className="ripple press w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full">
-            <MoreVertical size={24} />
+          <button onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Chat details" title="Chat details" aria-expanded={isMenuOpen} className="ripple press w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full">
+            <Info size={24} />
           </button>
-          
           {isMenuOpen && (
             <div className="absolute top-full right-0 mt-1 w-52 bg-white rounded-xl shadow-elev-2 py-2 z-50 origin-top-right animate-in zoom-in">
               {chatUser.isGroup ? (
@@ -401,165 +484,237 @@ const ChatDetailView: React.FC<ChatDetailViewProps> = ({ chatUser, currentUser, 
         </button>
       )}
 
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto bg-white p-4 space-y-4">
-        <div className="text-center text-xs text-gray-400 my-4">Today</div>
-        {messages.map((msg) => {
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto bg-white px-3 md:px-5 pb-3">
+        {/* Who you're talking to */}
+        <div className="flex flex-col items-center text-center pt-8 pb-6">
+          <img src={headerAvatar} alt="" className="w-24 h-24 rounded-full object-cover bg-gray-100" />
+          <p className="mt-3 text-xl font-semibold text-gray-900">{headerName}</p>
+          <p className="text-sm text-gray-500">
+            {chatUser.isGroup ? `${memberIds.length || chatUser.members || 2} members` : `${chatUser.username ? `@${chatUser.username} · ` : ''}SportSphere`}
+          </p>
+          {!chatUser.isGroup && onOpenProfile && (
+            <button onClick={() => onOpenProfile(chatUser.id)} className="press mt-3 h-8 px-4 rounded-lg bg-gray-100 text-gray-900 text-sm font-semibold hover:bg-gray-200">
+              View profile
+            </button>
+          )}
+        </div>
+
+        {messages.map((msg, i) => {
           const isMe = msg.senderId === currentUser.uid;
           const sender = chatMembers[msg.senderId];
+          const separator = needsSeparator(i) ? (
+            <div className="text-center text-xs font-medium text-gray-500 pt-5 pb-2">{separatorLabel(toDate(msg.timestamp as never)!)}</div>
+          ) : null;
+
           if (msg.type === 'system') {
             return (
-              <div key={msg.id} className="flex justify-center">
-                <span className="px-3 py-1 rounded-full bg-white text-gray-500 text-xs border border-gray-200">{msg.text}</span>
-              </div>
+              <React.Fragment key={msg.id}>
+                {separator}
+                <p className="text-center text-xs text-gray-500 py-2">{msg.text}</p>
+              </React.Fragment>
             );
           }
+
+          const joinPrev = joinsPrevious(i);
+          const joinNext = i + 1 < messages.length && joinsPrevious(i + 1);
+          // Bubbles in a run share a flatter corner on the sender's side.
+          const shape = isMe
+            ? `rounded-[22px] ${joinPrev ? 'rounded-tr-md' : ''} ${joinNext ? 'rounded-br-md' : ''}`
+            : `rounded-[22px] ${joinPrev ? 'rounded-tl-md' : ''} ${joinNext ? 'rounded-bl-md' : ''}`;
+          const color = isMe ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-900';
+          const senderName = sender ? (sender.display_name || sender.displayName || sender.username) : chatUser.name;
+          const senderAvatar = sender ? (sender.profile_img_url || sender.avatarUrl || fallbackAvatar(senderName || '?')) : headerAvatar;
+
           return (
-            <div 
-              key={msg.id} 
-              className={`pop-in flex ${isMe ? 'justify-end' : 'justify-start'}`}
-            >
-              {!isMe && (
-                 <img 
-                    src={sender ? (sender.profile_img_url || sender.avatarUrl) : chatUser.avatarUrl} 
-                    className="w-8 h-8 rounded-full self-end mr-2 mb-1 border border-gray-200" 
-                    title={sender ? sender.displayName : chatUser.name}
-                 />
+            <React.Fragment key={msg.id}>
+              {separator}
+              {!isMe && chatUser.isGroup && !joinPrev && (
+                <p className="ml-11 mt-3 mb-0.5 text-xs text-gray-500">{senderName}</p>
               )}
-              <div className={`max-w-[70%] px-4 py-2 rounded-2xl text-[15px] ${
-                  msg.type === 'venue_share' || msg.type === 'image'
-                  ? `bg-white text-gray-900 border border-gray-200 ${isMe ? 'rounded-br-md' : 'rounded-bl-md'}`
-                  : (isMe 
-                      ? 'bg-red-600 text-white rounded-br-md' 
-                      : 'bg-gray-100 text-gray-900 rounded-bl-md')
-              }`}>
-                {msg.type === 'venue_share' && msg.venue ? (
-                  <div className="w-full">
-                    <p className="mb-2">{msg.text}</p>
-                    <div className="border-l-4 border-red-500 pl-3">
-                      <img src={msg.venue.imageUrl} alt={msg.venue.name} className="w-full h-32 object-cover rounded-lg mb-2 opacity-80" />
-                      <h4 className="font-bold text-gray-900">{msg.venue.name}</h4>
-                      <p className="text-xs text-gray-500">{msg.venue.description}</p>
-                      <button onClick={() => handleViewOnMap(msg.venue!)} className="mt-2 text-xs text-red-600 hover:text-red-700 font-bold transition-colors">View on Map</button>
-                    </div>
-                  </div>
-                ) : msg.type === 'image' && msg.imageUrl ? (
-                  <div className="w-full">
-                    <img src={msg.imageUrl} alt="Shared image" className="w-full max-w-xs rounded-lg object-contain" />
-                  </div>
-                ) : msg.type === 'audio' && msg.audioUrl ? (
-                  <VoiceMessage url={msg.audioUrl} duration={msg.audioDuration} isMe={isMe} />
-                ) : (
-                  msg.text
+              <div className={`pop-in flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'} ${joinPrev ? 'mt-0.5' : (!isMe && chatUser.isGroup ? '' : 'mt-3')}`}>
+                {!isMe && (
+                  joinNext
+                    ? <span className="w-7 shrink-0" />
+                    : (
+                      <button type="button" onClick={() => onOpenProfile?.(msg.senderId)} title={`${senderName} · View profile`} className="press shrink-0 rounded-full">
+                        <img src={senderAvatar} alt="" className="w-7 h-7 rounded-full object-cover bg-gray-100" />
+                      </button>
+                    )
                 )}
+                <div className="max-w-[75%] md:max-w-[60%] min-w-0">
+                  {msg.type === 'venue_share' && msg.venue ? (
+                    <div className="w-64 max-w-full rounded-2xl border border-gray-200 overflow-hidden bg-white text-gray-900">
+                      {msg.text && <p className="px-3.5 pt-2.5 pb-2 text-[15px]">{msg.text}</p>}
+                      <VenuePhoto venue={{ ...msg.venue, courts: msg.venue.courts || [] }} className="w-full h-32" />
+                      <div className="p-3">
+                        <h4 className="font-semibold text-gray-900">{msg.venue.name}</h4>
+                        <p className="text-xs text-gray-500 line-clamp-2">{msg.venue.description}</p>
+                        <button onClick={() => handleViewOnMap(msg.venue!)} className="mt-2 flex items-center gap-1 text-sm text-red-600 hover:text-red-700 font-semibold">
+                          <MapPin size={14} /> View on map
+                        </button>
+                      </div>
+                    </div>
+                  ) : msg.type === 'image' && msg.imageUrl ? (
+                    <img src={msg.imageUrl} alt="Photo" className={`block max-w-[240px] max-h-[320px] w-auto object-cover bg-gray-100 ${shape}`} />
+                  ) : msg.type === 'audio' && msg.audioUrl ? (
+                    <div className={`px-3 py-2 ${color} ${shape}`}>
+                      <VoiceMessage url={msg.audioUrl} duration={msg.audioDuration} isMe={isMe} />
+                    </div>
+                  ) : (
+                    <p className={`px-3.5 py-2 text-[15px] leading-5 whitespace-pre-wrap break-words ${color} ${shape}`}>{msg.text}</p>
+                  )}
+                </div>
               </div>
-            </div>
+            </React.Fragment>
           );
         })}
+        {seen && <p className="text-right text-xs text-gray-500 mt-1 pr-1 animate-in fade-in">Seen</p>}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="px-2 py-2 bg-white border-t border-gray-100 flex items-center gap-1 pb-safe">
-        <input 
-          type="file" 
-          accept="image/*" 
-          ref={fileInputRef} 
-          className="hidden" 
-          onChange={handleImageUpload} 
-        />
-        <button 
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading || isRecording}
-          className="ripple press shrink-0 text-gray-600 w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full disabled:opacity-50"
-        >
-            <ImageIcon size={24} />
-        </button>
-        <button
-          onClick={() => setIsCameraOpen(true)}
-          disabled={isUploading || isRecording}
-          aria-label="Take a photo"
-          className="ripple press shrink-0 text-gray-600 w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full disabled:opacity-50"
-        >
-            <Camera size={24} />
-        </button>
-        
-        {isRecording ? (
-          <div className="flex-1 min-w-0 flex items-center justify-between bg-red-50 rounded-full px-4 h-11 animate-in fade-in">
-            <div className="flex items-center gap-2 text-red-600">
-              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="font-medium text-sm">{formatDuration(recordingDuration)}</span>
+      {/* Not friends yet: explain the one-message limit */}
+      {isDirect && !isFriend && friendStatus !== 'loading' && (
+        <div className="mx-3 md:mx-5 mb-2 p-3 rounded-2xl bg-gray-50 border border-gray-200 flex items-start gap-3 animate-in fade-in">
+          <ShieldCheck size={20} className="text-red-600 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-gray-900">
+              {usedMyMessage
+                ? `You've sent your message. You can keep chatting once you and ${chatUser.name} are friends.`
+                : `You and ${chatUser.name} aren't friends yet, so you can send one text message.`}
+            </p>
+            <div className="mt-2">
+              {friendStatus === 'pending' ? (
+                <button onClick={() => onAcceptFriend?.(chatUser.id)} className="press h-8 px-3 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 inline-flex items-center gap-1.5">
+                  <UserCheck size={14} /> Accept friend request
+                </button>
+              ) : friendStatus === 'sent' ? (
+                <span className="h-8 px-3 rounded-lg bg-gray-200 text-gray-700 text-xs font-semibold inline-flex items-center gap-1.5">
+                  <Clock size={14} /> Friend request sent
+                </span>
+              ) : (
+                <button
+                  onClick={() => (chatUser.username ? onAddFriend?.(chatUser.username) : onOpenProfile?.(chatUser.id))}
+                  className="press h-8 px-3 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 inline-flex items-center gap-1.5"
+                >
+                  <UserPlus size={14} /> Add friend
+                </button>
+              )}
             </div>
-            <button onClick={stopRecording} className="text-red-600 hover:text-red-700">
-              <Square size={20} fill="currentColor" />
+          </div>
+        </div>
+      )}
+
+      {/* Message bar */}
+      <div className={`px-3 md:px-5 pt-1 pb-3 bg-white shrink-0 pb-safe ${canSend ? '' : 'hidden'}`}>
+        <input
+          type="file"
+          accept="image/*"
+          ref={fileInputRef}
+          className="hidden"
+          onChange={handleImageUpload}
+        />
+        {isRecording ? (
+          <div className="flex items-center gap-2 h-12 pl-1.5 pr-1.5 rounded-full border border-gray-300 animate-in fade-in">
+            <button onClick={cancelRecording} aria-label="Delete recording" title="Delete" className="ripple press w-9 h-9 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-100 shrink-0">
+              <Trash2 size={20} />
+            </button>
+            <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse shrink-0" />
+            <span className="flex-1 text-[15px] text-gray-900 tabular-nums">{formatDuration(recordingDuration)}</span>
+            <button
+              onClick={stopRecording}
+              aria-label="Stop and send voice message"
+              className="ripple press h-9 px-4 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 shrink-0"
+            >
+              Send
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSend} className="flex-1 min-w-0 flex items-center gap-2 bg-gray-100 rounded-full pl-4 pr-2 h-11 focus-within:bg-white focus-within:ring-1 focus-within:ring-gray-300 transition-colors">
-              <input 
-                  type="text" 
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="Message..."
-                  className="flex-1 min-w-0 bg-transparent outline-none text-[15px] text-gray-900 placeholder-gray-500"
-                  disabled={isUploading}
-              />
-              <button type="button" className="shrink-0 text-gray-500 hover:text-gray-700">
-                  <Smile size={24} />
+          <form onSubmit={handleSend} className="flex items-center gap-1 h-12 pl-1.5 pr-2 rounded-full border border-gray-300 focus-within:border-gray-400 transition-colors">
+            <button
+              type="button"
+              onClick={() => setIsCameraOpen(true)}
+              disabled={isUploading || !isFriend}
+              aria-label="Take a photo"
+              title="Camera"
+              className="press w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center hover:bg-red-700 shrink-0 disabled:opacity-50"
+            >
+              <Camera size={18} />
+            </button>
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder="Message..."
+              aria-label="Message"
+              className="flex-1 min-w-0 px-2 bg-transparent outline-none text-[15px] text-gray-900 placeholder-gray-500"
+              disabled={isUploading}
+            />
+            {isUploading ? (
+              <Loader2 size={22} className="animate-spin text-red-600 mx-2 shrink-0" />
+            ) : inputValue.trim() ? (
+              <button type="submit" className="px-2 text-[15px] font-semibold text-red-600 hover:text-red-800 shrink-0 animate-in fade-in">
+                Send
               </button>
+            ) : isFriend ? (
+              <>
+                <button
+                  type="button"
+                  onClick={startRecording}
+                  aria-label="Record voice message"
+                  title="Voice message"
+                  className="ripple press w-9 h-9 rounded-full flex items-center justify-center text-gray-900 hover:bg-gray-100 shrink-0"
+                >
+                  <Mic size={22} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label="Send a photo"
+                  title="Photo"
+                  className="ripple press w-9 h-9 rounded-full flex items-center justify-center text-gray-900 hover:bg-gray-100 shrink-0"
+                >
+                  <ImageIcon size={22} />
+                </button>
+              </>
+            ) : null}
           </form>
-        )}
-
-        {isUploading ? (
-          <div className="shrink-0 w-11 h-11 flex items-center justify-center text-red-600">
-            <Loader2 size={24} className="animate-spin" />
-          </div>
-        ) : inputValue.trim() ? (
-          <button 
-              onClick={handleSend}
-              className="ripple press shrink-0 w-11 h-11 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 animate-in zoom-in"
-          >
-              <Send size={24} />
-          </button>
-        ) : (
-          <button 
-              onClick={isRecording ? stopRecording : startRecording}
-              aria-label={isRecording ? 'Stop and send voice message' : 'Record voice message'}
-              title={isRecording ? 'Stop and send' : 'Record voice message'}
-              className={`ripple press shrink-0 w-11 h-11 flex items-center justify-center rounded-full ${isRecording ? 'text-white bg-red-600 animate-pulse' : 'text-gray-600 hover:bg-gray-100'}`}
-          >
-              <Mic size={24} />
-          </button>
         )}
       </div>
 
       {isEditGroupOpen && (
-        <EditGroupModal
-          chatId={chatId}
-          currentName={headerName}
-          currentAvatar={groupInfo?.avatarUrl || ''}
-          onSaved={(summary) => sendMessage({}, 'system', `${myName} ${summary}`).catch(() => {})}
-          onClose={() => setIsEditGroupOpen(false)}
-        />
+        <Portal>
+          <EditGroupModal
+            chatId={chatId}
+            currentName={headerName}
+            currentAvatar={groupInfo?.avatarUrl || ''}
+            onSaved={(summary) => sendMessage({}, 'system', `${myName} ${summary}`).catch(() => {})}
+            onClose={() => setIsEditGroupOpen(false)}
+          />
+        </Portal>
       )}
 
       {isAddMembersOpen && (
-        <AddMembersModal
-          chatId={chatId}
-          friends={friends}
-          memberIds={memberIds}
-          onAdded={(names) => sendMessage({}, 'system', `${myName} added ${names}`).catch(() => {})}
-          onClose={() => setIsAddMembersOpen(false)}
-        />
+        <Portal>
+          <AddMembersModal
+            chatId={chatId}
+            friends={friends}
+            memberIds={memberIds}
+            onAdded={(names) => sendMessage({}, 'system', `${myName} added ${names}`).catch(() => {})}
+            onClose={() => setIsAddMembersOpen(false)}
+          />
+        </Portal>
       )}
 
       {isCameraOpen && (
-        <CameraCapture
-          title={`Send to ${chatUser.name}`}
-          initialFacing="environment"
-          onCapture={uploadImageFile}
-          onClose={() => setIsCameraOpen(false)}
-        />
+        <Portal>
+          <CameraCapture
+            title={`Send to ${chatUser.name}`}
+            initialFacing="environment"
+            onCapture={uploadImageFile}
+            onClose={() => setIsCameraOpen(false)}
+          />
+        </Portal>
       )}
     </div>
   );

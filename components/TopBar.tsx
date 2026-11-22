@@ -173,7 +173,7 @@ const TopBar: React.FC<TopBarProps> = ({ selectedSport, onSelectSport, userAvata
   const dropdownOpen = isOpen && suggestions.length > 0;
 
   return (
-    <div className="absolute top-0 left-0 right-0 z-[1000] flex flex-col pointer-events-none" ref={wrapperRef}>
+    <div className="absolute top-0 left-0 right-0 md:right-auto md:w-[460px] z-[1000] flex flex-col pointer-events-none" ref={wrapperRef}>
       {/* Search Bar (Google Maps style floating pill) */}
       <div className="w-full px-3 pt-3 pointer-events-auto relative animate-in fade-in slide-in-from-top">
         <div className={`bg-white flex items-center h-12 pl-4 pr-1.5 gap-2 transition-[border-radius,box-shadow] duration-200 ${dropdownOpen ? 'rounded-t-3xl rounded-b-none shadow-elev-2' : 'rounded-full shadow-elev-1 hover:shadow-elev-2'}`}>

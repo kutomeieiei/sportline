@@ -41,7 +41,8 @@ export const discoverUsers = async (
         if (data.vis === false) continue;
         
         // Filter by sport if provided
-        if (sport && sport !== 'All' && data.sport !== sport) continue;
+        // (people sharing "Any sport" match every search)
+        if (sport && sport !== 'All' && data.sport && data.sport !== 'All' && data.sport !== sport) continue;
         
         // Check TTL (60 minutes)
         if (data.t) {
